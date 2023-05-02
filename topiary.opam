@@ -11,17 +11,18 @@ license: "MIT"
 depends: ["conf-rust"]
 
 build:[
-  [
-    "cargo"
-    "build"
-    "--release"
-    "--package"
-    "topiary"
-  ]
+  [ "cargo" "build" "--release" "--package" "topiary" ]
+  [ "sh" "make-topiary-wrapper.sh"
+      "--language-dir" "%{share}%/topiary/languages"
+      "--topiary-wrapped" "%{bin}%/.topiary-wrapped"
+      "--output-file" "topiary-wrapper" ]
 ]
 
 install: [
-  [ "cp" "target/release/topiary" "%{bin}%/" ]
+  [ "cp" "target/release/topiary" "%{bin}%/.topiary-wrapped" ]
+  [ "cp" "topiary-wrapper" "%{bin}%/topiary" ]
+  [ "mkdir" "%{share}%/topiary" ]
+  [ "cp" "-R" "topiary/languages" "%{share}%/topiary/languages" ]
 ]
 
 synopsis: "A formatter for OCaml based on the Topiary universal formatting engine"
