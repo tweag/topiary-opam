@@ -42,10 +42,26 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Build Docker image
-        run: docker build . --tag topiary --file .github/workflows/ci.dockerfile --build-arg tag=${{matrix.tag}}
+        run: |
+          docker build \
+            . \
+            --tag topiary \
+            --file .github/workflows/ci.dockerfile \
+            --build-arg tag=${{matrix.tag}}
 
       - name: Run tests
-        run: docker run topiary --help
+        run: |
+          set -euC
+          ## Test on OCaml implementation files (.ml)
+          cat topiary/tests/samples/input/ocaml.ml \
+            | docker run --interactive topiary --language ocaml-implementation \
+            > ocaml.ml
+          diff topiary/tests/samples/expected/ocaml.ml ocaml.ml
+          ## Test on OCaml interface files (.mli)
+          cat topiary/tests/samples/input/ocaml.mli \
+            | docker run --interactive topiary --language ocaml-interface \
+            > ocaml.mli
+          diff topiary/tests/samples/expected/ocaml.mli ocaml.mli
 
   windows:
     name: Windows
@@ -64,7 +80,25 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Build Docker image
-        run: docker build . --tag topiary --file .github/workflows/ci.dockerfile --build-arg tag=${{matrix.tag}}
+        shell: bash
+        run: |
+          docker build \
+            . \
+            --tag topiary \
+            --file .github/workflows/ci.dockerfile \
+            --build-arg tag=${{matrix.tag}}
 
       - name: Run tests
-        run: docker run topiary --help
+        shell: bash
+        run: |
+          set -euC
+          ## Test on OCaml implementation files (.ml)
+          cat topiary/tests/samples/input/ocaml.ml \
+            | docker run --interactive topiary --language ocaml-implementation \
+            > ocaml.ml
+          diff topiary/tests/samples/expected/ocaml.ml ocaml.ml
+          ## Test on OCaml interface files (.mli)
+          cat topiary/tests/samples/input/ocaml.mli \
+            | docker run --interactive topiary --language ocaml-interface \
+            > ocaml.mli
+          diff topiary/tests/samples/expected/ocaml.mli ocaml.mli
