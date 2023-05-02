@@ -1,0 +1,27 @@
+opam-version: "2.0"
+
+maintainer: "hello@tweag.io"
+authors: [ "Tweag I/O" ]
+
+homepage: "https://github.com/tweag/topiary"
+bug-reports: "https://github.com/tweag/topiary/issues"
+dev-repo: "git+https://github.com/tweag/topiary.git"
+
+license: "MIT"
+depends: ["conf-rust"]
+
+build:[
+  [
+    "cargo"
+    "build"
+    "--release"
+    "--package"
+    "topiary"
+  ]
+]
+
+install: [
+  [ "cp" "target/release/topiary" "%{bin}%/" ]
+]
+
+synopsis: "A formatter for OCaml based on the Topiary universal formatting engine"
