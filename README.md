@@ -1,7 +1,7 @@
-[OPAM] Package for [Topiary]
-============================
+OPAM Package for Topiary
+========================
 
-This repository provides an OPAM package for [Topiary]. In particular, issues
+This repository provides an [OPAM] package for [Topiary]. In particular, issues
 with Topiary itself should be reported [there][topiary-github-issues] while
 issues with Topiary's packaging in OPAM should be reported [here][issues].
 
