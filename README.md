@@ -61,3 +61,74 @@ This repository is made of the following building blocks:
 
 [topiary-github]: https://github.com/tweag/topiary
 [git submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
+
+How to update
+-------------
+
+- Update the [Git submodule] containing Topiary:
+  ```console
+  $ git submodule update --remote
+  Submodule path 'topiary': checked out 'f99bcd59e2a247e04b31b16fc9214460012e3713'
+  ```
+
+- Make sure the Git submodule is checked out at a tag of your choosing:
+  ```console
+  $ cd topiary
+  $ git checkout v0.1.0
+  HEAD is now at c4fe76c GraphViz visualisation support (#326)
+  $ cd ..
+  ```
+
+- Commit this update:
+  ```console
+  $ git add topiary/
+  $ git commit -m 'Bump submodule to v0.1.0'
+  [main 3bb3a28] Bump submodule to v0.1.0
+   1 file changed, 1 insertion(+), 1 deletion(-)
+  ```
+
+- Refresh the `Cargo.lock` file:
+  ```console
+  $ cargo update
+      Updating crates.io index
+      Updating git repository `https://github.com/tree-sitter/tree-sitter-bash`
+      Updating git submodule `https://git.savannah.gnu.org/git/bash.git`
+  [...]
+      Updating git repository `https://github.com/nvim-treesitter/tree-sitter-query`
+  ```
+
+- Regenerate the `vendor/` directory:
+  ```console
+  $ cargo vendor
+    Downloaded hermit-abi v0.1.19
+    Downloaded is-terminal v0.4.7
+    Downloaded instant v0.1.12
+  [...]
+     Vendoring indexmap v1.9.3 (/home/niols/.cargo/registry/src/github.com-1ecc6299db9ec823/indexmap-1.9.3) to vendor/indexmap
+     Vendoring instant v0.1.12 (/home/niols/.cargo/registry/src/github.com-1ecc6299db9ec823/instant-0.1.12) to vendor/instant
+     Vendoring io-lifetimes v1.0.10 (/home/niols/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.10) to vendor/io-lifetimes
+     Vendoring is-terminal v0.4.7 (/home/niols/.cargo/registry/src/github.com-1ecc6299db9ec823/is-terminal-0.4.7) to vendor/is-terminal
+  [...]
+  [source.vendored-sources]
+  directory = "vendor"
+  ```
+
+- Commit this update:
+  ```console
+  $ git add Cargo.lock vendor/
+  $ git commit -m 'Update Cargo dependencies'
+  [main 95d67dc] Update Cargo dependencies
+   8 files changed, 125 insertions(+), 57 deletions(-)
+  ```
+
+- Adapt the OPAM package or the other files if necessary and commit the changes.
+
+- Open a [new pull request] and check that the continuous integration is happy
+  with the current status of things.
+
+- Merge the pull request in question and add a tag mimmicking that of Topiary.
+
+- Send the new package to the [OPAM repository].
+
+[new pull request]: https://github.com/Niols/topiary-opam/compare
+[opam repository]: https://github.com/ocaml/opam-repository
