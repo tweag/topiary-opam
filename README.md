@@ -1,12 +1,14 @@
 [OPAM] Package for [Topiary]
 ============================
 
+This repository provides an OPAM package for [Topiary]. In particular, issues
+with Topiary itself should be reported [there][topiary-github-issues] while
+issues with Topiary's packaging in OPAM should be reported [here][issues].
+
 [opam]: https://opam.ocaml.org/
 [topiary]: https://topiary.tweag.io/
-[topiary-github]: https://github.com/tweag/topiary
-
-This repository provides an OPAM package for [Topiary]. For Topiary's GitHub
-repository, see [here][topiary-github].
+[topiary-github-issues]: https://github.com/tweag/topiary/issues
+[issues]: https://github.com/Niols/topiary-opam/issues
 
 Context
 -------
@@ -57,4 +59,5 @@ This repository is made of the following building blocks:
 
 - `topiary.opam` contains the definition of the OPAM package for Topiary.
 
+[topiary-github]: https://github.com/tweag/topiary
 [git submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
