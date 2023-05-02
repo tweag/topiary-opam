@@ -33,3 +33,28 @@ which this package is based.
 
 [this OCaml discuss thread]: https://discuss.ocaml.org/t/two-questions-about-what-is-appropriate-to-package-with-opam/12030/
 [`tezos-rust-libs`]: https://gitlab.com/tezos/tezos-rust-libs/-/tree/master
+
+How this works
+--------------
+
+This repository is made of the following building blocks:
+
+- `topiary/` is a [Git submodule] pointing to [Topiary's Git][topiary-github] at
+  a certain commit (in general at a certain tag).
+
+- `Cargo.toml` and `Cargo.lock` define a Cargo workspace containing only
+  Topiary. This allows working with Cargo to vendor dependencies without
+  changing the content of the `topiary/` directory.
+
+- `vendor/` is a directory filled automatically by Cargo and containing all the
+  dependencies of Topiary, vendored. This is a way to provide all the
+  dependencies at upfront and to avoid having Cargo download them during the
+  installation.
+
+- `make-topiary-wrapper.sh` is a Shell script creating a wrapper around Topiary
+  that provides it with the right environment. In particular, Topiary needs to
+  be made aware of where it can find its “language files”.
+
+- `topiary.opam` contains the definition of the OPAM package for Topiary.
+
+[git submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
