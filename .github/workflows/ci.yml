@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+  pull_request:
+
+## We specify a concurrency group with automated cancellation. This means that
+## other pushes on the same `github.ref` (eg. other pushes to the same pull
+## request) cancel previous occurrences of the CI.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux
+
+    strategy:
+      fail-fast: false
+      matrix:
+        tag:
+          - alpine
+          - archlinux
+          - centos
+          - debian
+          - debian-testing
+          - debian-unstable
+          - fedora
+          - oraclelinux
+          - opensuse
+          - ubuntu
+          - ubuntu-lts
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build Docker image
+        run: docker build . --tag topiary --file .github/workflows/ci.dockerfile --build-arg tag=${{matrix.tag}}
+
+      - name: Run tests
+        run: docker run topiary --help
+
+  windows:
+    name: Windows
+
+    strategy:
+      fail-fast: false
+      matrix:
+        tag:
+          - windows-mingw
+          - windows-msvc
+
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build Docker image
+        run: docker build . --tag topiary --file .github/workflows/ci.dockerfile --build-arg tag=${{matrix.tag}}
+
+      - name: Run tests
+        run: docker run topiary --help
