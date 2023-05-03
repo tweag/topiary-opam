@@ -1,7 +1,7 @@
 opam-version: "2.0"
 
 maintainer: "hello@tweag.io"
-authors: [ "Tweag I/O" ]
+authors: [ "Tweag" ]
 
 homepage: "https://github.com/tweag/topiary"
 bug-reports: "https://github.com/tweag/topiary/issues"
