@@ -8,7 +8,7 @@ issues with Topiary's packaging in OPAM should be reported [here][issues].
 [opam]: https://opam.ocaml.org/
 [topiary]: https://topiary.tweag.io/
 [topiary-github-issues]: https://github.com/tweag/topiary/issues
-[issues]: https://github.com/Niols/topiary-opam/issues
+[issues]: https://github.com/tweag/topiary-opam/issues
 
 Context
 -------
@@ -104,10 +104,10 @@ How to update
     Downloaded is-terminal v0.4.7
     Downloaded instant v0.1.12
   [...]
-     Vendoring indexmap v1.9.3 (/home/niols/.cargo/registry/src/github.com-1ecc6299db9ec823/indexmap-1.9.3) to vendor/indexmap
-     Vendoring instant v0.1.12 (/home/niols/.cargo/registry/src/github.com-1ecc6299db9ec823/instant-0.1.12) to vendor/instant
-     Vendoring io-lifetimes v1.0.10 (/home/niols/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.10) to vendor/io-lifetimes
-     Vendoring is-terminal v0.4.7 (/home/niols/.cargo/registry/src/github.com-1ecc6299db9ec823/is-terminal-0.4.7) to vendor/is-terminal
+     Vendoring indexmap v1.9.3 (~/.cargo/registry/src/github.com-1ecc6299db9ec823/indexmap-1.9.3) to vendor/indexmap
+     Vendoring instant v0.1.12 (~/.cargo/registry/src/github.com-1ecc6299db9ec823/instant-0.1.12) to vendor/instant
+     Vendoring io-lifetimes v1.0.10 (~/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.10) to vendor/io-lifetimes
+     Vendoring is-terminal v0.4.7 (~/.cargo/registry/src/github.com-1ecc6299db9ec823/is-terminal-0.4.7) to vendor/is-terminal
   [...]
   [source.vendored-sources]
   directory = "vendor"
@@ -130,5 +130,5 @@ How to update
 
 - Send the new package to the [OPAM repository].
 
-[new pull request]: https://github.com/Niols/topiary-opam/compare
+[new pull request]: https://github.com/tweag/topiary-opam/compare
 [opam repository]: https://github.com/ocaml/opam-repository
