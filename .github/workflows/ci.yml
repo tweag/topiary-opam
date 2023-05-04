@@ -15,6 +15,36 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+## Our CI consists in two kind of jobs: the `docker-based` ones and the
+## `github-hosted` ones. Both come with their upsides and downsides.
+##
+## - `docker-based` jobs rely on the `ocaml/opam` Docker images [1]. These come
+##   with a variety of tags allowing to selected between various versions of
+##   OCaml and, more importantly for us, between various OSs (several Linux
+##   distributions as well as some Windows images). However, OPAM's sandboxing
+##   mechanism, based on `bubblewrap` [2], does not behave well in Docker and it
+##   is unavailable in those images [3].
+##
+## - `github-hosted` jobs rely on the default GitHub Actions runners and the
+##   `ocaml/setup-ocaml` action [4]. This offers more limited OSes (limited to
+##   Ubuntu, Windows and macOS) but it is compatible with OPAM's sandboxing
+##   mechanism.
+##
+## We need to test that our package behaves well with the OPAM sandboxing
+## because Cargo does use network to build by default, which will not be
+## available in the sandbox, and which we therefore need to catch in CI.
+## Therefore, we need to include these `github-hosted` jobs.
+##
+## However, we also want to test that our package installs fine on a variety of
+## distributions because it depends heavily on detecting external dependencies
+## (namely Cargo and Rustc) and installing them correctly. Therefore, we also
+## need to include these `docker-based` jobs.
+##
+## [1]: https://hub.docker.com/r/ocaml/opam
+## [2]: https://github.com/containers/bubblewrap
+## [3]: https://github.com/ocurrent/docker-base-images/issues/229
+## [4]: https://github.com/ocaml/setup-ocaml
+
 jobs:
 
   github-hosted:
