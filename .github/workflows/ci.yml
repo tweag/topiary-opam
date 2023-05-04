@@ -17,6 +17,72 @@ concurrency:
 
 jobs:
 
+  github-hosted:
+    name: github-hosted
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu
+          - windows
+          - macos
+
+    runs-on: ${{ matrix.os }}-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      ## Set up OCaml, pin Topiay and install its system dependencies.
+
+      - name: Set-up OCaml 4.14
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: 4.14.x
+          opam-pin: true     ## this is the default; set here explicitly
+          opam-depext: true  ## this is the default; set here explicitly
+
+      - name: Install Topiary
+        run: |
+          ## Install Topiary then report where it is and in which version.
+          echo '::group::Install Topiary'
+          opam install topiary
+          echo '::endgroup::'
+          echo '::group::Where is Topiary and in which version?'
+          printf 'Topiary is: '
+          opam exec -- sh -c 'command -v topiary'
+          printf 'in version: '
+          opam exec -- topiary --version
+          echo '::endgroup::'
+
+      - name: Run a smoke test
+        run: |
+          ## Run a tiny smoke test; checking that Topiary manages to start,
+          ## parse a simple OCaml command and output the right thing.
+          echo 'open Foo' > expected.ml
+          echo 'open  Foo' \
+            | opam exec -- topiary --language ocaml \
+            > result.ml
+          diff expected.ml result.ml
+
+      ## NOTE: Proper tests are disabled because they actually do not pass for
+      ## Topiary v0.1.0. These should be re-enabled in future versions.
+
+      # - name: Run tests
+      #   run: |
+      #     set -euC
+      #     ## Test on OCaml implementation files (.ml)
+      #     cat topiary/tests/samples/input/ocaml.ml \
+      #       | opam exec -- topiary --language ocaml-implementation \
+      #       > ocaml.ml
+      #     diff topiary/tests/samples/expected/ocaml.ml ocaml.ml
+      #     ## Test on OCaml interface files (.mli)
+      #     cat topiary/tests/samples/input/ocaml.mli \
+      #       | opam exec -- topiary --language ocaml-interface \
+      #       > ocaml.mli
+      #     diff topiary/tests/samples/expected/ocaml.mli ocaml.mli
+
   docker-based:
     name: docker-based
 
