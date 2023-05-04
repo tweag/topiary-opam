@@ -1,4 +1,4 @@
-name: CI
+name: ci
 
 on:
   push:
@@ -16,8 +16,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linux:
-    name: Linux
+
+  docker-based:
+    name: docker-based
 
     strategy:
       fail-fast: false
