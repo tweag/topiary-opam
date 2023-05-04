@@ -87,6 +87,13 @@ How to update
    1 file changed, 1 insertion(+), 1 deletion(-)
   ```
 
+- Remove the previous local Cargo configuration:
+  ```console
+  $ rm .cargo/config.toml
+  ```
+  Otherwise, the next step will yield an error, something in the lines of:
+  “failed to get `<whatever>` as a dependency of package `topiary`”.
+
 - Refresh the `Cargo.lock` file:
   ```console
   $ cargo update
@@ -96,6 +103,7 @@ How to update
   [...]
       Updating git repository `https://github.com/nvim-treesitter/tree-sitter-query`
   ```
+  This may take a couple of minutes.
 
 - Regenerate the `vendor/` directory:
   ```console
@@ -109,13 +117,28 @@ How to update
      Vendoring io-lifetimes v1.0.10 (~/.cargo/registry/src/github.com-1ecc6299db9ec823/io-lifetimes-1.0.10) to vendor/io-lifetimes
      Vendoring is-terminal v0.4.7 (~/.cargo/registry/src/github.com-1ecc6299db9ec823/is-terminal-0.4.7) to vendor/is-terminal
   [...]
+  To use vendored sources, add this to your .cargo/config.toml for this project:
+
+  [source.crates-io]
+  replace-with = "vendored-sources"
+
+  [...]
+
   [source.vendored-sources]
   directory = "vendor"
+  ```
+  Note in particular the last lines about adding something to the local Cargo
+  configuration.
+
+- Recreate the local Cargo configuration with the content given by `cargo
+  vendor`.
+  ```console
+  $ nano .cargo/config.toml
   ```
 
 - Commit this update:
   ```console
-  $ git add Cargo.lock vendor/
+  $ git add Cargo.lock vendor/ .cargo/
   $ git commit -m 'Update Cargo dependencies'
   [main 95d67dc] Update Cargo dependencies
    8 files changed, 125 insertions(+), 57 deletions(-)
