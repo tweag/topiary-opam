@@ -127,18 +127,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tag:
-          - alpine
-          - archlinux
-          - centos
-          - debian
-          - debian-testing
-          - debian-unstable
-          - fedora
-          - oraclelinux
-          - opensuse
-          - ubuntu
-          - ubuntu-lts
+        include:
+          - {tag: alpine,          ef: expected-failure}
+          - {tag: archlinux,       ef: expected-failure}
+          - {tag: centos,          ef: expected-failure}
+          - {tag: debian,          ef: expected-failure}
+          - {tag: debian-testing,  ef: expected-failure}
+          - {tag: debian-unstable, ef: expected-failure}
+          - {tag: fedora}
+          - {tag: oraclelinux,     ef: expected-failure}
+          - {tag: opensuse,        ef: expected-failure}
+          - {tag: ubuntu}
+          - {tag: ubuntu-lts}
 
     runs-on: ubuntu-latest
 
@@ -146,7 +146,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Build Docker image
+      - name: Build Docker image (see next steps for failure)
+        id: build-docker-image
+        ## `continue-on-error` will make this step succeed no matter what. Later
+        ## steps will then handle the outcome of this step manually. This is
+        ## what allows us to emulate an expected CI failure.
+        continue-on-error: true
         run: |
           docker build \
             . \
@@ -154,7 +159,25 @@ jobs:
             --file .github/workflows/ci.dockerfile \
             --build-arg tag=${{matrix.tag}}
 
+      - name: Building the image succeeded and was planned to succeed
+        if: ${{ steps.build-docker-image.outcome == 'success'
+                && matrix.ef != 'expected-failure' }}
+        run: "true"
+      - name: Building the image failed and was planned to fail
+        if: ${{ steps.build-docker-image.outcome != 'success'
+                && matrix.ef == 'expected-failure' }}
+        run: "true"
+      - name: Building the image succeeded but was planned to fail
+        if: ${{ steps.build-docker-image.outcome == 'success'
+                && matrix.ef == 'expected-failure' }}
+        run: "false"
+      - name: Building the image failed but was planned to succeed
+        if: ${{ steps.build-docker-image.outcome == 'failure'
+                && matrix.ef != 'expected-failure' }}
+        run: "false"
+
       - name: Run a tiny smoke test
+        if: steps.build-docker-image.outcome == 'success'
         run: |
           echo 'open Foo' > expected.ml
           echo 'open  Foo' \
@@ -166,6 +189,7 @@ jobs:
       ## Topiary v0.1.0. These should be re-enabled in future versions.
 
       # - name: Run tests
+      #   if: steps.build-docker-image.outcome == 'success'
       #   run: |
       #     set -euC
       #     ## Test on OCaml implementation files (.ml)
