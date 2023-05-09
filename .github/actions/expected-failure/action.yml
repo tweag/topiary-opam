@@ -14,7 +14,7 @@ runs:
   steps:
     - shell: bash
       run: |
-        echo success: ${{ inputs.step-outcome == 'success' }}"
+        echo "success: ${{ inputs.step-outcome == 'success' }}"
         echo "expected-failure: ${{ inputs.expected-failure != 'expected-failure' }}"
 
     - if: ${{ inputs.step-outcome == 'success'
