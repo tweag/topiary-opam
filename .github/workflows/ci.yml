@@ -101,6 +101,7 @@ jobs:
           expected-failure: ${{ matrix.ef }}
 
       - name: Run a smoke test
+        if: steps.install-topiary.outcome == 'success'
         run: |
           ## Run a tiny smoke test; checking that Topiary manages to start,
           ## parse a simple OCaml command and output the right thing.
@@ -112,6 +113,7 @@ jobs:
       ## Topiary v0.1.0. These should be re-enabled in future versions.
 
       # - name: Run tests
+      #   if: steps.install-topiary.outcome == 'success'
       #   run: |
       #     ## Test on OCaml implementation files (.ml)
       #     cat topiary/tests/samples/input/ocaml.ml | opam exec -- topiary --language ocaml-implementation > ocaml.ml
