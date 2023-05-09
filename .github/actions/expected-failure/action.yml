@@ -2,21 +2,12 @@
 
 inputs:
   step-outcome:
-    description: 'Outcome of the interesting step'
-    required: true
   expected-failure:
-    description: 'Whether a failure is expected'
-    required: true
 
 runs:
   using: composite
 
   steps:
-    - shell: bash
-      run: |
-        echo "success: ${{ inputs.step-outcome == 'success' }}"
-        echo "expected-failure: ${{ inputs.expected-failure != 'expected-failure' }}"
-
     - if: ${{ inputs.step-outcome == 'success'
               && inputs.expected-failure != 'expected-failure' }}
       shell: bash
