@@ -16,6 +16,7 @@ runs:
       shell: bash
       run: |
         echo 'Inputs `step-outcome` and `expected-failure` are mandatory.'
+        exit 1
 
     - if: ${{ inputs.step-outcome == 'success'
               && inputs.expected-failure != 'expected-failure' }}
