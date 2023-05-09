@@ -10,7 +10,7 @@
         formatter = pkgs.nixfmt;
 
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [ cargo ];
+          buildInputs = with pkgs; [ cargo git-archive-all ];
         };
       };
     };
