@@ -80,13 +80,14 @@ jobs:
         run: |
           ## Install Topiary then report where it is and in which version.
           echo '::group::Install Topiary'
-          opam install topiary || exit 1
+          opam install topiary
           echo '::endgroup::'
           echo '::group::Where is Topiary and in which version?'
+          false
           printf 'Topiary is: '
-          opam exec -- sh -c 'command -v topiary' || exit 1
+          opam exec -- sh -c 'command -v topiary'
           printf 'in version: '
-          opam exec -- topiary --version || exit 1
+          opam exec -- topiary --version
           echo '::endgroup::'
 
       - name: Run a smoke test
