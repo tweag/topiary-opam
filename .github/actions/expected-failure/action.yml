@@ -26,21 +26,21 @@ runs:
         exit 0
 
     - if: ${{ inputs.step-outcome != 'success'
-              && matrix.expected-failure == 'expected-failure' }}
+              && inputs.expected-failure == 'expected-failure' }}
       shell: bash
       run: |
         echo "The step failed and was planned to fail."
         exit 0
 
     - if: ${{ inputs.step-outcome == 'success'
-              && matrix.expected-failure == 'expected-failure' }}
+              && inputs.expected-failure == 'expected-failure' }}
       shell: bash
       run: |
         echo "The step succeeded but was planned to fail."
         exit 1
 
     - if: ${{ inputs.step-outcome != 'success'
-              && matrix.expected-failure != 'expected-failure' }}
+              && inputs.expected-failure != 'expected-failure' }}
       shell: bash
       run: |
         echo "The step failed but was planned to succeed."
