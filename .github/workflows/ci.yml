@@ -56,10 +56,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu
-          - windows
-          - macos
+        include:
+          - {os: ubuntu}
+          - {os: windows, ef: expected-failure}
+          - {os: macos}
 
     runs-on: ${{ matrix.os }}-latest
 
@@ -77,6 +77,11 @@ jobs:
           opam-depext: true  ## this is the default; set here explicitly
 
       - name: Install Topiary
+        id: install-topiary
+        ## `continue-on-error` will make this step succeed no matter what. The
+        ## next step will then handle the outcome of this step manually. This is
+        ## what allows us to emulate an expected CI failure.
+        continue-on-error: true
         run: |
           ## Install Topiary then report where it is and in which version.
           echo '::group::Install Topiary'
@@ -88,6 +93,12 @@ jobs:
           printf 'in version: '
           opam exec -- topiary --version
           echo '::endgroup::'
+
+      - name: Check the outcome of the build
+        uses: ./.github/actions/expected-failure
+        with:
+          step-outcome: ${{ steps.install-topiary.outcome }}
+          expected-failure: ${{ matrix.ef }}
 
       - name: Run a smoke test
         run: |
@@ -136,8 +147,8 @@ jobs:
 
       - name: Build Docker image (see next step for failure)
         id: build-docker-image
-        ## `continue-on-error` will make this step succeed no matter what. Later
-        ## steps will then handle the outcome of this step manually. This is
+        ## `continue-on-error` will make this step succeed no matter what. The
+        ## next step will then handle the outcome of this step manually. This is
         ## what allows us to emulate an expected CI failure.
         continue-on-error: true
         run: |
