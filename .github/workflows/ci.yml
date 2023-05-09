@@ -77,7 +77,6 @@ jobs:
           opam-depext: true  ## this is the default; set here explicitly
 
       - name: Install Topiary
-        shell: bash
         run: |
           ## Install Topiary then report where it is and in which version.
           set -euC
@@ -92,7 +91,6 @@ jobs:
           echo '::endgroup::'
 
       - name: Run a smoke test
-        shell: bash
         run: |
           ## Run a tiny smoke test; checking that Topiary manages to start,
           ## parse a simple OCaml command and output the right thing.
@@ -107,7 +105,6 @@ jobs:
       ## Topiary v0.1.0. These should be re-enabled in future versions.
 
       # - name: Run tests
-      #   shell: bash
       #   run: |
       #     set -euC
       #     ## Test on OCaml implementation files (.ml)
