@@ -148,7 +148,7 @@ jobs:
             --build-arg tag=${{matrix.tag}}
 
       - name: Check the outcome of the build
-        uses: .github/actions/expected-failure
+        uses: ./.github/actions/expected-failure
 
       - name: Run a tiny smoke test
         if: steps.build-docker-image.outcome == 'success'
