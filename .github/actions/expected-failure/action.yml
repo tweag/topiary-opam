@@ -39,9 +39,9 @@ runs:
         echo "The step succeeded but was planned to fail."
         exit 1
 
-    - if: ${{ inputs.step-outcome == 'failure'
+    - if: ${{ inputs.step-outcome != 'success'
               && matrix.expected-failure != 'expected-failure' }}
       shell: bash
       run: |
-        echo "The step failed but was planned to fail."
+        echo "The step failed but was planned to succeed."
         exit 1
