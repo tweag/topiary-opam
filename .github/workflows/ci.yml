@@ -79,26 +79,22 @@ jobs:
       - name: Install Topiary
         run: |
           ## Install Topiary then report where it is and in which version.
-          set -euC
           echo '::group::Install Topiary'
-          opam install topiary
+          opam install topiary || exit 1
           echo '::endgroup::'
           echo '::group::Where is Topiary and in which version?'
           printf 'Topiary is: '
-          opam exec -- sh -c 'command -v topiary'
+          opam exec -- sh -c 'command -v topiary' || exit 1
           printf 'in version: '
-          opam exec -- topiary --version
+          opam exec -- topiary --version || exit 1
           echo '::endgroup::'
 
       - name: Run a smoke test
         run: |
           ## Run a tiny smoke test; checking that Topiary manages to start,
           ## parse a simple OCaml command and output the right thing.
-          set -euC
           echo 'open Foo' > expected.ml
-          echo 'open  Foo' \
-            | opam exec -- topiary --language ocaml \
-            > result.ml
+          echo 'open  Foo' | opam exec -- topiary --language ocaml > result.ml
           diff expected.ml result.ml
 
       ## NOTE: Proper tests are disabled because they actually do not pass for
