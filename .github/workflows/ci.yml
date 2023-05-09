@@ -151,6 +151,9 @@ jobs:
 
       - name: Check the outcome of the build
         uses: ./.github/actions/expected-failure
+        with:
+          step-outcome: steps.build-docker-image.outcome
+          expected-failure: matrix.ef
 
       - name: Run a tiny smoke test
         if: steps.build-docker-image.outcome == 'success'
