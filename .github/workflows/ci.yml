@@ -83,7 +83,6 @@ jobs:
           opam install topiary
           echo '::endgroup::'
           echo '::group::Where is Topiary and in which version?'
-          false
           printf 'Topiary is: '
           opam exec -- sh -c 'command -v topiary'
           printf 'in version: '
@@ -103,16 +102,11 @@ jobs:
 
       # - name: Run tests
       #   run: |
-      #     set -euC
       #     ## Test on OCaml implementation files (.ml)
-      #     cat topiary/tests/samples/input/ocaml.ml \
-      #       | opam exec -- topiary --language ocaml-implementation \
-      #       > ocaml.ml
+      #     cat topiary/tests/samples/input/ocaml.ml | opam exec -- topiary --language ocaml-implementation > ocaml.ml
       #     diff topiary/tests/samples/expected/ocaml.ml ocaml.ml
       #     ## Test on OCaml interface files (.mli)
-      #     cat topiary/tests/samples/input/ocaml.mli \
-      #       | opam exec -- topiary --language ocaml-interface \
-      #       > ocaml.mli
+      #     cat topiary/tests/samples/input/ocaml.mli | opam exec -- topiary --language ocaml-interface > ocaml.mli
       #     diff topiary/tests/samples/expected/ocaml.mli ocaml.mli
 
   docker-based:
