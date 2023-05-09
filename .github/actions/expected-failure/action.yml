@@ -12,30 +12,30 @@ runs:
   using: composite
 
   steps:
-    - name: The step succeeded and was planned to succeed
-      if: ${{ inputs.step-outcome == 'success'
+    - if: ${{ inputs.step-outcome == 'success'
               && inputs.expected-failure != 'expected-failure' }}
+      shell: bash
       run: |
         echo "The step succeeded and was planned to succeed."
         exit 0
 
-    - name: The step failed and was planned to fail
-      if: ${{ inputs.step-outcome != 'success'
+    - if: ${{ inputs.step-outcome != 'success'
               && matrix.expected-failure == 'expected-failure' }}
+      shell: bash
       run: |
         echo "The step failed and was planned to fail."
         exit 0
 
-    - name: The step succeeded but was planned to fail
-      if: ${{ inputs.step-outcome == 'success'
+    - if: ${{ inputs.step-outcome == 'success'
               && matrix.expected-failure == 'expected-failure' }}
+      shell: bash
       run: |
         echo "The step succeeded but was planned to fail."
         exit 1
 
-    - name: The step failed but was planned to succeed
-      if: ${{ inputs.step-outcome == 'failure'
+    - if: ${{ inputs.step-outcome == 'failure'
               && matrix.expected-failure != 'expected-failure' }}
+      shell: bash
       run: |
         echo "The step failed but was planned to fail."
         exit 1
