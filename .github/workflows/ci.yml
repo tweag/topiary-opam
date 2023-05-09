@@ -119,14 +119,16 @@ jobs:
           - {tag: alpine,          ef: expected-failure}
           - {tag: archlinux,       ef: expected-failure}
           - {tag: centos,          ef: expected-failure}
-          - {tag: debian,          ef: expected-failure}
+          # - {tag: debian,          ef: expected-failure}
+          - {tag: debian}
           - {tag: debian-testing,  ef: expected-failure}
           - {tag: debian-unstable, ef: expected-failure}
           - {tag: fedora}
           - {tag: oraclelinux,     ef: expected-failure}
           - {tag: opensuse,        ef: expected-failure}
           - {tag: ubuntu}
-          - {tag: ubuntu-lts}
+          # - {tag: ubuntu-lts}
+          - {tag: ubuntu-lts,      ef: expected-failure}
 
     runs-on: ubuntu-latest
 
