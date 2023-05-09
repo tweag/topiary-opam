@@ -134,7 +134,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Build Docker image (see next steps for failure)
+      - name: Build Docker image (see next step for failure)
         id: build-docker-image
         ## `continue-on-error` will make this step succeed no matter what. Later
         ## steps will then handle the outcome of this step manually. This is
@@ -147,22 +147,8 @@ jobs:
             --file .github/workflows/ci.dockerfile \
             --build-arg tag=${{matrix.tag}}
 
-      - name: Building the image succeeded and was planned to succeed
-        if: ${{ steps.build-docker-image.outcome == 'success'
-                && matrix.ef != 'expected-failure' }}
-        run: "true"
-      - name: Building the image failed and was planned to fail
-        if: ${{ steps.build-docker-image.outcome != 'success'
-                && matrix.ef == 'expected-failure' }}
-        run: "true"
-      - name: Building the image succeeded but was planned to fail
-        if: ${{ steps.build-docker-image.outcome == 'success'
-                && matrix.ef == 'expected-failure' }}
-        run: "false"
-      - name: Building the image failed but was planned to succeed
-        if: ${{ steps.build-docker-image.outcome == 'failure'
-                && matrix.ef != 'expected-failure' }}
-        run: "false"
+      - name: Check the outcome of the build
+        uses: .github/actions/expected-failure
 
       - name: Run a tiny smoke test
         if: steps.build-docker-image.outcome == 'success'
