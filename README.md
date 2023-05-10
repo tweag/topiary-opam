@@ -147,11 +147,32 @@ How to update
 - Adapt the OPAM package or the other files if necessary and commit the changes.
 
 - Open a [new pull request] and check that the continuous integration is happy
-  with the current status of things.
+  with the current status of things. Merge the pull request in question.
 
-- Merge the pull request in question and add a tag mimmicking that of Topiary.
+- Add a tag mimmicking that of Topiary (eg. `v0.1.0` for Topiary's `v0.1.0`).
 
-- Send the new package to the [OPAM repository].
+- Create an archive containing all the content of this repository at that tag:
+  ```
+  $ git-archive-all source-code-with-submodules.tar.xz
+  ```
+  This will be necessary to provide a downloadable archive that contains the
+  files from all the submodules.
 
-[new pull request]: https://github.com/tweag/topiary-opam/compare
-[opam repository]: https://github.com/ocaml/opam-repository
+- Create a release for the tag in question. Link to the corresponding release in
+  Topiary. Attach the archive.
+
+- Compute the MD5 and SHA512 sums of the archive in question:
+  ```
+  $ md5sum source-code-with-submodules.tar.xz
+  cd825a17db25cb94fd876eef055090e4  source-code-with-submodules.tar.xz
+  $ sha512sum source-code-with-submodules.tar.xz
+  ae6946aaba0f784773cca71019f73aa62d9b976646ea25e451c220f45da49e6c7e4147e2dd57e3c4764a9038946c38b9de33ce5d463c46ea3f3271d5b98dd46f  source-code-with-submodules.tar.xz
+  ```
+
+- Send the new package to the [OPAM repository]. The `src` field of the `url`
+  object should be:
+  ```
+  https://github.com/tweag/topiary-opam/releases/download/<tag>/source-code-with-submodules.tar.xz
+  ```
+
+[new pull request]: https://github.com/tweag/topiary-opam/compare [opam repository]: https://github.com/ocaml/opam-repository
