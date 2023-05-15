@@ -129,8 +129,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {tag: alpine,          ef: expected-failure}
-          - {tag: archlinux,       ef: expected-failure}
+          - {tag: alpine}
+          - {tag: archlinux}
           - {tag: centos,          ef: expected-failure}
           - {tag: debian,          ef: expected-failure}
           - {tag: debian-testing,  ef: expected-failure}
