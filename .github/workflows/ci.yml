@@ -9,7 +9,7 @@ on:
   pull_request:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * 1'
+    - cron: '0 0 * * 2'
 
 ## We specify a concurrency group with automated cancellation. This means that
 ## other pushes on the same `github.ref` (eg. other pushes to the same pull
