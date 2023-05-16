@@ -42,7 +42,8 @@ How this works
 This repository is made of the following building blocks:
 
 - `topiary/` is a [Git submodule] pointing to [Topiary's Git][topiary-github] at
-  a certain commit (in general at a certain tag).
+  a certain commit (in general at a certain tag). The file `.gitmodules`
+  declares the submodule to Git.
 
 - `Cargo.toml` and `Cargo.lock` define a Cargo workspace containing only
   Topiary. This allows working with Cargo to vendor dependencies without
@@ -51,7 +52,8 @@ This repository is made of the following building blocks:
 - `vendor/` is a directory filled automatically by Cargo and containing all the
   dependencies of Topiary, vendored. This is a way to provide all the
   dependencies at upfront and to avoid having Cargo download them during the
-  installation.
+  installation. The file `.cargo/config.toml` contains a configuration that
+  tells Cargo to look into `vendor/` instead of its usual sources.
 
 - `make-topiary-wrapper.sh` is a Shell script creating a wrapper around Topiary
   that provides it with the right environment. In particular, Topiary needs to
