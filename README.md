@@ -175,4 +175,5 @@ How to update
   https://github.com/tweag/topiary-opam/releases/download/<tag>/source-code-with-submodules.tar.xz
   ```
 
-[new pull request]: https://github.com/tweag/topiary-opam/compare [opam repository]: https://github.com/ocaml/opam-repository
+[new pull request]: https://github.com/tweag/topiary-opam/compare
+[opam repository]: https://github.com/ocaml/opam-repository
