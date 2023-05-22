@@ -13,9 +13,7 @@ use crate::fd::OwnedFd;
 use backend::fd::{BorrowedFd, FromRawFd, RawFd};
 
 #[cfg(not(any(windows, target_os = "wasi")))]
-use crate::io;
-#[cfg(not(any(windows, target_os = "wasi")))]
-use backend::fd::AsFd;
+use {crate::io, backend::fd::AsFd, core::mem::forget};
 
 /// `STDIN_FILENO`—Standard input, borrowed.
 ///
@@ -51,8 +49,8 @@ use backend::fd::AsFd;
 #[doc(alias = "STDIN_FILENO")]
 #[inline]
 pub const fn stdin() -> BorrowedFd<'static> {
-    // SAFETY: When "std" is enabled, the standard library assumes that the stdio
-    // file descriptors are all valid.
+    // SAFETY: When "std" is enabled, the standard library assumes that the
+    // stdio file descriptors are all valid.
     unsafe { BorrowedFd::borrow_raw(backend::io::types::STDIN_FILENO as RawFd) }
 }
 
@@ -173,8 +171,8 @@ pub unsafe fn take_stdin() -> OwnedFd {
 #[doc(alias = "STDOUT_FILENO")]
 #[inline]
 pub const fn stdout() -> BorrowedFd<'static> {
-    // SAFETY: When "std" is enabled, the standard library assumes that the stdio
-    // file descriptors are all valid.
+    // SAFETY: When "std" is enabled, the standard library assumes that the
+    // stdio file descriptors are all valid.
     unsafe { BorrowedFd::borrow_raw(backend::io::types::STDOUT_FILENO as RawFd) }
 }
 
@@ -289,8 +287,8 @@ pub unsafe fn take_stdout() -> OwnedFd {
 #[doc(alias = "STDERR_FILENO")]
 #[inline]
 pub const fn stderr() -> BorrowedFd<'static> {
-    // SAFETY: When "std" is enabled, the standard library assumes that the stdio
-    // file descriptors are all valid.
+    // SAFETY: When "std" is enabled, the standard library assumes that the
+    // stdio file descriptors are all valid.
     unsafe { BorrowedFd::borrow_raw(backend::io::types::STDERR_FILENO as RawFd) }
 }
 
@@ -480,7 +478,7 @@ pub fn dup2_stdin<Fd: AsFd>(fd: Fd) -> io::Result<()> {
     // dropped.
     let mut target = unsafe { io::take_stdin() };
     backend::io::syscalls::dup2(fd.as_fd(), &mut target)?;
-    core::mem::forget(target);
+    forget(target);
     Ok(())
 }
 
@@ -492,7 +490,7 @@ pub fn dup2_stdout<Fd: AsFd>(fd: Fd) -> io::Result<()> {
     // dropped.
     let mut target = unsafe { io::take_stdout() };
     backend::io::syscalls::dup2(fd.as_fd(), &mut target)?;
-    core::mem::forget(target);
+    forget(target);
     Ok(())
 }
 
@@ -504,6 +502,6 @@ pub fn dup2_stderr<Fd: AsFd>(fd: Fd) -> io::Result<()> {
     // dropped.
     let mut target = unsafe { io::take_stderr() };
     backend::io::syscalls::dup2(fd.as_fd(), &mut target)?;
-    core::mem::forget(target);
+    forget(target);
     Ok(())
 }

@@ -10,7 +10,7 @@ use ciborium::value::Value;
 use ciborium::{cbor, de::from_reader, ser::into_writer};
 
 use rstest::rstest;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 macro_rules! val {
     ($x:expr) => {
@@ -275,7 +275,7 @@ macro_rules! map {
     case(Enum::Tuple(56, 67), cbor!({"Tuple" => [56, 67]}).unwrap(), "a1655475706c658218381843", false, same), // Not In RFC
     case(Enum::Struct { first: 78, second: 89 }, cbor!({ "Struct" => { "first" => 78, "second" => 89 }}).unwrap(), "a166537472756374a2656669727374184e667365636f6e641859", false, same), // Not In RFC
 )]
-fn codec<'de, T: Serialize + Clone, V: Debug + PartialEq + Deserialize<'de>, F: Fn(T) -> V>(
+fn codec<'de, T: Serialize + Clone, V: Debug + PartialEq + DeserializeOwned, F: Fn(T) -> V>(
     input: T,
     value: Value,
     bytes: &str,
@@ -396,4 +396,38 @@ enum Enum {
     Newtype(u8),
     Tuple(u8, u16),
     Struct { first: u8, second: u16 },
+}
+
+#[rstest(
+    input,
+    case(vec![]),
+    case(vec![0u8, 1, 2, 3]),
+)]
+fn byte_vec_serde_bytes_compatibility(input: Vec<u8>) {
+    use serde_bytes::ByteBuf;
+
+    let mut buf = Vec::new();
+    into_writer(&input, &mut buf).unwrap();
+    let bytes: ByteBuf = from_reader(&buf[..]).unwrap();
+    assert_eq!(input, bytes.to_vec());
+
+    let mut buf = Vec::new();
+    into_writer(&ByteBuf::from(input.clone()), &mut buf).unwrap();
+    let bytes: Vec<u8> = from_reader(&buf[..]).unwrap();
+    assert_eq!(input, bytes);
+}
+
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug)]
+struct Foo {
+    bar: u8,
+}
+
+#[rstest(input, expected,
+    case("a163626172182a", Foo { bar: 42 }),
+    case("a143626172182a", Foo { bar: 42 }),
+)]
+fn handle_struct_field_names(input: &str, expected: Foo) {
+    let buf = hex::decode(input).unwrap();
+    let read = from_reader(&buf[..]).unwrap();
+    assert_eq!(expected, read);
 }

@@ -1,15 +1,16 @@
-//! [`recvmsg`] and [`sendmsg`] functions.
+//! [`recvmsg`], [`sendmsg_noaddr`], and related functions.
 
 #![allow(unsafe_code)]
 
 use crate::backend::{self, c};
 use crate::fd::{AsFd, BorrowedFd, OwnedFd};
-use crate::io;
+use crate::io::{self, IoSlice, IoSliceMut};
 
 use core::convert::{TryFrom, TryInto};
+use core::iter::{FromIterator, FusedIterator};
 use core::marker::PhantomData;
-use core::mem::{self, size_of, size_of_val};
-use core::ptr;
+use core::mem::{size_of, size_of_val, take};
+use core::{ptr, slice};
 
 use super::{RecvFlags, SendFlags, SocketAddrAny, SocketAddrV4, SocketAddrV6};
 
@@ -130,9 +131,8 @@ impl<'buf, 'slice, 'fd> SendAncillaryBuffer<'buf, 'slice, 'fd> {
     pub fn push(&mut self, msg: SendAncillaryMessage<'slice, 'fd>) -> bool {
         match msg {
             SendAncillaryMessage::ScmRights(fds) => {
-                let fds_bytes = unsafe {
-                    core::slice::from_raw_parts(fds.as_ptr().cast::<u8>(), size_of_val(fds))
-                };
+                let fds_bytes =
+                    unsafe { slice::from_raw_parts(fds.as_ptr().cast::<u8>(), size_of_val(fds)) };
                 self.push_ancillary(fds_bytes, c::SOL_SOCKET as _, c::SCM_RIGHTS as _)
             }
         }
@@ -168,14 +168,12 @@ impl<'buf, 'slice, 'fd> SendAncillaryBuffer<'buf, 'slice, 'fd> {
         self.length = new_length;
 
         // Get the last header in the buffer.
-        let mut last_header = leap!(messages::Messages::new(buffer).last());
+        let last_header = leap!(messages::Messages::new(buffer).last());
 
         // Set the header fields.
-        unsafe {
-            last_header.cmsg_len = c::CMSG_LEN(source_len) as _;
-            last_header.cmsg_level = cmsg_level;
-            last_header.cmsg_type = cmsg_type;
-        }
+        last_header.cmsg_len = unsafe { c::CMSG_LEN(source_len) } as _;
+        last_header.cmsg_level = cmsg_level;
+        last_header.cmsg_type = cmsg_type;
 
         // Get the pointer to the payload and copy the data.
         unsafe {
@@ -296,7 +294,7 @@ impl<'buf> AncillaryDrain<'buf> {
             let payload_len = msg.cmsg_len as usize - c::CMSG_LEN(0) as usize;
 
             // Get a mutable slice of the payload.
-            let payload: &'buf mut [u8] = core::slice::from_raw_parts_mut(payload, payload_len);
+            let payload: &'buf mut [u8] = slice::from_raw_parts_mut(payload, payload_len);
 
             // Determine what type it is.
             let (level, msg_type) = (msg.cmsg_level, msg.cmsg_type);
@@ -358,7 +356,7 @@ impl<'buf> Iterator for AncillaryDrain<'buf> {
             .last()
     }
 
-    fn collect<B: core::iter::FromIterator<Self::Item>>(mut self) -> B
+    fn collect<B: FromIterator<Self::Item>>(mut self) -> B
     where
         Self: Sized,
     {
@@ -370,7 +368,7 @@ impl<'buf> Iterator for AncillaryDrain<'buf> {
     }
 }
 
-impl core::iter::FusedIterator for AncillaryDrain<'_> {}
+impl FusedIterator for AncillaryDrain<'_> {}
 
 /// `sendmsg(msghdr)`—Sends a message on a socket.
 ///
@@ -395,7 +393,7 @@ impl core::iter::FusedIterator for AncillaryDrain<'_> {}
 #[inline]
 pub fn sendmsg_noaddr(
     socket: impl AsFd,
-    iov: &[io::IoSlice<'_>],
+    iov: &[IoSlice<'_>],
     control: &mut SendAncillaryBuffer<'_, '_, '_>,
     flags: SendFlags,
 ) -> io::Result<usize> {
@@ -426,7 +424,7 @@ pub fn sendmsg_noaddr(
 pub fn sendmsg_v4(
     socket: impl AsFd,
     addr: &SocketAddrV4,
-    iov: &[io::IoSlice<'_>],
+    iov: &[IoSlice<'_>],
     control: &mut SendAncillaryBuffer<'_, '_, '_>,
     flags: SendFlags,
 ) -> io::Result<usize> {
@@ -457,7 +455,7 @@ pub fn sendmsg_v4(
 pub fn sendmsg_v6(
     socket: impl AsFd,
     addr: &SocketAddrV6,
-    iov: &[io::IoSlice<'_>],
+    iov: &[IoSlice<'_>],
     control: &mut SendAncillaryBuffer<'_, '_, '_>,
     flags: SendFlags,
 ) -> io::Result<usize> {
@@ -490,7 +488,7 @@ pub fn sendmsg_v6(
 pub fn sendmsg_unix(
     socket: impl AsFd,
     addr: &super::SocketAddrUnix,
-    iov: &[io::IoSlice<'_>],
+    iov: &[IoSlice<'_>],
     control: &mut SendAncillaryBuffer<'_, '_, '_>,
     flags: SendFlags,
 ) -> io::Result<usize> {
@@ -521,7 +519,7 @@ pub fn sendmsg_unix(
 pub fn sendmsg_any(
     socket: impl AsFd,
     addr: Option<&SocketAddrAny>,
-    iov: &[io::IoSlice<'_>],
+    iov: &[IoSlice<'_>],
     control: &mut SendAncillaryBuffer<'_, '_, '_>,
     flags: SendFlags,
 ) -> io::Result<usize> {
@@ -563,7 +561,7 @@ pub fn sendmsg_any(
 #[inline]
 pub fn recvmsg(
     socket: impl AsFd,
-    iov: &mut [io::IoSliceMut<'_>],
+    iov: &mut [IoSliceMut<'_>],
     control: &mut RecvAncillaryBuffer<'_>,
     flags: RecvFlags,
 ) -> io::Result<RecvMsgReturn> {
@@ -623,10 +621,10 @@ impl<T> Iterator for AncillaryIter<'_, T> {
         }
 
         // Get the next item.
-        let item = unsafe { ptr::read_unaligned(self.data.as_ptr().cast::<T>()) };
+        let item = unsafe { self.data.as_ptr().cast::<T>().read_unaligned() };
 
         // Move forward.
-        let data = mem::take(&mut self.data);
+        let data = take(&mut self.data);
         self.data = &mut data[size_of::<T>()..];
 
         Some(item)
@@ -646,7 +644,7 @@ impl<T> Iterator for AncillaryIter<'_, T> {
     }
 }
 
-impl<T> core::iter::FusedIterator for AncillaryIter<'_, T> {}
+impl<T> FusedIterator for AncillaryIter<'_, T> {}
 
 impl<T> ExactSizeIterator for AncillaryIter<'_, T> {
     fn len(&self) -> usize {
@@ -664,12 +662,12 @@ impl<T> DoubleEndedIterator for AncillaryIter<'_, T> {
         // Get the next item.
         let item = unsafe {
             let ptr = self.data.as_ptr().add(self.data.len() - size_of::<T>());
-            ptr::read_unaligned(ptr.cast::<T>())
+            ptr.cast::<T>().read_unaligned()
         };
 
         // Move forward.
         let len = self.data.len();
-        let data = mem::take(&mut self.data);
+        let data = take(&mut self.data);
         self.data = &mut data[..len - size_of::<T>()];
 
         Some(item)
@@ -679,7 +677,9 @@ impl<T> DoubleEndedIterator for AncillaryIter<'_, T> {
 mod messages {
     use crate::backend::c;
     use core::convert::TryInto;
+    use core::iter::FusedIterator;
     use core::marker::PhantomData;
+    use core::mem::zeroed;
     use core::ptr::NonNull;
 
     /// An iterator over the messages in an ancillary buffer.
@@ -700,7 +700,7 @@ mod messages {
         /// Create a new iterator over messages from a byte buffer.
         pub(super) fn new(buf: &'buf mut [u8]) -> Self {
             let msghdr = {
-                let mut h: c::msghdr = unsafe { core::mem::zeroed() };
+                let mut h: c::msghdr = unsafe { zeroed() };
                 h.msg_control = buf.as_mut_ptr().cast();
                 h.msg_controllen = buf.len().try_into().expect("buffer too large for msghdr");
                 h
@@ -739,7 +739,8 @@ mod messages {
 
         fn size_hint(&self) -> (usize, Option<usize>) {
             if self.header.is_some() {
-                // The remaining buffer *could* be filled with zero-length messages.
+                // The remaining buffer *could* be filled with zero-length
+                // messages.
                 let max_size = unsafe { c::CMSG_LEN(0) } as usize;
                 let remaining_count = self.msghdr.msg_controllen as usize / max_size;
                 (1, Some(remaining_count))
@@ -749,5 +750,5 @@ mod messages {
         }
     }
 
-    impl core::iter::FusedIterator for Messages<'_> {}
+    impl FusedIterator for Messages<'_> {}
 }
