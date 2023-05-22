@@ -1,2 +1,2 @@
 [workspace]
-members = ["topiary"]
+members = ["topiary/topiary-cli"]
