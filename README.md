@@ -146,6 +146,8 @@ How to update
    8 files changed, 125 insertions(+), 57 deletions(-)
   ```
 
+- Bump the version in `Cargo.toml`.
+
 - Adapt the OPAM package or the other files if necessary and commit the changes.
 
 - Open a [new pull request] and check that the continuous integration is happy
