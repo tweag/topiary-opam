@@ -6,9 +6,8 @@
 #![allow(unsafe_code)]
 
 use core::convert::{TryFrom, TryInto};
-use core::mem::MaybeUninit;
-use core::ptr::NonNull;
-use core::{mem, ptr};
+use core::mem::{size_of, MaybeUninit};
+use core::ptr::{null, null_mut, NonNull};
 
 use bitflags::bitflags;
 
@@ -19,6 +18,7 @@ use crate::fd::{AsRawFd, BorrowedFd};
 use crate::ffi::CStr;
 use crate::io;
 use crate::process::{Pid, RawPid};
+use crate::utils::{as_mut_ptr, as_ptr};
 
 //
 // Helper functions.
@@ -26,13 +26,13 @@ use crate::process::{Pid, RawPid};
 
 #[inline]
 pub(crate) unsafe fn prctl_1arg(option: c_int) -> io::Result<c_int> {
-    const NULL: *mut c_void = ptr::null_mut();
+    const NULL: *mut c_void = null_mut();
     syscalls::prctl(option, NULL, NULL, NULL, NULL)
 }
 
 #[inline]
 pub(crate) unsafe fn prctl_2args(option: c_int, arg2: *mut c_void) -> io::Result<c_int> {
-    const NULL: *mut c_void = ptr::null_mut();
+    const NULL: *mut c_void = null_mut();
     syscalls::prctl(option, arg2, NULL, NULL, NULL)
 }
 
@@ -42,7 +42,7 @@ pub(crate) unsafe fn prctl_3args(
     arg2: *mut c_void,
     arg3: *mut c_void,
 ) -> io::Result<c_int> {
-    syscalls::prctl(option, arg2, arg3, ptr::null_mut(), ptr::null_mut())
+    syscalls::prctl(option, arg2, arg3, null_mut(), null_mut())
 }
 
 #[inline]
@@ -59,7 +59,7 @@ where
     T: TryFrom<P, Error = io::Errno>,
 {
     let mut value: P = Default::default();
-    prctl_2args(option, ((&mut value) as *mut P).cast())?;
+    prctl_2args(option, as_mut_ptr(&mut value).cast())?;
     TryFrom::try_from(value)
 }
 
@@ -578,7 +578,7 @@ pub fn set_machine_check_memory_corruption_kill_policy(
     let (sub_operation, policy) = if let Some(policy) = policy {
         (PR_MCE_KILL_SET, policy as usize as *mut _)
     } else {
-        (PR_MCE_KILL_CLEAR, ptr::null_mut())
+        (PR_MCE_KILL_CLEAR, null_mut())
     };
 
     unsafe { prctl_3args(PR_MCE_KILL, sub_operation as *mut _, policy) }.map(|_r| ())
@@ -654,7 +654,7 @@ pub unsafe fn set_virtual_memory_map_address(
     option: VirtualMemoryMapAddress,
     address: Option<NonNull<c_void>>,
 ) -> io::Result<()> {
-    let address = address.map_or_else(ptr::null_mut, NonNull::as_ptr);
+    let address = address.map_or_else(null_mut, NonNull::as_ptr);
     prctl_3args(PR_SET_MM, option as usize as *mut _, address).map(|_r| ())
 }
 
@@ -689,7 +689,7 @@ pub unsafe fn set_auxiliary_vector(auxv: &[*const c_void]) -> io::Result<()> {
         PR_SET_MM_AUXV as *mut _,
         auxv.as_ptr() as *mut _,
         auxv.len() as *mut _,
-        ptr::null_mut(),
+        null_mut(),
     )
     .map(|_r| ())
 }
@@ -703,7 +703,7 @@ pub unsafe fn set_auxiliary_vector(auxv: &[*const c_void]) -> io::Result<()> {
 #[inline]
 pub fn virtual_memory_map_config_struct_size() -> io::Result<usize> {
     let mut value: c_uint = 0;
-    let value_ptr = (&mut value) as *mut c_uint;
+    let value_ptr = as_mut_ptr(&mut value);
     unsafe { prctl_3args(PR_SET_MM, PR_SET_MM_MAP_SIZE as *mut _, value_ptr.cast())? };
     Ok(value as usize)
 }
@@ -762,9 +762,9 @@ pub unsafe fn configure_virtual_memory_map(config: &PrctlMmMap) -> io::Result<()
     syscalls::prctl(
         PR_SET_MM,
         PR_SET_MM_MAP as *mut _,
-        config as *const PrctlMmMap as *mut _,
-        mem::size_of::<PrctlMmMap>() as *mut _,
-        ptr::null_mut(),
+        as_ptr(config) as *mut _,
+        size_of::<PrctlMmMap>() as *mut _,
+        null_mut(),
     )
     .map(|_r| ())
 }
@@ -798,7 +798,7 @@ pub enum PTracer {
 #[inline]
 pub fn set_ptracer(tracer: PTracer) -> io::Result<()> {
     let pid = match tracer {
-        PTracer::None => ptr::null_mut(),
+        PTracer::None => null_mut(),
         PTracer::Any => PR_SET_PTRACER_ANY as *mut _,
         PTracer::ProcessID(pid) => pid.as_raw_nonzero().get() as usize as *mut _,
     };
@@ -1123,7 +1123,7 @@ pub fn set_virtual_memory_region_name(region: &[u8], name: Option<&CStr>) -> io:
             PR_SET_VMA_ANON_NAME as *mut _,
             region.as_ptr() as *mut _,
             region.len() as *mut _,
-            name.map_or_else(ptr::null, CStr::as_ptr) as *mut _,
+            name.map_or_else(null, CStr::as_ptr) as *mut _,
         )
         .map(|_r| ())
     }

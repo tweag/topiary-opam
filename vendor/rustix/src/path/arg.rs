@@ -19,17 +19,13 @@ use core::mem::MaybeUninit;
 use core::{ptr, slice, str};
 #[cfg(feature = "std")]
 use std::ffi::{OsStr, OsString};
-#[cfg(feature = "std")]
-#[cfg(target_os = "hermit")]
+#[cfg(all(feature = "std", target_os = "hermit"))]
 use std::os::hermit::ext::ffi::{OsStrExt, OsStringExt};
-#[cfg(feature = "std")]
-#[cfg(unix)]
+#[cfg(all(feature = "std", unix))]
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
-#[cfg(feature = "std")]
-#[cfg(target_os = "vxworks")]
+#[cfg(all(feature = "std", target_os = "vxworks"))]
 use std::os::vxworks::ext::ffi::{OsStrExt, OsStringExt};
-#[cfg(feature = "std")]
-#[cfg(target_os = "wasi")]
+#[cfg(all(feature = "std", target_os = "wasi"))]
 use std::os::wasi::ffi::{OsStrExt, OsStringExt};
 #[cfg(feature = "std")]
 use std::path::{Component, Components, Iter, Path, PathBuf};
@@ -957,8 +953,8 @@ where
     // This helps test our safety condition below.
     debug_assert!(bytes.len() + 1 <= SMALL_PATH_BUFFER_SIZE);
 
-    // SAFETY: `bytes.len() < SMALL_PATH_BUFFER_SIZE` which means we have space for
-    // `bytes.len() + 1` u8s:
+    // SAFETY: `bytes.len() < SMALL_PATH_BUFFER_SIZE` which means we have space
+    // for `bytes.len() + 1` u8s:
     unsafe {
         ptr::copy_nonoverlapping(bytes.as_ptr(), buf_ptr, bytes.len());
         buf_ptr.add(bytes.len()).write(0);

@@ -11,7 +11,9 @@ license: "MIT"
 depends: ["conf-rust-2021"]
 
 build:[
-  [ "cargo" "build" "--release" "--package" "topiary" ]
+  [ "cargo" "build"
+      "--release"
+      "--package" "topiary-cli" ]
   [ "sh" "make-topiary-wrapper.sh"
       "--language-dir" "%{share}%/topiary/languages"
       "--topiary-wrapped" "%{bin}%/.topiary-wrapped"

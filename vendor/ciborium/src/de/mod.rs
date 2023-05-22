@@ -51,7 +51,7 @@ struct Deserializer<'b, R: Read> {
     recurse: usize,
 }
 
-impl<'de, 'a, 'b, R: Read> Deserializer<'b, R>
+impl<'a, R: Read> Deserializer<'a, R>
 where
     R::Error: core::fmt::Debug,
 {
@@ -348,7 +348,7 @@ where
 
                     let mut segments = self.decoder.text(len);
                     while let Some(mut segment) = segments.pull()? {
-                        while let Some(chunk) = segment.pull(&mut self.scratch)? {
+                        while let Some(chunk) = segment.pull(self.scratch)? {
                             buffer.push_str(chunk);
                         }
                     }
@@ -371,6 +371,11 @@ where
                     visitor.visit_bytes(&self.scratch[..len])
                 }
 
+                Header::Array(len) => self.recurse(|me| {
+                    let access = Access(me, len);
+                    visitor.visit_seq(access)
+                }),
+
                 header => Err(header.expected("bytes")),
             };
         }
@@ -389,7 +394,7 @@ where
 
                     let mut segments = self.decoder.bytes(len);
                     while let Some(mut segment) = segments.pull()? {
-                        while let Some(chunk) = segment.pull(&mut self.scratch)? {
+                        while let Some(chunk) = segment.pull(self.scratch)? {
                             buffer.extend_from_slice(chunk);
                         }
                     }
@@ -397,7 +402,12 @@ where
                     visitor.visit_byte_buf(buffer)
                 }
 
-                header => Err(header.expected("expected byte buffer")),
+                Header::Array(len) => self.recurse(|me| {
+                    let access = Access(me, len);
+                    visitor.visit_seq(access)
+                }),
+
+                header => Err(header.expected("byte buffer")),
             };
         }
     }
@@ -411,6 +421,19 @@ where
                     let access = Access(me, len);
                     visitor.visit_seq(access)
                 }),
+
+                Header::Bytes(len) => {
+                    let mut buffer = Vec::new();
+
+                    let mut segments = self.decoder.bytes(len);
+                    while let Some(mut segment) = segments.pull()? {
+                        while let Some(chunk) = segment.pull(self.scratch)? {
+                            buffer.extend_from_slice(chunk);
+                        }
+                    }
+
+                    visitor.visit_seq(BytesAccess::<R>(0, buffer, core::marker::PhantomData))
+                }
 
                 header => Err(header.expected("array")),
             };
@@ -462,7 +485,28 @@ where
         self,
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        self.deserialize_str(visitor)
+        loop {
+            let offset = self.decoder.offset();
+
+            return match self.decoder.pull()? {
+                Header::Tag(..) => continue,
+
+                Header::Text(Some(len)) if len <= self.scratch.len() => {
+                    self.decoder.read_exact(&mut self.scratch[..len])?;
+
+                    match core::str::from_utf8(&self.scratch[..len]) {
+                        Ok(s) => visitor.visit_str(s),
+                        Err(..) => Err(Error::Syntax(offset)),
+                    }
+                }
+                Header::Bytes(Some(len)) if len <= self.scratch.len() => {
+                    self.decoder.read_exact(&mut self.scratch[..len])?;
+                    visitor.visit_bytes(&self.scratch[..len])
+                }
+
+                header => Err(header.expected("str or bytes")),
+            };
+        }
     }
 
     fn deserialize_ignored_any<V: de::Visitor<'de>>(
@@ -474,16 +518,13 @@ where
 
     #[inline]
     fn deserialize_option<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        loop {
-            return match self.decoder.pull()? {
-                Header::Simple(simple::UNDEFINED) => visitor.visit_none(),
-                Header::Simple(simple::NULL) => visitor.visit_none(),
-                Header::Tag(..) => continue,
-                header => {
-                    self.decoder.push(header);
-                    visitor.visit_some(self)
-                }
-            };
+        match self.decoder.pull()? {
+            Header::Simple(simple::UNDEFINED) => visitor.visit_none(),
+            Header::Simple(simple::NULL) => visitor.visit_none(),
+            header => {
+                self.decoder.push(header);
+                visitor.visit_some(self)
+            }
         }
     }
 
@@ -683,6 +724,36 @@ where
     }
 }
 
+struct BytesAccess<R: Read>(usize, Vec<u8>, core::marker::PhantomData<R>);
+
+impl<'de, R: Read> de::SeqAccess<'de> for BytesAccess<R>
+where
+    R::Error: core::fmt::Debug,
+{
+    type Error = Error<R::Error>;
+
+    #[inline]
+    fn next_element_seed<U: de::DeserializeSeed<'de>>(
+        &mut self,
+        seed: U,
+    ) -> Result<Option<U::Value>, Self::Error> {
+        use de::IntoDeserializer;
+
+        if self.0 < self.1.len() {
+            let byte = self.1[self.0];
+            self.0 += 1;
+            seed.deserialize(byte.into_deserializer()).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    #[inline]
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.1.len() - self.0)
+    }
+}
+
 struct TagAccess<'a, 'b, R: Read>(&'a mut Deserializer<'b, R>, usize);
 
 impl<'de, 'a, 'b, R: Read> de::Deserializer<'de> for &mut TagAccess<'a, 'b, R>
@@ -746,7 +817,7 @@ where
 
 /// Deserializes as CBOR from a type with [`impl ciborium_io::Read`](ciborium_io::Read)
 #[inline]
-pub fn from_reader<'de, T: de::Deserialize<'de>, R: Read>(reader: R) -> Result<T, Error<R::Error>>
+pub fn from_reader<T: de::DeserializeOwned, R: Read>(reader: R) -> Result<T, Error<R::Error>>
 where
     R::Error: core::fmt::Debug,
 {

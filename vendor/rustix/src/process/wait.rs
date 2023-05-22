@@ -230,8 +230,8 @@ impl WaitidStatus {
     #[cfg(not(any(target_os = "netbsd", target_os = "fuchsia", target_os = "emscripten")))]
     #[allow(unsafe_code)]
     fn si_status(&self) -> backend::c::c_int {
-        //  SAFETY: POSIX [specifies] that the `siginfo_t` returned by a `waitid`
-        //  call always has a valid `si_status` value.
+        // SAFETY: POSIX [specifies] that the `siginfo_t` returned by a
+        // `waitid` call always has a valid `si_status` value.
         //
         // [specifies]: https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/signal.h.html
         unsafe { self.0.si_status() }
@@ -256,7 +256,7 @@ pub enum WaitId<'a> {
     /// Eat the lifetime for non-Linux platforms.
     #[doc(hidden)]
     #[cfg(not(target_os = "linux"))]
-    __EatLifetime(std::marker::PhantomData<&'a ()>),
+    __EatLifetime(core::marker::PhantomData<&'a ()>),
     // TODO(notgull): Once this crate has the concept of PGIDs, add a WaitId::Pgid
 }
 

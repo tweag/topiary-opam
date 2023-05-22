@@ -11,8 +11,9 @@
 
 [package]
 edition = "2021"
+rust-version = "1.56"
 name = "ciborium"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Nathaniel McCallum <npmccallum@profian.com>"]
 description = "serde implementation of CBOR using ciborium-basic"
 homepage = "https://github.com/enarx/ciborium"
@@ -21,12 +22,14 @@ keywords = ["cbor", "serde"]
 categories = ["data-structures", "embedded", "encoding", "no-std", "parsing"]
 license = "Apache-2.0"
 repository = "https://github.com/enarx/ciborium"
+[package.metadata.docs.rs]
+all-features = true
 [dependencies.ciborium-io]
-version = "0.2.0"
+version = "0.2.1"
 features = ["alloc"]
 
 [dependencies.ciborium-ll]
-version = "0.2.0"
+version = "0.2.1"
 
 [dependencies.serde]
 version = "1.0"

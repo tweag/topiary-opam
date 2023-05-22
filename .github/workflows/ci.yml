@@ -66,6 +66,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          submodules: true
 
       ## Set up OCaml, pin Topiay and install its system dependencies.
 
@@ -100,27 +102,12 @@ jobs:
           step-outcome: ${{ steps.install-topiary.outcome }}
           expected-failure: ${{ matrix.ef }}
 
-      - name: Run a smoke test
+      - name: Run tests
         if: steps.install-topiary.outcome == 'success'
-        run: |
-          ## Run a tiny smoke test; checking that Topiary manages to start,
-          ## parse a simple OCaml command and output the right thing.
-          echo 'open Foo' > expected.ml
-          echo 'open  Foo' | opam exec -- topiary --language ocaml > result.ml
-          diff expected.ml result.ml
-
-      ## NOTE: Proper tests are disabled because they actually do not pass for
-      ## Topiary v0.1.0. These should be re-enabled in future versions.
-
-      # - name: Run tests
-      #   if: steps.install-topiary.outcome == 'success'
-      #   run: |
-      #     ## Test on OCaml implementation files (.ml)
-      #     cat topiary/tests/samples/input/ocaml.ml | opam exec -- topiary --language ocaml-implementation > ocaml.ml
-      #     diff topiary/tests/samples/expected/ocaml.ml ocaml.ml
-      #     ## Test on OCaml interface files (.mli)
-      #     cat topiary/tests/samples/input/ocaml.mli | opam exec -- topiary --language ocaml-interface > ocaml.mli
-      #     diff topiary/tests/samples/expected/ocaml.mli ocaml.mli
+        uses: ./.github/actions/run-tests
+        with:
+          topiary: opam exec -- topiary
+          samples: topiary/topiary/tests/samples
 
   docker-based:
     name: docker-based
@@ -146,6 +133,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          submodules: true
 
       - name: Build Docker image (see next step for failure)
         id: build-docker-image
@@ -166,29 +155,9 @@ jobs:
           step-outcome: ${{ steps.build-docker-image.outcome }}
           expected-failure: ${{ matrix.ef }}
 
-      - name: Run a tiny smoke test
+      - name: Run tests
         if: steps.build-docker-image.outcome == 'success'
-        run: |
-          echo 'open Foo' > expected.ml
-          echo 'open  Foo' \
-            | docker run --interactive topiary --language ocaml \
-            > result.ml
-          diff expected.ml result.ml
-
-      ## NOTE: Proper tests are disabled because they actually do not pass for
-      ## Topiary v0.1.0. These should be re-enabled in future versions.
-
-      # - name: Run tests
-      #   if: steps.build-docker-image.outcome == 'success'
-      #   run: |
-      #     set -euC
-      #     ## Test on OCaml implementation files (.ml)
-      #     cat topiary/tests/samples/input/ocaml.ml \
-      #       | docker run --interactive topiary --language ocaml-implementation \
-      #       > ocaml.ml
-      #     diff topiary/tests/samples/expected/ocaml.ml ocaml.ml
-      #     ## Test on OCaml interface files (.mli)
-      #     cat topiary/tests/samples/input/ocaml.mli \
-      #       | docker run --interactive topiary --language ocaml-interface \
-      #       > ocaml.mli
-      #     diff topiary/tests/samples/expected/ocaml.mli ocaml.mli
+        uses: ./.github/actions/run-tests
+        with:
+          topiary: docker run --interactive topiary
+          samples: topiary/topiary/tests/samples

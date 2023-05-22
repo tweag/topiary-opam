@@ -89,9 +89,10 @@ How to update
    1 file changed, 1 insertion(+), 1 deletion(-)
   ```
 
-- Remove the previous local Cargo configuration:
+- Remove the previous local Cargo configuration and vendoring:
   ```console
   $ rm .cargo/config.toml
+  $ rm -R vendor/
   ```
   Otherwise, the next step will yield an error, something in the lines of:
   “failed to get `<whatever>` as a dependency of package `topiary`”.
@@ -145,6 +146,8 @@ How to update
   [main 95d67dc] Update Cargo dependencies
    8 files changed, 125 insertions(+), 57 deletions(-)
   ```
+
+- Bump the version in `Cargo.toml`.
 
 - Adapt the OPAM package or the other files if necessary and commit the changes.
 
