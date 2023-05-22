@@ -89,9 +89,10 @@ How to update
    1 file changed, 1 insertion(+), 1 deletion(-)
   ```
 
-- Remove the previous local Cargo configuration:
+- Remove the previous local Cargo configuration and vendoring:
   ```console
   $ rm .cargo/config.toml
+  $ rm -R vendor/
   ```
   Otherwise, the next step will yield an error, something in the lines of:
   “failed to get `<whatever>` as a dependency of package `topiary`”.
