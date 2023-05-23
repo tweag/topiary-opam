@@ -1,3 +1,18 @@
+1.8.2 (2023-05-22)
+==================
+This is a patch release that fixes a bug where regex compilation could panic
+in debug mode for regexes with large counted repetitions. For example,
+`a{2147483516}{2147483416}{5}` resulted in an integer overflow that wrapped
+in release mode but panicking in debug mode. Despite the unintended wrapping
+arithmetic in release mode, it didn't cause any other logical bugs since the
+errant code was for new analysis that wasn't used yet.
+
+Bug fixes:
+
+* [BUG #995](https://github.com/rust-lang/regex/issues/995):
+Fix a bug where regex compilation with large counted repetitions could panic.
+
+
 1.8.1 (2023-04-21)
 ==================
 This is a patch release that fixes a bug where a regex match could be reported
@@ -17,11 +32,11 @@ optimizations and lead to a false positive match.
 This is a sizeable release that will be soon followed by another sizeable
 release. Both of them will combined close over 40 existing issues and PRs.
 
-This first release, despite its size, essentially represent preparatory work
+This first release, despite its size, essentially represents preparatory work
 for the second release, which will be even bigger. Namely, this release:
 
 * Increases the MSRV to Rust 1.60.0, which was released about 1 year ago.
-* Upgrades its dependency on `aho-corasick` to the recently release 1.0
+* Upgrades its dependency on `aho-corasick` to the recently released 1.0
 version.
 * Upgrades its dependency on `regex-syntax` to the simultaneously released
 `0.7` version. The changes to `regex-syntax` principally revolve around a
