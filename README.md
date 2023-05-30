@@ -41,34 +41,27 @@ Availability
 
 | Distribution    | Version
 |-----------------|---------
-| Alpine          |
-| Archlinux       |
+| Alpine          | [![version in Alpine 3.18][alpine_3_18]][rust]
+| Archlinux       | [![version in Arch][arch]][rust]
 | CentOS          |
-| Debian          | [![d11][debian_11]][rust]
-| Debian Testing  | [![d12][debian_12]][rust]
-| Debian Unstable | [![du][debian_unstable]][rust]
-| Fedora          |
+| Debian          | [![version in Debian 11][debian_11]][rust]
+| Debian Testing  | [![version in Debian 12][debian_12]][rust]
+| Debian Unstable | [![version in Debian unstable][debian_unstable]][rust]
+| Fedora          | [![version in Fedora 38][fedora_38]][rust]
 | OracleLinux     |
-| openSUSE        |
-| Ubuntu          |
-| Ubuntu LTS      |
+| openSUSE        | [![version in openSUSE Leap 15.5][opensuse_leap_15_5]][rust]
+| Ubuntu          | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
+| Ubuntu LTS      | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
 
-[debian_11]: https://repology.org/badge/version-for-repo/debian_11/rust.svg
-
+[alpine_3_18]: https://repology.org/badge/version-for-repo/alpine_3_18/rust.svg?header=&minversion=1.65.0
+[arch]: https://repology.org/badge/version-for-repo/arch/rust.svg?header=&minversion=1.65.0
+[debian_11]: https://repology.org/badge/version-for-repo/debian_11/rust.svg?header=&minversion=1.65.0
+[debian_12]: https://repology.org/badge/version-for-repo/debian_12/rust.svg?header=&minversion=1.65.0
+[debian_unstable]: https://repology.org/badge/version-for-repo/debian_unstable/rust.svg?header=&minversion=1.65.0
+[fedora_38]: https://repology.org/badge/version-for-repo/fedora_38/rust.svg?header=&minversion=1.65.0
+[opensuse_leap_15_5]: https://repology.org/badge/version-for-repo/opensuse_leap_15_5/rust.svg?header=&minversion=1.65.0
+[ubuntu_23_04]: https://repology.org/badge/version-for-repo/ubuntu_23_04/rust.svg?header=&minversion=1.65.0
 [rust]: https://repology.org/project/rust/versions
-
-          <!-- - {tag: alpine} -->
-          <!-- - {tag: archlinux} -->
-          <!-- - {tag: centos,          ef: expected-failure} -->
-          <!-- - {tag: debian,          ef: expected-failure} -->
-          <!-- - {tag: debian-testing,  ef: expected-failure} -->
-          <!-- - {tag: debian-unstable, ef: expected-failure} -->
-          <!-- - {tag: fedora} -->
-          <!-- - {tag: oraclelinux} -->
-          <!-- - {tag: opensuse,        ef: expected-failure} -->
-          <!-- - {tag: ubuntu} -->
-          <!-- - {tag: ubuntu-lts} -->
-
 
 How this works
 --------------
