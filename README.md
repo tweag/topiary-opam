@@ -61,6 +61,7 @@ here for convenience:
 </td><td>
 
 | Distribution    | Rust Version
+|-----------------|--------------
 | Fedora          | [![version in Fedora 38][fedora_38]][rust]
 | OracleLinux     |
 | openSUSE        | [![version in openSUSE Leap 15.5][opensuse_leap_15_5]][rust]
