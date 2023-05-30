@@ -46,10 +46,6 @@ here for convenience:
 
 [our continuous integration]: ./.github/workflow/ci.yml
 
-<center>
-<table>
-<tr><td>
-
 | Distribution    | Rust Version
 |-----------------|--------------
 | Alpine          | [![version in Alpine 3.18][alpine_3_18]][rust]
@@ -58,19 +54,11 @@ here for convenience:
 | Debian          | [![version in Debian 11][debian_11]][rust]
 | Debian Testing  | [![version in Debian 12][debian_12]][rust]
 | Debian Unstable | [![version in Debian unstable][debian_unstable]][rust]
-
-</td><td>
-
-| Distribution    | Rust Version
-|-----------------|--------------
 | Fedora          | [![version in Fedora 38][fedora_38]][rust]
 | OracleLinux     |
 | openSUSE        | [![version in openSUSE Leap 15.5][opensuse_leap_15_5]][rust]
 | Ubuntu          | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
 | Ubuntu LTS      | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
-
-</td></tr> </table>
-</center>
 
 [alpine_3_18]: https://repology.org/badge/version-for-repo/alpine_3_18/rust.svg?header=&minversion=1.65.0
 [arch]: https://repology.org/badge/version-for-repo/arch/rust.svg?header=&minversion=1.65.0
