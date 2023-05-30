@@ -36,6 +36,40 @@ which this package is based.
 [this OCaml discuss thread]: https://discuss.ocaml.org/t/two-questions-about-what-is-appropriate-to-package-with-opam/12030/
 [`tezos-rust-libs`]: https://gitlab.com/tezos/tezos-rust-libs/-/tree/master
 
+Availability
+------------
+
+The compilation of Topiary depends on the presence of Rust on the system in a
+recent enough version. Currently, Rust 1.65.0 is required. [Our continuous
+integration] keeps track of several distributions whose Rust version is listed
+here for convenience:
+
+[our continuous integration]: ./.github/workflow/ci.yml
+
+| Distribution    | Rust Version
+|-----------------|--------------
+| Alpine          | [![version in Alpine 3.18][alpine_3_18]][rust]
+| Archlinux       | [![version in Arch][arch]][rust]
+| CentOS          |
+| Debian          | [![version in Debian 11][debian_11]][rust]
+| Debian Testing  | [![version in Debian 12][debian_12]][rust]
+| Debian Unstable | [![version in Debian unstable][debian_unstable]][rust]
+| Fedora          | [![version in Fedora 38][fedora_38]][rust]
+| OracleLinux     |
+| openSUSE        | [![version in openSUSE Leap 15.5][opensuse_leap_15_5]][rust]
+| Ubuntu          | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
+| Ubuntu LTS      | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
+
+[alpine_3_18]: https://repology.org/badge/version-for-repo/alpine_3_18/rust.svg?header=&minversion=1.65.0
+[arch]: https://repology.org/badge/version-for-repo/arch/rust.svg?header=&minversion=1.65.0
+[debian_11]: https://repology.org/badge/version-for-repo/debian_11/rust.svg?header=&minversion=1.65.0
+[debian_12]: https://repology.org/badge/version-for-repo/debian_12/rust.svg?header=&minversion=1.65.0
+[debian_unstable]: https://repology.org/badge/version-for-repo/debian_unstable/rust.svg?header=&minversion=1.65.0
+[fedora_38]: https://repology.org/badge/version-for-repo/fedora_38/rust.svg?header=&minversion=1.65.0
+[opensuse_leap_15_5]: https://repology.org/badge/version-for-repo/opensuse_leap_15_5/rust.svg?header=&minversion=1.65.0
+[ubuntu_23_04]: https://repology.org/badge/version-for-repo/ubuntu_23_04/rust.svg?header=&minversion=1.65.0
+[rust]: https://repology.org/project/rust/versions
+
 How this works
 --------------
 
