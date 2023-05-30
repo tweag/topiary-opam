@@ -46,6 +46,7 @@ here for convenience:
 
 [our continuous integration]: ./.github/workflow/ci.yml
 
+<center>
 <table>
 <tr><td>
 
@@ -69,6 +70,7 @@ here for convenience:
 | Ubuntu LTS      | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
 
 </td></tr> </table>
+</center>
 
 [alpine_3_18]: https://repology.org/badge/version-for-repo/alpine_3_18/rust.svg?header=&minversion=1.65.0
 [arch]: https://repology.org/badge/version-for-repo/arch/rust.svg?header=&minversion=1.65.0
