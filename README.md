@@ -36,6 +36,40 @@ which this package is based.
 [this OCaml discuss thread]: https://discuss.ocaml.org/t/two-questions-about-what-is-appropriate-to-package-with-opam/12030/
 [`tezos-rust-libs`]: https://gitlab.com/tezos/tezos-rust-libs/-/tree/master
 
+Availability
+------------
+
+| Distribution    | Version
+|-----------------|---------
+| Alpine          |
+| Archlinux       |
+| CentOS          |
+| Debian          | [![d11][debian_11]][rust]
+| Debian Testing  | [![d12][debian_12]][rust]
+| Debian Unstable | [![du][debian_unstable]][rust]
+| Fedora          |
+| OracleLinux     |
+| openSUSE        |
+| Ubuntu          |
+| Ubuntu LTS      |
+
+[debian_11]: https://repology.org/badge/version-for-repo/debian_11/rust.svg
+
+[rust]: https://repology.org/project/rust/versions
+
+          <!-- - {tag: alpine} -->
+          <!-- - {tag: archlinux} -->
+          <!-- - {tag: centos,          ef: expected-failure} -->
+          <!-- - {tag: debian,          ef: expected-failure} -->
+          <!-- - {tag: debian-testing,  ef: expected-failure} -->
+          <!-- - {tag: debian-unstable, ef: expected-failure} -->
+          <!-- - {tag: fedora} -->
+          <!-- - {tag: oraclelinux} -->
+          <!-- - {tag: opensuse,        ef: expected-failure} -->
+          <!-- - {tag: ubuntu} -->
+          <!-- - {tag: ubuntu-lts} -->
+
+
 How this works
 --------------
 
