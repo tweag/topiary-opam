@@ -57,6 +57,7 @@ here for convenience:
 | Fedora          | [![version in Fedora 38][fedora_38]][rust]
 | OracleLinux     |
 | openSUSE        | [![version in openSUSE Leap 15.5][opensuse_leap_15_5]][rust]
+| openSUSE Tumbleweed | [![version in openSUSE Tumbleweed][opensuse_tumbleweed]][rust]
 | Ubuntu          | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
 | Ubuntu LTS      | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
 
@@ -67,6 +68,7 @@ here for convenience:
 [debian_unstable]: https://repology.org/badge/version-for-repo/debian_unstable/rust.svg?header=&minversion=1.65.0
 [fedora_38]: https://repology.org/badge/version-for-repo/fedora_38/rust.svg?header=&minversion=1.65.0
 [opensuse_leap_15_5]: https://repology.org/badge/version-for-repo/opensuse_leap_15_5/rust.svg?header=&minversion=1.65.0
+[opensuse_tumbleweed]: https://repology.org/badge/version-for-repo/opensuse_tumbleweed/rust.svg?header=&minversion=1.65.0
 [ubuntu_23_04]: https://repology.org/badge/version-for-repo/ubuntu_23_04/rust.svg?header=&minversion=1.65.0
 [rust]: https://repology.org/project/rust/versions
 
