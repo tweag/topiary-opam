@@ -153,13 +153,14 @@ pub fn epoll_create(flags: CreateFlags) -> io::Result<OwnedFd> {
 /// This registers interest in any of the events set in `events` occurring
 /// on the file descriptor associated with `data`.
 ///
-/// Note that if `epoll_del` is not called on the I/O source passed into
-/// this function before the I/O source is `close`d, then the `epoll` will
-/// act as if the I/O source is still registered with it. This can lead to
-/// spurious events being returned from `epoll_wait`. If a file descriptor
-/// is an `Arc<dyn SystemResource>`, then `epoll` can be thought to maintain
-/// a `Weak<dyn SystemResource>` to the file descriptor.
+/// If `epoll_del` is not called on the I/O source passed into this function
+/// before the I/O source is `close`d, then the `epoll` will act as if the I/O
+/// source is still registered with it. This can lead to spurious events being
+/// returned from `epoll_wait`. If a file descriptor is an
+/// `Arc<dyn SystemResource>`, then `epoll` can be thought to maintain a
+/// `Weak<dyn SystemResource>` to the file descriptor.
 #[doc(alias = "epoll_ctl")]
+#[inline]
 pub fn epoll_add(
     epoll: impl AsFd,
     source: impl AsFd,
@@ -185,6 +186,7 @@ pub fn epoll_add(
 ///
 /// This sets the events of interest with `target` to `events`.
 #[doc(alias = "epoll_ctl")]
+#[inline]
 pub fn epoll_mod(
     epoll: impl AsFd,
     source: impl AsFd,
@@ -211,6 +213,7 @@ pub fn epoll_mod(
 ///
 /// This also returns the owning `Data`.
 #[doc(alias = "epoll_ctl")]
+#[inline]
 pub fn epoll_del(epoll: impl AsFd, source: impl AsFd) -> io::Result<()> {
     // SAFETY: We're calling `epoll_ctl` via FFI and we know how it
     // behaves.
@@ -225,6 +228,7 @@ pub fn epoll_del(epoll: impl AsFd, source: impl AsFd) -> io::Result<()> {
 ///
 /// For each event of interest, an element is written to `events`. On
 /// success, this returns the number of written elements.
+#[inline]
 pub fn epoll_wait(
     epoll: impl AsFd,
     event_list: &mut EventVec,
@@ -254,6 +258,7 @@ pub struct Iter<'a> {
 impl<'a> Iterator for Iter<'a> {
     type Item = (EventFlags, u64);
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
