@@ -101,7 +101,8 @@ This repository is made of the following building blocks:
 How to update
 -------------
 
-- Update the [Git submodule] containing Topiary:
+- Update the [Git submodule] containing Topiary. Make sure it is checked out at
+  a tag of your choosing:
   ```console
   $ git submodule update --remote
   Submodule path 'topiary': checked out 'f99bcd59e2a247e04b31b16fc9214460012e3713'
@@ -110,6 +111,7 @@ How to update
 - Make sure the Git submodule is checked out at a tag of your choosing:
   ```console
   $ cd topiary
+  $ git fetch
   $ git checkout v0.1.0
   HEAD is now at c4fe76c GraphViz visualisation support (#326)
   $ cd ..
@@ -130,6 +132,10 @@ How to update
   ```
   Otherwise, the next step will yield an error, something in the lines of:
   “failed to get `<whatever>` as a dependency of package `topiary`”.
+
+- Update the `Cargo.toml` file. This usually consists in copying the content of
+  `topiary/Cargo.toml` file, except for the `workspace.members` attribute. This
+  step should include bumping the version number.
 
 - Refresh the `Cargo.lock` file:
   ```console
@@ -175,13 +181,11 @@ How to update
 
 - Commit this update:
   ```console
-  $ git add Cargo.lock vendor/ .cargo/
+  $ git add Cargo.toml Cargo.lock vendor/ .cargo/
   $ git commit -m 'Update Cargo dependencies'
   [main 95d67dc] Update Cargo dependencies
    8 files changed, 125 insertions(+), 57 deletions(-)
   ```
-
-- Bump the version in `Cargo.toml`.
 
 - Adapt the OPAM package or the other files if necessary and commit the changes.
 
