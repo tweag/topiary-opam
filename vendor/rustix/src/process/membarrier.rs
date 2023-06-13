@@ -11,14 +11,14 @@ use crate::{backend, io};
 
 pub use backend::process::types::MembarrierCommand;
 
-#[cfg(any(target_os = "android", target_os = "linux"))]
+#[cfg(linux_kernel)]
 bitflags::bitflags! {
     /// A result from [`membarrier_query`].
     ///
     /// These flags correspond to values of [`MembarrierCommand`] which are
     /// supported in the OS.
     pub struct MembarrierQuery: u32 {
-       /// `MEMBARRIER_CMD_GLOBAL`
+       /// `MEMBARRIER_CMD_GLOBAL` (also known as `MEMBARRIER_CMD_SHARED`)
        #[doc(alias = "SHARED")]
        #[doc(alias = "MEMBARRIER_CMD_SHARED")]
        const GLOBAL = MembarrierCommand::Global as _;
@@ -41,7 +41,7 @@ bitflags::bitflags! {
     }
 }
 
-#[cfg(any(target_os = "android", target_os = "linux"))]
+#[cfg(linux_kernel)]
 impl MembarrierQuery {
     /// Test whether this query result contains the given command.
     #[inline]

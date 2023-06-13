@@ -21,16 +21,14 @@ bitflags! {
         /// `POLLOUT`
         const OUT = c::POLLOUT;
         /// `POLLRDNORM`
-        #[cfg(not(target_os = "redox"))]
         const RDNORM = c::POLLRDNORM;
         /// `POLLWRNORM`
-        #[cfg(not(target_os = "redox"))]
         const WRNORM = c::POLLWRNORM;
         /// `POLLRDBAND`
-        #[cfg(not(any(target_os = "redox", target_os = "wasi")))]
+        #[cfg(not(target_os = "wasi"))]
         const RDBAND = c::POLLRDBAND;
         /// `POLLWRBAND`
-        #[cfg(not(any(target_os = "redox", target_os = "wasi")))]
+        #[cfg(not(target_os = "wasi"))]
         const WRBAND = c::POLLWRBAND;
         /// `POLLERR`
         const ERR = c::POLLERR;
@@ -40,7 +38,7 @@ bitflags! {
         const NVAL = c::POLLNVAL;
         /// `POLLRDHUP`
         #[cfg(all(
-            any(target_os = "android", target_os = "linux"),
+            linux_kernel,
             not(any(target_arch = "sparc", target_arch = "sparc64"))),
         )]
         const RDHUP = c::POLLRDHUP;
