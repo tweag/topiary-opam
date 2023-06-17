@@ -125,6 +125,7 @@ jobs:
           - {tag: fedora}
           - {tag: oraclelinux}
           - {tag: opensuse,        ef: expected-failure}
+          - {tag: opensuse-tumbleweed}
           - {tag: ubuntu}
           - {tag: ubuntu-lts}
 
