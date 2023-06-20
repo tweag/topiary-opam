@@ -104,14 +104,12 @@ How to update
 - Update the [Git submodule] containing Topiary. Make sure it is checked out at
   a tag of your choosing:
   ```console
-  $ git submodule update --remote
-  Submodule path 'topiary': checked out 'f99bcd59e2a247e04b31b16fc9214460012e3713'
-  ```
-
-- Make sure the Git submodule is checked out at a tag of your choosing:
-  ```console
   $ cd topiary
   $ git fetch
+  remote: Enumerating objects: 299, done.
+  [...]
+  From ssh://github.com/tweag/topiary
+   * [new tag] v0.1.0 -> v0.1.0
   $ git checkout v0.1.0
   HEAD is now at c4fe76c GraphViz visualisation support (#326)
   $ cd ..
