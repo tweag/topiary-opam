@@ -13,7 +13,7 @@
 edition = "2021"
 rust-version = "1.64.0"
 name = "winnow"
-version = "0.4.6"
+version = "0.4.7"
 include = [
     "build.rs",
     "src/**/*",

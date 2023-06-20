@@ -41,8 +41,8 @@ repository = "https://github.com/tree-sitter/tree-sitter-ocaml"
 [lib]
 path = "bindings/rust/lib.rs"
 
-[dependencies.tree-sitter]
-version = "0.20"
+[dependencies]
+tree-sitter = "0.20"
 
-[build-dependencies.cc]
-version = "1.0"
+[build-dependencies]
+cc = "1.0"

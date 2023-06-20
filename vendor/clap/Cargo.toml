@@ -13,7 +13,7 @@
 edition = "2021"
 rust-version = "1.64.0"
 name = "clap"
-version = "4.3.3"
+version = "4.3.4"
 include = [
     "build.rs",
     "src/**/*",
@@ -366,7 +366,7 @@ path = "examples/derive_ref/flatten_hand_args.rs"
 required-features = ["derive"]
 
 [dependencies.clap_builder]
-version = "=4.3.3"
+version = "=4.3.4"
 default-features = false
 
 [dependencies.clap_derive]
