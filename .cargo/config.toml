@@ -14,6 +14,10 @@ replace-with = "vendored-sources"
 git = "https://github.com/tree-sitter/tree-sitter-bash"
 replace-with = "vendored-sources"
 
+[source."git+https://github.com/tree-sitter/tree-sitter-ocaml"]
+git = "https://github.com/tree-sitter/tree-sitter-ocaml"
+replace-with = "vendored-sources"
+
 [source."git+https://github.com/tweag/tree-sitter-facade"]
 git = "https://github.com/tweag/tree-sitter-facade"
 replace-with = "vendored-sources"

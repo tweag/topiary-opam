@@ -7,3 +7,4 @@ tmp/
 *~
 *#
 target/
+/.pre-commit-config.yaml

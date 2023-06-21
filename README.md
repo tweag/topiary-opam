@@ -104,14 +104,12 @@ How to update
 - Update the [Git submodule] containing Topiary. Make sure it is checked out at
   a tag of your choosing:
   ```console
-  $ git submodule update --remote
-  Submodule path 'topiary': checked out 'f99bcd59e2a247e04b31b16fc9214460012e3713'
-  ```
-
-- Make sure the Git submodule is checked out at a tag of your choosing:
-  ```console
   $ cd topiary
   $ git fetch
+  remote: Enumerating objects: 299, done.
+  [...]
+  From ssh://github.com/tweag/topiary
+   * [new tag] v0.1.0 -> v0.1.0
   $ git checkout v0.1.0
   HEAD is now at c4fe76c GraphViz visualisation support (#326)
   $ cd ..
@@ -137,16 +135,8 @@ How to update
   `topiary/Cargo.toml` file, except for the `workspace.members` attribute. This
   step should include bumping the version number.
 
-- Refresh the `Cargo.lock` file:
-  ```console
-  $ cargo update
-      Updating crates.io index
-      Updating git repository `https://github.com/tree-sitter/tree-sitter-bash`
-      Updating git submodule `https://git.savannah.gnu.org/git/bash.git`
-  [...]
-      Updating git repository `https://github.com/nvim-treesitter/tree-sitter-query`
-  ```
-  This may take a couple of minutes.
+- Update the `Cargo.lock` file. Again, this usually consists in copying the one
+  from `topiary/Cargo.lock`.
 
 - Regenerate the `vendor/` directory:
   ```console

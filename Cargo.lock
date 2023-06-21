@@ -348,9 +348,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.15"
+version = "0.9.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae211234986c545741a7dc064309f67ee1e5ad243d0e48335adc0484d960bcc7"
+checksum = "46bd5f3f85273295a9d14aedfb86f6aadbff6d8f5295c4a9edb08e819dcf5695"
 dependencies = [
  "autocfg",
  "cfg-if",
@@ -361,9 +361,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.16"
+version = "0.8.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a22b2d63d4d1dc0b7f1b6b2747dd0088008a9be28b6ddf0b1e7d335e3037294"
+checksum = "3c063cd8cc95f5c377ed0d4b49a4b21f632396ff690e8470c29b3359b346984b"
 dependencies = [
  "cfg-if",
 ]
@@ -412,6 +412,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6184e33543162437515c2e2b48714794e37845ec9851711914eec9d308f6ebe8"
 
 [[package]]
+name = "directories"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a49173b84e034382284f27f1af4dcbbd231ffa358c0fe316541a7337f376a35"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
 name = "dirs-next"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -419,6 +428,18 @@ checksum = "b98cf8ebf19c3d1b223e151f99a4f9f0690dca41414773390fc824184ac833e1"
 dependencies = [
  "cfg-if",
  "dirs-sys-next",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "520f05a5cbd335fae5a99ff7a6ab8627577660ee5cfd6a94a6a929b52ff0321c"
+dependencies = [
+ "libc",
+ "option-ext",
+ "redox_users",
+ "windows-sys",
 ]
 
 [[package]]
@@ -748,9 +769,9 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
 name = "memoffset"
-version = "0.9.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a634b1c61a95585bd15607c6ab0c4e5b226e695ff2800ba0cdccddf208c406c"
+checksum = "d61c719bcfbcf5d62b3a09efa6088de8c54bc0bfcd3ea7ae39fcc186108b8de1"
 dependencies = [
  "autocfg",
 ]
@@ -785,6 +806,12 @@ name = "oorandom"
 version = "11.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
+
+[[package]]
+name = "option-ext"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "os_str_bytes"
@@ -1083,6 +1110,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-toml-merge"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a78072b550e5c20bc4a9d1384be28809cbdb7b25b2b4707ddc6d908b7e6de3bf"
+dependencies = [
+ "toml",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.164"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1360,7 +1396,7 @@ dependencies = [
 
 [[package]]
 name = "topiary"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "clap 4.3.3",
  "criterion",
@@ -1391,12 +1427,14 @@ dependencies = [
 
 [[package]]
 name = "topiary-cli"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "assert_cmd",
  "clap 4.3.3",
+ "directories",
  "env_logger",
  "log",
+ "serde-toml-merge",
  "tempfile",
  "tokio",
  "toml",
@@ -1416,7 +1454,7 @@ dependencies = [
 [[package]]
 name = "tree-sitter-bash"
 version = "0.19.0"
-source = "git+https://github.com/tree-sitter/tree-sitter-bash#ee2a8f9906b53a785b784ee816c0016c2b6866d2"
+source = "git+https://github.com/tree-sitter/tree-sitter-bash#b338fa9f4807b9e0336cd4dde04948a8c324a4cf"
 dependencies = [
  "cc",
  "tree-sitter",
@@ -1455,9 +1493,8 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-ocaml"
-version = "0.20.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd16598f40f35974b5e5ec503fcea921d20cefbd8eaf0914ce6bd6edfbb5cee4"
+version = "0.20.1"
+source = "git+https://github.com/tree-sitter/tree-sitter-ocaml#f1106bf834703f1f2f795da1a3b5f8f40174ffcc"
 dependencies = [
  "cc",
  "tree-sitter",
@@ -1466,7 +1503,7 @@ dependencies = [
 [[package]]
 name = "tree-sitter-query"
 version = "0.1.0"
-source = "git+https://github.com/nvim-treesitter/tree-sitter-query#3a9808b22742d5bd906ef5d1a562f2f1ae57406d"
+source = "git+https://github.com/nvim-treesitter/tree-sitter-query#e97504446f14f529d5a8e649667d3d60391e4dfd"
 dependencies = [
  "cc",
  "tree-sitter",

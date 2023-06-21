@@ -187,7 +187,6 @@ module.exports = grammar({
     ),
 
     case_item: $ => seq(
-      optional('('),
       field('value', $._literal),
       repeat(seq('|', field('value', $._literal))),
       ')',
@@ -199,7 +198,6 @@ module.exports = grammar({
     ),
 
     last_case_item: $ => seq(
-      optional('('),
       field('value', $._literal),
       repeat(seq('|', field('value', $._literal))),
       ')',

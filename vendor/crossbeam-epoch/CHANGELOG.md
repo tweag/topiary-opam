@@ -1,7 +1,3 @@
-# Version 0.9.15
-
-- Update `memoffset` to 0.9. (#981)
-
 # Version 0.9.14
 
 - Update `memoffset` to 0.8. (#955)
