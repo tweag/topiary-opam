@@ -30,7 +30,7 @@ runs:
             > ocaml.ml
         diff ${{ inputs.samples }}/expected/ocaml.ml ocaml.ml
         ## Test on OCaml interface files (.mli)
-        cat ${{ inputs.samples }}/input/ocaml.mli                              \
+        cat ${{ inputs.samples }}/input/ocaml-interface.mli                    \
             | ${{ inputs.topiary }} --language ocaml-interface                 \
-            > ocaml.mli
-        diff ${{ inputs.samples }}/expected/ocaml.mli ocaml.mli
+            > ocaml-interface.mli
+        diff ${{ inputs.samples }}/expected/ocaml-interface.mli ocaml-interface.mli
