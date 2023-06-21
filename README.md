@@ -48,29 +48,42 @@ here for convenience:
 
 | Distribution    | Rust Version
 |-----------------|--------------
-| Alpine          | [![version in Alpine 3.18][alpine_3_18]][rust]
-| Archlinux       | [![version in Arch][arch]][rust]
-| CentOS Stream 8 | [![version in CentOS Stream 8][centos_stream_8]][rust]
-| CentOS Stream 9 | [![version in CentOS Stream 9][centos_stream_9]][rust]
-| Debian          | [![version in Debian 12][debian_12]][rust]
-| Debian Testing  | [![version in Debian 13][debian_13]][rust]
-| Debian Unstable | [![version in Debian unstable][debian_unstable]][rust]
-| Fedora          | [![version in Fedora 38][fedora_38]][rust]
-| OracleLinux     |
-| openSUSE        | [![version in openSUSE Leap 15.5][opensuse_leap_15_5]][rust]
-| Ubuntu          | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
-| Ubuntu LTS      | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
+| Alpine          | [![][alpine_edge]][rust] [![][alpine_3_18]][rust] [![][alpine_3_17]][rust] [![][alpine_3_16]][rust]
+| Archlinux       | [![][arch]][rust]
+| CentOS          | [![][centos_stream_9]][rust] [![][centos_stream_8]][rust]
+| Debian          | [![][debian_unstable]][rust] [![][debian_testing]][rust] [![][debian_12]][rust] [![][debian_11]][rust]
+| Fedora          | [![][fedora_rawhide]][rust] [![][fedora_38]][rust] [![][fedora_37]][rust] [![][fedora_36]][rust]
+| openSUSE        | [![][opensuse_tumbleweed]][rust] [![][opensuse_leap_15_5]][rust] [![][opensuse_leap_15_4]][rust]
+| Ubuntu          | [![][ubuntu_23_04]][rust] [![][ubuntu_22_10]][rust] [![][ubuntu_22_04]][rust]
 
-[alpine_3_18]: https://repology.org/badge/version-for-repo/alpine_3_18/rust.svg?header=&minversion=1.65.0
+[alpine_edge]: https://repology.org/badge/version-for-repo/alpine_edge/rust.svg?header=Edge&minversion=1.65.0
+[alpine_3_18]: https://repology.org/badge/version-for-repo/alpine_3_18/rust.svg?header=3.18&minversion=1.65.0
+[alpine_3_17]: https://repology.org/badge/version-for-repo/alpine_3_17/rust.svg?header=3.17&minversion=1.65.0
+[alpine_3_16]: https://repology.org/badge/version-for-repo/alpine_3_16/rust.svg?header=3.16&minversion=1.65.0
+
 [arch]: https://repology.org/badge/version-for-repo/arch/rust.svg?header=&minversion=1.65.0
-[centos_stream_8]: https://repology.org/badge/version-for-repo/centos_stream_8/rust.svg?header=&minversion=1.65.0
-[centos_stream_9]: https://repology.org/badge/version-for-repo/centos_stream_9/rust.svg?header=&minversion=1.65.0
-[debian_12]: https://repology.org/badge/version-for-repo/debian_12/rust.svg?header=&minversion=1.65.0
-[debian_13]: https://repology.org/badge/version-for-repo/debian_13/rust.svg?header=&minversion=1.65.0
-[debian_unstable]: https://repology.org/badge/version-for-repo/debian_unstable/rust.svg?header=&minversion=1.65.0
-[fedora_38]: https://repology.org/badge/version-for-repo/fedora_38/rust.svg?header=&minversion=1.65.0
-[opensuse_leap_15_5]: https://repology.org/badge/version-for-repo/opensuse_leap_15_5/rust.svg?header=&minversion=1.65.0
-[ubuntu_23_04]: https://repology.org/badge/version-for-repo/ubuntu_23_04/rust.svg?header=&minversion=1.65.0
+
+[centos_stream_8]: https://repology.org/badge/version-for-repo/centos_stream_8/rust.svg?header=Stream%208&minversion=1.65.0
+[centos_stream_9]: https://repology.org/badge/version-for-repo/centos_stream_9/rust.svg?header=Stream%209&minversion=1.65.0
+
+[debian_11]: https://repology.org/badge/version-for-repo/debian_11/rust.svg?header=11&minversion=1.65.0
+[debian_12]: https://repology.org/badge/version-for-repo/debian_12/rust.svg?header=12&minversion=1.65.0
+[debian_testing]: https://repology.org/badge/version-for-repo/debian_13/rust.svg?header=Testing&minversion=1.65.0
+[debian_unstable]: https://repology.org/badge/version-for-repo/debian_unstable/rust.svg?header=Unstable&minversion=1.65.0
+
+[fedora_rawhide]: https://repology.org/badge/version-for-repo/fedora_rawhide/rust.svg?header=Rawhide&minversion=1.65.0
+[fedora_38]: https://repology.org/badge/version-for-repo/fedora_38/rust.svg?header=38&minversion=1.65.0
+[fedora_37]: https://repology.org/badge/version-for-repo/fedora_37/rust.svg?header=37&minversion=1.65.0
+[fedora_36]: https://repology.org/badge/version-for-repo/fedora_36/rust.svg?header=36&minversion=1.65.0
+
+[opensuse_tumbleweed]: https://repology.org/badge/version-for-repo/opensuse_tumbleweed/rust.svg?header=Tumbleweed&minversion=1.65.0
+[opensuse_leap_15_5]: https://repology.org/badge/version-for-repo/opensuse_leap_15_5/rust.svg?header=Leap%2015.5&minversion=1.65.0
+[opensuse_leap_15_4]: https://repology.org/badge/version-for-repo/opensuse_leap_15_4/rust.svg?header=Leap%2015.4&minversion=1.65.0
+
+[ubuntu_23_04]: https://repology.org/badge/version-for-repo/ubuntu_23_04/rust.svg?header=23.04&minversion=1.65.0
+[ubuntu_22_10]: https://repology.org/badge/version-for-repo/ubuntu_22_10/rust.svg?header=22.10&minversion=1.65.0
+[ubuntu_22_04]: https://repology.org/badge/version-for-repo/ubuntu_22_04/rust.svg?header=22.04&minversion=1.65.0
+
 [rust]: https://repology.org/project/rust/versions
 
 How this works
