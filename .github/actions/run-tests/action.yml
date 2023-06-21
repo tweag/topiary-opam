@@ -26,7 +26,7 @@ runs:
       run: |
         ## Test on OCaml implementation files (.ml)
         cat ${{ inputs.samples }}/input/ocaml.ml                               \
-            | ${{ inputs.topiary }} --language ocaml-implementation            \
+            | ${{ inputs.topiary }} --language ocaml                           \
             > ocaml.ml
         diff ${{ inputs.samples }}/expected/ocaml.ml ocaml.ml
         ## Test on OCaml interface files (.mli)
