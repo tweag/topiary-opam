@@ -64,7 +64,10 @@ cat > "$output_file" <<EOF
 #!/bin/sh
 set -euC
 
-export TOPIARY_LANGUAGE_DIR=$language_dir
+## If \$TOPIARY_LANGUAGE_DIR is set, then keep it (even if it is null). If it is
+## unset, default to $language_dir.
+export TOPIARY_LANGUAGE_DIR=\${TOPIARY_LANGUAGE_DIR-$language_dir}
+
 exec $topiary_wrapped "\$@"
 EOF
 
