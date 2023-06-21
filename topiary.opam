@@ -16,12 +16,13 @@ build:[
       "--package" "topiary-cli" ]
   [ "sh" "make-topiary-wrapper.sh"
       "--language-dir" "%{share}%/topiary/languages"
-      "--topiary-wrapped" "%{bin}%/.topiary-wrapped"
+      "--topiary-wrapped" "%{bin}%/.topiary-wrapped/topiary"
       "--output-file" "topiary-wrapper" ]
 ]
 
 install: [
-  [ "cp" "target/release/topiary" "%{bin}%/.topiary-wrapped" ]
+  [ "mkdir" "%{bin}%/.topiary-wrapped" ]
+  [ "cp" "target/release/topiary" "%{bin}%/.topiary-wrapped/topiary" ]
   [ "cp" "topiary-wrapper" "%{bin}%/topiary" ]
   [ "mkdir" "%{share}%/topiary" ]
   [ "cp" "-R" "topiary/languages" "%{share}%/topiary/languages" ]
