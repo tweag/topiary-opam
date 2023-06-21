@@ -135,16 +135,8 @@ How to update
   `topiary/Cargo.toml` file, except for the `workspace.members` attribute. This
   step should include bumping the version number.
 
-- Refresh the `Cargo.lock` file:
-  ```console
-  $ cargo update
-      Updating crates.io index
-      Updating git repository `https://github.com/tree-sitter/tree-sitter-bash`
-      Updating git submodule `https://git.savannah.gnu.org/git/bash.git`
-  [...]
-      Updating git repository `https://github.com/nvim-treesitter/tree-sitter-query`
-  ```
-  This may take a couple of minutes.
+- Update the `Cargo.lock` file. Again, this usually consists in copying the one
+  from `topiary/Cargo.lock`.
 
 - Regenerate the `vendor/` directory:
   ```console
