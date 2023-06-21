@@ -353,7 +353,7 @@
                       },
                       {
                         "type": "SYMBOL",
-                        "name": "let_and_operator"
+                        "name": "and_operator"
                       }
                     ]
                   },
@@ -2598,19 +2598,6 @@
               {
                 "type": "SYMBOL",
                 "name": "_module_type_ext"
-              },
-              {
-                "type": "SEQ",
-                "members": [
-                  {
-                    "type": "STRING",
-                    "value": "("
-                  },
-                  {
-                    "type": "STRING",
-                    "value": ")"
-                  }
-                ]
               }
             ]
           },
@@ -5522,12 +5509,8 @@
         "type": "SEQ",
         "members": [
           {
-            "type": "FIELD",
-            "name": "operator",
-            "content": {
-              "type": "SYMBOL",
-              "name": "prefix_operator"
-            }
+            "type": "SYMBOL",
+            "name": "prefix_operator"
           },
           {
             "type": "FIELD",
@@ -5547,12 +5530,8 @@
         "type": "SEQ",
         "members": [
           {
-            "type": "FIELD",
-            "name": "operator",
-            "content": {
-              "type": "SYMBOL",
-              "name": "sign_operator"
-            }
+            "type": "SYMBOL",
+            "name": "sign_operator"
           },
           {
             "type": "FIELD",
@@ -5580,12 +5559,8 @@
             }
           },
           {
-            "type": "FIELD",
-            "name": "operator",
-            "content": {
-              "type": "SYMBOL",
-              "name": "hash_operator"
-            }
+            "type": "SYMBOL",
+            "name": "hash_operator"
           },
           {
             "type": "FIELD",
@@ -5616,12 +5591,13 @@
                 }
               },
               {
-                "type": "FIELD",
-                "name": "operator",
+                "type": "ALIAS",
                 "content": {
                   "type": "SYMBOL",
-                  "name": "pow_operator"
-                }
+                  "name": "_pow_operator"
+                },
+                "named": true,
+                "value": "infix_operator"
               },
               {
                 "type": "FIELD",
@@ -5649,12 +5625,13 @@
                 }
               },
               {
-                "type": "FIELD",
-                "name": "operator",
+                "type": "ALIAS",
                 "content": {
                   "type": "SYMBOL",
-                  "name": "mult_operator"
-                }
+                  "name": "_mult_operator"
+                },
+                "named": true,
+                "value": "infix_operator"
               },
               {
                 "type": "FIELD",
@@ -5682,12 +5659,13 @@
                 }
               },
               {
-                "type": "FIELD",
-                "name": "operator",
+                "type": "ALIAS",
                 "content": {
                   "type": "SYMBOL",
-                  "name": "add_operator"
-                }
+                  "name": "_add_operator"
+                },
+                "named": true,
+                "value": "infix_operator"
               },
               {
                 "type": "FIELD",
@@ -5715,12 +5693,13 @@
                 }
               },
               {
-                "type": "FIELD",
-                "name": "operator",
+                "type": "ALIAS",
                 "content": {
                   "type": "SYMBOL",
-                  "name": "concat_operator"
-                }
+                  "name": "_concat_operator"
+                },
+                "named": true,
+                "value": "infix_operator"
               },
               {
                 "type": "FIELD",
@@ -5748,12 +5727,13 @@
                 }
               },
               {
-                "type": "FIELD",
-                "name": "operator",
+                "type": "ALIAS",
                 "content": {
                   "type": "SYMBOL",
-                  "name": "rel_operator"
-                }
+                  "name": "_rel_operator"
+                },
+                "named": true,
+                "value": "infix_operator"
               },
               {
                 "type": "FIELD",
@@ -5781,12 +5761,13 @@
                 }
               },
               {
-                "type": "FIELD",
-                "name": "operator",
+                "type": "ALIAS",
                 "content": {
                   "type": "SYMBOL",
-                  "name": "and_operator"
-                }
+                  "name": "_and_operator"
+                },
+                "named": true,
+                "value": "infix_operator"
               },
               {
                 "type": "FIELD",
@@ -5814,12 +5795,13 @@
                 }
               },
               {
-                "type": "FIELD",
-                "name": "operator",
+                "type": "ALIAS",
                 "content": {
                   "type": "SYMBOL",
-                  "name": "or_operator"
-                }
+                  "name": "_or_operator"
+                },
+                "named": true,
+                "value": "infix_operator"
               },
               {
                 "type": "FIELD",
@@ -5847,12 +5829,13 @@
                 }
               },
               {
-                "type": "FIELD",
-                "name": "operator",
+                "type": "ALIAS",
                 "content": {
                   "type": "SYMBOL",
-                  "name": "assign_operator"
-                }
+                  "name": "_assign_operator"
+                },
+                "named": true,
+                "value": "infix_operator"
               },
               {
                 "type": "FIELD",
@@ -8644,12 +8627,7 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "ALIAS",
-          "content": {
-            "type": "PATTERN",
-            "value": "\\[@"
-          },
-          "named": false,
+          "type": "STRING",
           "value": "[@"
         },
         {
@@ -9043,8 +9021,17 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "PATTERN",
-          "value": "[+-]"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "+"
+            },
+            {
+              "type": "STRING",
+              "value": "-"
+            }
+          ]
         },
         {
           "type": "TOKEN",
@@ -9139,15 +9126,43 @@
           {
             "type": "IMMEDIATE_TOKEN",
             "content": {
-              "type": "PATTERN",
-              "value": "\\s"
+              "type": "STRING",
+              "value": " "
             }
           },
           {
             "type": "IMMEDIATE_TOKEN",
             "content": {
-              "type": "PATTERN",
-              "value": "\\[@"
+              "type": "STRING",
+              "value": "\n"
+            }
+          },
+          {
+            "type": "IMMEDIATE_TOKEN",
+            "content": {
+              "type": "STRING",
+              "value": "\t"
+            }
+          },
+          {
+            "type": "IMMEDIATE_TOKEN",
+            "content": {
+              "type": "STRING",
+              "value": "[@"
+            }
+          },
+          {
+            "type": "IMMEDIATE_TOKEN",
+            "content": {
+              "type": "STRING",
+              "value": "[@@"
+            }
+          },
+          {
+            "type": "IMMEDIATE_TOKEN",
+            "content": {
+              "type": "STRING",
+              "value": "[@@@"
             }
           },
           {
@@ -9241,15 +9256,43 @@
           {
             "type": "IMMEDIATE_TOKEN",
             "content": {
-              "type": "PATTERN",
-              "value": "\\s"
+              "type": "STRING",
+              "value": " "
             }
           },
           {
             "type": "IMMEDIATE_TOKEN",
             "content": {
-              "type": "PATTERN",
-              "value": "\\[@"
+              "type": "STRING",
+              "value": "\n"
+            }
+          },
+          {
+            "type": "IMMEDIATE_TOKEN",
+            "content": {
+              "type": "STRING",
+              "value": "\t"
+            }
+          },
+          {
+            "type": "IMMEDIATE_TOKEN",
+            "content": {
+              "type": "STRING",
+              "value": "[@"
+            }
+          },
+          {
+            "type": "IMMEDIATE_TOKEN",
+            "content": {
+              "type": "STRING",
+              "value": "[@@"
+            }
+          },
+          {
+            "type": "IMMEDIATE_TOKEN",
+            "content": {
+              "type": "STRING",
+              "value": "[@@@"
             }
           },
           {
@@ -9471,49 +9514,57 @@
       "type": "CHOICE",
       "members": [
         {
-          "type": "PATTERN",
-          "value": "[+-]"
+          "type": "STRING",
+          "value": "+"
         },
         {
-          "type": "PATTERN",
-          "value": "[+-]\\."
+          "type": "STRING",
+          "value": "-"
+        },
+        {
+          "type": "STRING",
+          "value": "+."
+        },
+        {
+          "type": "STRING",
+          "value": "-."
         }
       ]
     },
-    "_infix_operator": {
+    "infix_operator": {
       "type": "CHOICE",
       "members": [
         {
           "type": "SYMBOL",
-          "name": "pow_operator"
+          "name": "_pow_operator"
         },
         {
           "type": "SYMBOL",
-          "name": "mult_operator"
+          "name": "_mult_operator"
         },
         {
           "type": "SYMBOL",
-          "name": "add_operator"
+          "name": "_add_operator"
         },
         {
           "type": "SYMBOL",
-          "name": "concat_operator"
+          "name": "_concat_operator"
         },
         {
           "type": "SYMBOL",
-          "name": "rel_operator"
+          "name": "_rel_operator"
         },
         {
           "type": "SYMBOL",
-          "name": "and_operator"
+          "name": "_and_operator"
         },
         {
           "type": "SYMBOL",
-          "name": "or_operator"
+          "name": "_or_operator"
         },
         {
           "type": "SYMBOL",
-          "name": "assign_operator"
+          "name": "_assign_operator"
         }
       ]
     },
@@ -9536,24 +9587,12 @@
         ]
       }
     },
-    "pow_operator": {
-      "type": "TOKEN",
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "STRING",
-            "value": "lsl"
-          },
-          {
-            "type": "STRING",
-            "value": "lsr"
-          },
-          {
-            "type": "STRING",
-            "value": "asr"
-          },
-          {
+    "_pow_operator": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "TOKEN",
+          "content": {
             "type": "SEQ",
             "members": [
               {
@@ -9569,31 +9608,27 @@
               }
             ]
           }
-        ]
-      }
+        },
+        {
+          "type": "STRING",
+          "value": "lsl"
+        },
+        {
+          "type": "STRING",
+          "value": "lsr"
+        },
+        {
+          "type": "STRING",
+          "value": "asr"
+        }
+      ]
     },
-    "mult_operator": {
-      "type": "TOKEN",
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "STRING",
-            "value": "mod"
-          },
-          {
-            "type": "STRING",
-            "value": "land"
-          },
-          {
-            "type": "STRING",
-            "value": "lor"
-          },
-          {
-            "type": "STRING",
-            "value": "lxor"
-          },
-          {
+    "_mult_operator": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "TOKEN",
+          "content": {
             "type": "SEQ",
             "members": [
               {
@@ -9609,19 +9644,43 @@
               }
             ]
           }
-        ]
-      }
+        },
+        {
+          "type": "STRING",
+          "value": "mod"
+        },
+        {
+          "type": "STRING",
+          "value": "land"
+        },
+        {
+          "type": "STRING",
+          "value": "lor"
+        },
+        {
+          "type": "STRING",
+          "value": "lxor"
+        }
+      ]
     },
-    "add_operator": {
+    "_add_operator": {
       "type": "CHOICE",
       "members": [
         {
-          "type": "PATTERN",
-          "value": "[+-]"
+          "type": "STRING",
+          "value": "+"
         },
         {
-          "type": "PATTERN",
-          "value": "[+-]\\."
+          "type": "STRING",
+          "value": "-"
+        },
+        {
+          "type": "STRING",
+          "value": "+."
+        },
+        {
+          "type": "STRING",
+          "value": "-."
         },
         {
           "type": "TOKEN",
@@ -9686,7 +9745,7 @@
         }
       ]
     },
-    "concat_operator": {
+    "_concat_operator": {
       "type": "TOKEN",
       "content": {
         "type": "SEQ",
@@ -9705,7 +9764,7 @@
         ]
       }
     },
-    "rel_operator": {
+    "_rel_operator": {
       "type": "TOKEN",
       "content": {
         "type": "CHOICE",
@@ -9843,41 +9902,40 @@
         ]
       }
     },
-    "and_operator": {
-      "type": "TOKEN",
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "STRING",
-            "value": "&"
-          },
-          {
-            "type": "STRING",
-            "value": "&&"
-          }
-        ]
-      }
+    "_and_operator": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "&"
+        },
+        {
+          "type": "STRING",
+          "value": "&&"
+        }
+      ]
     },
-    "or_operator": {
-      "type": "TOKEN",
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "STRING",
-            "value": "or"
-          },
-          {
-            "type": "STRING",
-            "value": "||"
-          }
-        ]
-      }
+    "_or_operator": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "or"
+        },
+        {
+          "type": "STRING",
+          "value": "||"
+        }
+      ]
     },
-    "assign_operator": {
-      "type": "PATTERN",
-      "value": ":="
+    "_assign_operator": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "STRING",
+          "value": ":="
+        }
+      ]
     },
     "indexing_operator": {
       "type": "TOKEN",
@@ -9947,7 +10005,7 @@
         ]
       }
     },
-    "let_and_operator": {
+    "and_operator": {
       "type": "TOKEN",
       "content": {
         "type": "SEQ",
@@ -10045,7 +10103,7 @@
             },
             {
               "type": "SYMBOL",
-              "name": "_infix_operator"
+              "name": "infix_operator"
             },
             {
               "type": "SYMBOL",
@@ -10189,7 +10247,7 @@
             },
             {
               "type": "SYMBOL",
-              "name": "let_and_operator"
+              "name": "and_operator"
             },
             {
               "type": "SYMBOL",
@@ -10835,7 +10893,6 @@
     "_item_extension",
     "_constant",
     "_signed_constant",
-    "_infix_operator",
     "_value_name",
     "_value_pattern"
   ]

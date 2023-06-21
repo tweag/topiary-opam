@@ -49,11 +49,11 @@
 
 (infix_expression
   left: (value_path (value_name) @name)
-  operator: (concat_operator) @reference.call
+  (infix_operator) @reference.call
   (#eq? @reference.call "@@"))
 
 (infix_expression
-  operator: (rel_operator) @reference.call
+  (infix_operator) @reference.call
   right: (value_path (value_name) @name)
   (#eq? @reference.call "|>"))
 
@@ -64,25 +64,26 @@
   (comment)? @doc .
   (value_definition
     (let_binding
-      pattern: (parenthesized_operator (_) @name)) @definition.function)
+      pattern: (parenthesized_operator [
+        (prefix_operator)
+        (infix_operator)
+        (hash_operator)
+        (indexing_operator)
+        (let_operator)
+        (and_operator)
+        (match_operator)
+      ] @name)) @definition.function)
   (#strip! @doc "^\\(\\*\\*?\\s*|\\s\\*\\)$")
 )
 
 [
   (prefix_operator)
   (sign_operator)
-  (pow_operator)
-  (mult_operator)
-  (add_operator)
-  (concat_operator)
-  (rel_operator)
-  (and_operator)
-  (or_operator)
-  (assign_operator)
+  (infix_operator)
   (hash_operator)
   (indexing_operator)
   (let_operator)
-  (let_and_operator)
+  (and_operator)
   (match_operator)
 ] @name @reference.call
 

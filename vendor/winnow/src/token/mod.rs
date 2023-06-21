@@ -497,17 +497,18 @@ where
     trace("take_while", move |i: I| {
         match (start_inclusive, end_inclusive) {
             (0, None) => {
-                if <I as StreamIsPartial>::is_partial_supported() {
-                    take_while0_::<_, _, _, true>(i, &list)
+                if <I as StreamIsPartial>::is_partial_supported() && i.is_partial() {
+                    split_at_offset_partial(&i, |c| !list.contains_token(c))
                 } else {
-                    take_while0_::<_, _, _, false>(i, &list)
+                    split_at_offset_complete(&i, |c| !list.contains_token(c))
                 }
             }
             (1, None) => {
-                if <I as StreamIsPartial>::is_partial_supported() {
-                    take_while1_::<_, _, _, true>(i, &list)
+                let e: ErrorKind = ErrorKind::Slice;
+                if <I as StreamIsPartial>::is_partial_supported() && i.is_partial() {
+                    split_at_offset1_partial(&i, |c| !list.contains_token(c), e)
                 } else {
-                    take_while1_::<_, _, _, false>(i, &list)
+                    split_at_offset1_complete(&i, |c| !list.contains_token(c), e)
                 }
             }
             (start, end) => {
@@ -548,39 +549,6 @@ where
     T: ContainsToken<<I as Stream>::Token>,
 {
     take_while(1.., list)
-}
-
-fn take_while0_<T, I, Error: ParseError<I>, const PARTIAL: bool>(
-    input: I,
-    list: &T,
-) -> IResult<I, <I as Stream>::Slice, Error>
-where
-    I: StreamIsPartial,
-    I: Stream,
-    T: ContainsToken<<I as Stream>::Token>,
-{
-    if PARTIAL && input.is_partial() {
-        split_at_offset_partial(&input, |c| !list.contains_token(c))
-    } else {
-        split_at_offset_complete(&input, |c| !list.contains_token(c))
-    }
-}
-
-fn take_while1_<T, I, Error: ParseError<I>, const PARTIAL: bool>(
-    input: I,
-    list: &T,
-) -> IResult<I, <I as Stream>::Slice, Error>
-where
-    I: StreamIsPartial,
-    I: Stream,
-    T: ContainsToken<<I as Stream>::Token>,
-{
-    let e: ErrorKind = ErrorKind::Slice;
-    if PARTIAL && input.is_partial() {
-        split_at_offset1_partial(&input, |c| !list.contains_token(c), e)
-    } else {
-        split_at_offset1_complete(&input, |c| !list.contains_token(c), e)
-    }
 }
 
 fn take_while_m_n_<T, I, Error: ParseError<I>, const PARTIAL: bool>(

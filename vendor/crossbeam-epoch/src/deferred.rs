@@ -89,9 +89,10 @@ impl Deferred {
 
 #[cfg(all(test, not(crossbeam_loom)))]
 mod tests {
+    #![allow(clippy::drop_copy)]
+
     use super::Deferred;
     use std::cell::Cell;
-    use std::convert::identity;
 
     #[test]
     fn on_stack() {
@@ -99,7 +100,7 @@ mod tests {
         let a = [0usize; 1];
 
         let d = Deferred::new(move || {
-            let _ = identity(a);
+            drop(a);
             fired.set(true);
         });
 
@@ -114,7 +115,7 @@ mod tests {
         let a = [0usize; 10];
 
         let d = Deferred::new(move || {
-            let _ = identity(a);
+            drop(a);
             fired.set(true);
         });
 

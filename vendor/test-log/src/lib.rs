@@ -1,7 +1,7 @@
-// Copyright (C) 2019-2023 Daniel Mueller <deso@posteo.net>
+// Copyright (C) 2019-2022 Daniel Mueller <deso@posteo.net>
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-#![deny(missing_docs)]
+#![deny(broken_intra_doc_links, missing_docs)]
 
 //! A crate providing a replacement #[[macro@test]] attribute that
 //! initializes logging and/or tracing infrastructure before running
@@ -16,14 +16,11 @@ use quote::quote;
 
 use syn::parse_macro_input;
 use syn::parse_quote;
-use syn::punctuated::Punctuated;
 use syn::AttributeArgs;
-use syn::FnArg;
 use syn::ItemFn;
 use syn::Meta;
 use syn::NestedMeta;
 use syn::ReturnType;
-use syn::Token;
 
 
 /// A procedural macro for the `test` attribute.
@@ -153,24 +150,6 @@ fn expand_tracing_init() -> Tokens {
 }
 
 
-/// Extract the argument names from the inputs of a function signature.
-fn extract_args(inputs: &Punctuated<FnArg, Token![,]>) -> Punctuated<Tokens, Token![,]> {
-  inputs
-    .iter()
-    .map(|arg| match arg {
-      FnArg::Receiver(receiver) => {
-        let slf = receiver.self_token;
-        quote! { #slf }
-      },
-      FnArg::Typed(typed) => {
-        let pat = &typed.pat;
-        quote! { #pat }
-      },
-    })
-    .collect()
-}
-
-
 /// Emit code for a wrapper function around a test function.
 fn expand_wrapper(inner_test: &Tokens, wrappee: &ItemFn) -> TokenStream {
   let attrs = &wrappee.attrs;
@@ -182,8 +161,6 @@ fn expand_wrapper(inner_test: &Tokens, wrappee: &ItemFn) -> TokenStream {
   };
   let body = &wrappee.block;
   let test_name = &wrappee.sig.ident;
-  let inputs = &wrappee.sig.inputs;
-  let args = extract_args(inputs);
 
   // Note that Rust does not allow us to have a test function with
   // #[should_panic] that has a non-unit return value.
@@ -198,8 +175,8 @@ fn expand_wrapper(inner_test: &Tokens, wrappee: &ItemFn) -> TokenStream {
   let result = quote! {
     #[#inner_test]
     #(#attrs)*
-    #async_ fn #test_name(#inputs) #ret {
-      #async_ fn test_impl(#inputs) #ret {
+    #async_ fn #test_name() #ret {
+      #async_ fn test_impl() #ret {
         #body
       }
 
@@ -221,7 +198,7 @@ fn expand_wrapper(inner_test: &Tokens, wrappee: &ItemFn) -> TokenStream {
       }
 
       init::init();
-      test_impl(#args)#await_
+      test_impl()#await_
     }
   };
   result.into()

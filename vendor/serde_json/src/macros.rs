@@ -10,8 +10,7 @@
 ///         "features": [
 ///             "serde",
 ///             "json"
-///         ],
-///         "homepage": null
+///         ]
 ///     }
 /// });
 /// ```

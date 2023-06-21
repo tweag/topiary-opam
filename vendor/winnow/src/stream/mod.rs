@@ -1762,12 +1762,10 @@ impl Range {
 }
 
 impl crate::lib::std::ops::RangeBounds<usize> for Range {
-    #[inline(always)]
     fn start_bound(&self) -> crate::lib::std::ops::Bound<&usize> {
         crate::lib::std::ops::Bound::Included(&self.start_inclusive)
     }
 
-    #[inline(always)]
     fn end_bound(&self) -> crate::lib::std::ops::Bound<&usize> {
         if let Some(end_inclusive) = &self.end_inclusive {
             crate::lib::std::ops::Bound::Included(end_inclusive)
@@ -2120,7 +2118,6 @@ impl AsChar for u8 {
     fn is_space(self) -> bool {
         self == b' ' || self == b'\t'
     }
-    #[inline]
     fn is_newline(self) -> bool {
         self == b'\n'
     }
@@ -2158,7 +2155,6 @@ impl<'a> AsChar for &'a u8 {
     fn is_space(self) -> bool {
         *self == b' ' || *self == b'\t'
     }
-    #[inline]
     fn is_newline(self) -> bool {
         *self == b'\n'
     }
@@ -2197,7 +2193,6 @@ impl AsChar for char {
     fn is_space(self) -> bool {
         self == ' ' || self == '\t'
     }
-    #[inline]
     fn is_newline(self) -> bool {
         self == '\n'
     }
@@ -2236,7 +2231,6 @@ impl<'a> AsChar for &'a char {
     fn is_space(self) -> bool {
         *self == ' ' || *self == '\t'
     }
-    #[inline]
     fn is_newline(self) -> bool {
         *self == '\n'
     }
