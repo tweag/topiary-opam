@@ -50,7 +50,8 @@ here for convenience:
 |-----------------|--------------
 | Alpine          | [![version in Alpine 3.18][alpine_3_18]][rust]
 | Archlinux       | [![version in Arch][arch]][rust]
-| CentOS          |
+| CentOS Stream 8 | [![version in CentOS Stream 8][centos_stream_8]][rust]
+| CentOS Stream 9 | [![version in CentOS Stream 9][centos_stream_9]][rust]
 | Debian          | [![version in Debian 12][debian_12]][rust]
 | Debian Testing  | [![version in Debian 13][debian_13]][rust]
 | Debian Unstable | [![version in Debian unstable][debian_unstable]][rust]
@@ -62,6 +63,8 @@ here for convenience:
 
 [alpine_3_18]: https://repology.org/badge/version-for-repo/alpine_3_18/rust.svg?header=&minversion=1.65.0
 [arch]: https://repology.org/badge/version-for-repo/arch/rust.svg?header=&minversion=1.65.0
+[centos_stream_8]: https://repology.org/badge/version-for-repo/centos_stream_8/rust.svg?header=&minversion=1.65.0
+[centos_stream_9]: https://repology.org/badge/version-for-repo/centos_stream_9/rust.svg?header=&minversion=1.65.0
 [debian_12]: https://repology.org/badge/version-for-repo/debian_12/rust.svg?header=&minversion=1.65.0
 [debian_13]: https://repology.org/badge/version-for-repo/debian_13/rust.svg?header=&minversion=1.65.0
 [debian_unstable]: https://repology.org/badge/version-for-repo/debian_unstable/rust.svg?header=&minversion=1.65.0
