@@ -120,7 +120,7 @@ jobs:
           - {tag: archlinux}
           - {tag: centos,          ef: expected-failure}
           - {tag: debian,          ef: expected-failure}
-          - {tag: debian-testing,  ef: expected-failure}
+          - {tag: debian-testing}
           - {tag: debian-unstable}
           - {tag: fedora}
           - {tag: oraclelinux}
