@@ -1,9 +1,9 @@
 [source.crates-io]
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/nickel-lang/tree-sitter-nickel?rev=cf1c52a53a527505515add41da90f8a575798987"]
+[source."git+https://github.com/nickel-lang/tree-sitter-nickel?rev=b1a4718601ebd29a62bf3a7fd1069a99ccf48093"]
 git = "https://github.com/nickel-lang/tree-sitter-nickel"
-rev = "cf1c52a53a527505515add41da90f8a575798987"
+rev = "b1a4718601ebd29a62bf3a7fd1069a99ccf48093"
 replace-with = "vendored-sources"
 
 [source."git+https://github.com/nvim-treesitter/tree-sitter-query"]

@@ -75,7 +75,7 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.8.2"
+version = "1.8.4"
 dependencies = [
  "aho-corasick",
  "lazy_static",

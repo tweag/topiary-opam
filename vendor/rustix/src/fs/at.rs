@@ -11,7 +11,7 @@ use crate::ffi::{CStr, CString};
 use crate::fs::CloneFlags;
 #[cfg(not(any(apple, target_os = "wasi")))]
 use crate::fs::FileType;
-#[cfg(any(target_os = "android", target_os = "linux"))]
+#[cfg(linux_kernel)]
 use crate::fs::RenameFlags;
 use crate::fs::{Access, AtFlags, Mode, OFlags, Stat, Timestamps};
 use crate::path::SMALL_PATH_BUFFER_SIZE;
@@ -49,7 +49,7 @@ pub const UTIME_OMIT: Nsecs = backend::c::UTIME_OMIT as Nsecs;
 ///  - [Linux]
 ///
 /// [POSIX]: https://pubs.opengroup.org/onlinepubs/9699919799/functions/openat.html
-/// [Linux]: https://man7.org/linux/man-pages/man2/open.2.html
+/// [Linux]: https://man7.org/linux/man-pages/man2/openat.2.html
 #[inline]
 pub fn openat<P: path::Arg, Fd: AsFd>(
     dirfd: Fd,
@@ -197,7 +197,7 @@ pub fn renameat<P: path::Arg, Q: path::Arg, PFd: AsFd, QFd: AsFd>(
 ///  - [Linux]
 ///
 /// [Linux]: https://man7.org/linux/man-pages/man2/renameat2.2.html
-#[cfg(any(target_os = "android", target_os = "linux"))]
+#[cfg(linux_kernel)]
 #[inline]
 #[doc(alias = "renameat2")]
 pub fn renameat_with<P: path::Arg, Q: path::Arg, PFd: AsFd, QFd: AsFd>(
@@ -262,6 +262,13 @@ pub fn statat<P: path::Arg, Fd: AsFd>(dirfd: Fd, path: P, flags: AtFlags) -> io:
 
 /// `faccessat(dirfd, path, access, flags)`—Tests permissions for a file or
 /// directory.
+///
+/// On Linux before 5.8, this function uses the `faccessat` system call which
+/// doesn't support any flags. This function emulates support for the
+/// [`AtFlags::EACCESS`] flag by checking whether the uid and gid of the
+/// process match the effective uid and gid, in which case the `EACCESS` flag
+/// can be ignored. In Linux 5.8 and beyond `faccessat2` is used, which
+/// supports flags.
 ///
 /// # References
 ///  - [POSIX]

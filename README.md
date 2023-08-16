@@ -48,28 +48,42 @@ here for convenience:
 
 | Distribution    | Rust Version
 |-----------------|--------------
-| Alpine          | [![version in Alpine 3.18][alpine_3_18]][rust]
-| Archlinux       | [![version in Arch][arch]][rust]
-| CentOS          |
-| Debian          | [![version in Debian 11][debian_11]][rust]
-| Debian Testing  | [![version in Debian 12][debian_12]][rust]
-| Debian Unstable | [![version in Debian unstable][debian_unstable]][rust]
-| Fedora          | [![version in Fedora 38][fedora_38]][rust]
-| OracleLinux     |
-| openSUSE        | [![version in openSUSE Leap 15.5][opensuse_leap_15_5]][rust]
-| openSUSE Tumbleweed | [![version in openSUSE Tumbleweed][opensuse_tumbleweed]][rust]
-| Ubuntu          | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
-| Ubuntu LTS      | [![version in Ubuntu 23.04][ubuntu_23_04]][rust]
+| Alpine          | [![][alpine_edge]][rust] [![][alpine_3_18]][rust] [![][alpine_3_17]][rust] [![][alpine_3_16]][rust]
+| Archlinux       | [![][arch]][rust]
+| CentOS          | [![][centos_stream_9]][rust] [![][centos_stream_8]][rust]
+| Debian          | [![][debian_unstable]][rust] [![][debian_testing]][rust] [![][debian_12]][rust] [![][debian_11]][rust]
+| Fedora          | [![][fedora_rawhide]][rust] [![][fedora_38]][rust] [![][fedora_37]][rust] [![][fedora_36]][rust]
+| openSUSE        | [![][opensuse_tumbleweed]][rust] [![][opensuse_leap_15_5]][rust] [![][opensuse_leap_15_4]][rust]
+| Ubuntu          | [![][ubuntu_23_04]][rust] [![][ubuntu_22_10]][rust] [![][ubuntu_22_04]][rust]
 
-[alpine_3_18]: https://repology.org/badge/version-for-repo/alpine_3_18/rust.svg?header=&minversion=1.65.0
+[alpine_edge]: https://repology.org/badge/version-for-repo/alpine_edge/rust.svg?header=Edge&minversion=1.65.0
+[alpine_3_18]: https://repology.org/badge/version-for-repo/alpine_3_18/rust.svg?header=3.18&minversion=1.65.0
+[alpine_3_17]: https://repology.org/badge/version-for-repo/alpine_3_17/rust.svg?header=3.17&minversion=1.65.0
+[alpine_3_16]: https://repology.org/badge/version-for-repo/alpine_3_16/rust.svg?header=3.16&minversion=1.65.0
+
 [arch]: https://repology.org/badge/version-for-repo/arch/rust.svg?header=&minversion=1.65.0
-[debian_11]: https://repology.org/badge/version-for-repo/debian_11/rust.svg?header=&minversion=1.65.0
-[debian_12]: https://repology.org/badge/version-for-repo/debian_12/rust.svg?header=&minversion=1.65.0
-[debian_unstable]: https://repology.org/badge/version-for-repo/debian_unstable/rust.svg?header=&minversion=1.65.0
-[fedora_38]: https://repology.org/badge/version-for-repo/fedora_38/rust.svg?header=&minversion=1.65.0
-[opensuse_leap_15_5]: https://repology.org/badge/version-for-repo/opensuse_leap_15_5/rust.svg?header=&minversion=1.65.0
-[opensuse_tumbleweed]: https://repology.org/badge/version-for-repo/opensuse_tumbleweed/rust.svg?header=&minversion=1.65.0
-[ubuntu_23_04]: https://repology.org/badge/version-for-repo/ubuntu_23_04/rust.svg?header=&minversion=1.65.0
+
+[centos_stream_8]: https://repology.org/badge/version-for-repo/centos_stream_8/rust.svg?header=Stream%208&minversion=1.65.0
+[centos_stream_9]: https://repology.org/badge/version-for-repo/centos_stream_9/rust.svg?header=Stream%209&minversion=1.65.0
+
+[debian_11]: https://repology.org/badge/version-for-repo/debian_11/rust.svg?header=11&minversion=1.65.0
+[debian_12]: https://repology.org/badge/version-for-repo/debian_12/rust.svg?header=12&minversion=1.65.0
+[debian_testing]: https://repology.org/badge/version-for-repo/debian_13/rust.svg?header=Testing&minversion=1.65.0
+[debian_unstable]: https://repology.org/badge/version-for-repo/debian_unstable/rust.svg?header=Unstable&minversion=1.65.0
+
+[fedora_rawhide]: https://repology.org/badge/version-for-repo/fedora_rawhide/rust.svg?header=Rawhide&minversion=1.65.0
+[fedora_38]: https://repology.org/badge/version-for-repo/fedora_38/rust.svg?header=38&minversion=1.65.0
+[fedora_37]: https://repology.org/badge/version-for-repo/fedora_37/rust.svg?header=37&minversion=1.65.0
+[fedora_36]: https://repology.org/badge/version-for-repo/fedora_36/rust.svg?header=36&minversion=1.65.0
+
+[opensuse_tumbleweed]: https://repology.org/badge/version-for-repo/opensuse_tumbleweed/rust.svg?header=Tumbleweed&minversion=1.65.0
+[opensuse_leap_15_5]: https://repology.org/badge/version-for-repo/opensuse_leap_15_5/rust.svg?header=Leap%2015.5&minversion=1.65.0
+[opensuse_leap_15_4]: https://repology.org/badge/version-for-repo/opensuse_leap_15_4/rust.svg?header=Leap%2015.4&minversion=1.65.0
+
+[ubuntu_23_04]: https://repology.org/badge/version-for-repo/ubuntu_23_04/rust.svg?header=23.04&minversion=1.65.0
+[ubuntu_22_10]: https://repology.org/badge/version-for-repo/ubuntu_22_10/rust.svg?header=22.10&minversion=1.65.0
+[ubuntu_22_04]: https://repology.org/badge/version-for-repo/ubuntu_22_04/rust.svg?header=22.04&minversion=1.65.0
+
 [rust]: https://repology.org/project/rust/versions
 
 How this works
@@ -103,15 +117,15 @@ This repository is made of the following building blocks:
 How to update
 -------------
 
-- Update the [Git submodule] containing Topiary:
-  ```console
-  $ git submodule update --remote
-  Submodule path 'topiary': checked out 'f99bcd59e2a247e04b31b16fc9214460012e3713'
-  ```
-
-- Make sure the Git submodule is checked out at a tag of your choosing:
+- Update the [Git submodule] containing Topiary. Make sure it is checked out at
+  a tag of your choosing:
   ```console
   $ cd topiary
+  $ git fetch
+  remote: Enumerating objects: 299, done.
+  [...]
+  From ssh://github.com/tweag/topiary
+   * [new tag] v0.1.0 -> v0.1.0
   $ git checkout v0.1.0
   HEAD is now at c4fe76c GraphViz visualisation support (#326)
   $ cd ..
@@ -133,16 +147,12 @@ How to update
   Otherwise, the next step will yield an error, something in the lines of:
   “failed to get `<whatever>` as a dependency of package `topiary`”.
 
-- Refresh the `Cargo.lock` file:
-  ```console
-  $ cargo update
-      Updating crates.io index
-      Updating git repository `https://github.com/tree-sitter/tree-sitter-bash`
-      Updating git submodule `https://git.savannah.gnu.org/git/bash.git`
-  [...]
-      Updating git repository `https://github.com/nvim-treesitter/tree-sitter-query`
-  ```
-  This may take a couple of minutes.
+- Update the `Cargo.toml` file. This usually consists in copying the content of
+  `topiary/Cargo.toml` file, except for the `workspace.members` attribute. This
+  step should include bumping the version number.
+
+- Update the `Cargo.lock` file. Again, this usually consists in copying the one
+  from `topiary/Cargo.lock`.
 
 - Regenerate the `vendor/` directory:
   ```console
@@ -177,13 +187,11 @@ How to update
 
 - Commit this update:
   ```console
-  $ git add Cargo.lock vendor/ .cargo/
+  $ git add Cargo.toml Cargo.lock vendor/ .cargo/
   $ git commit -m 'Update Cargo dependencies'
   [main 95d67dc] Update Cargo dependencies
    8 files changed, 125 insertions(+), 57 deletions(-)
   ```
-
-- Bump the version in `Cargo.toml`.
 
 - Adapt the OPAM package or the other files if necessary and commit the changes.
 

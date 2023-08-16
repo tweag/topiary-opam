@@ -59,6 +59,8 @@
 //!  - Constants use `enum`s and [`bitflags`] types.
 //!  - Multiplexed functions (eg. `fcntl`, `ioctl`, etc.) are de-multiplexed.
 //!  - Variadic functions (eg. `openat`, etc.) are presented as non-variadic.
+//!  - Functions that return strings automatically allocate sufficient memory
+//!    and retry the syscall as needed to determine the needed length.
 //!  - Functions and types which need `l` prefixes or `64` suffixes to enable
 //!    large-file support (LFS) are used automatically. File sizes and offsets
 //!    are always presented as `u64` and `i64`.
@@ -71,7 +73,8 @@
 //!    running under seccomp.
 //!
 //! Things they don't do include:
-//!  - Detecting whether functions are supported at runtime.
+//!  - Detecting whether functions are supported at runtime, except in specific
+//!    cases where new interfaces need to be detected to support y2038 and LFS.
 //!  - Hiding significant differences between platforms.
 //!  - Restricting ambient authorities.
 //!  - Imposing sandboxing features such as filesystem path or network address
@@ -108,10 +111,9 @@
 #![cfg_attr(alloc_c_string, feature(alloc_ffi))]
 #![cfg_attr(alloc_c_string, feature(alloc_c_string))]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "rustc-dep-of-std", feature(core_intrinsics))]
 #![cfg_attr(feature = "rustc-dep-of-std", feature(ip))]
 #![cfg_attr(
-    all(not(feature = "rustc-dep-of-std"), core_intrinsics),
+    any(feature = "rustc-dep-of-std", core_intrinsics),
     feature(core_intrinsics)
 )]
 #![cfg_attr(asm_experimental_arch, feature(asm_experimental_arch))]
@@ -174,7 +176,7 @@ pub mod ffi;
 #[cfg_attr(doc_cfg, doc(cfg(feature = "fs")))]
 pub mod fs;
 pub mod io;
-#[cfg(any(target_os = "android", target_os = "linux"))]
+#[cfg(linux_kernel)]
 #[cfg(feature = "io_uring")]
 #[cfg_attr(doc_cfg, doc(cfg(feature = "io_uring")))]
 pub mod io_uring;
@@ -198,6 +200,11 @@ pub mod path;
 #[cfg(feature = "process")]
 #[cfg_attr(doc_cfg, doc(cfg(feature = "process")))]
 pub mod process;
+#[cfg(not(windows))]
+#[cfg(not(target_os = "wasi"))]
+#[cfg(feature = "pty")]
+#[cfg_attr(doc_cfg, doc(cfg(feature = "pty")))]
+pub mod pty;
 #[cfg(not(windows))]
 #[cfg(feature = "rand")]
 #[cfg_attr(doc_cfg, doc(cfg(feature = "rand")))]

@@ -120,8 +120,8 @@ jobs:
           - {tag: archlinux}
           - {tag: centos,          ef: expected-failure}
           - {tag: debian,          ef: expected-failure}
-          - {tag: debian-testing,  ef: expected-failure}
-          - {tag: debian-unstable, ef: expected-failure}
+          - {tag: debian-testing}
+          - {tag: debian-unstable}
           - {tag: fedora}
           - {tag: oraclelinux}
           - {tag: opensuse,        ef: expected-failure}
@@ -162,3 +162,21 @@ jobs:
         with:
           topiary: docker run --interactive topiary
           samples: topiary/topiary/tests/samples
+
+  flake-checks:
+    name: flake-checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository code.
+        uses: actions/checkout@v3
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v22
+        with:
+          extra_nix_config: |
+            ## Access token to avoid triggering GitHub's rate limiting.
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run flake checks
+        run: nix flake check --print-build-logs

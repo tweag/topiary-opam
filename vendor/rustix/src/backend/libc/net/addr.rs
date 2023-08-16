@@ -56,14 +56,14 @@ impl SocketAddrUnix {
     }
 
     /// Construct a new abstract Unix-domain address from a byte slice.
-    #[cfg(any(target_os = "android", target_os = "linux"))]
+    #[cfg(linux_kernel)]
     #[inline]
     pub fn new_abstract_name(name: &[u8]) -> io::Result<Self> {
         let mut unix = Self::init();
         if 1 + name.len() > unix.sun_path.len() {
             return Err(io::Errno::NAMETOOLONG);
         }
-        unix.sun_path[0] = b'\0' as c::c_char;
+        unix.sun_path[0] = 0;
         for (i, b) in name.iter().enumerate() {
             unix.sun_path[1 + i] = *b as c::c_char;
         }
@@ -94,7 +94,7 @@ impl SocketAddrUnix {
     #[inline]
     pub fn path(&self) -> Option<&CStr> {
         let len = self.len();
-        if len != 0 && self.unix.sun_path[0] != b'\0' as c::c_char {
+        if len != 0 && self.unix.sun_path[0] != 0 {
             let end = len as usize - offsetof_sun_path();
             let bytes = &self.unix.sun_path[..end];
             // SAFETY: `from_raw_parts` to convert from `&[c_char]` to `&[u8]`.
@@ -112,11 +112,11 @@ impl SocketAddrUnix {
     }
 
     /// For an abstract address, return the identifier.
-    #[cfg(any(target_os = "android", target_os = "linux"))]
+    #[cfg(linux_kernel)]
     #[inline]
     pub fn abstract_name(&self) -> Option<&[u8]> {
         let len = self.len();
-        if len != 0 && self.unix.sun_path[0] == b'\0' as c::c_char {
+        if len != 0 && self.unix.sun_path[0] == 0 {
             let end = len as usize - offsetof_sun_path();
             let bytes = &self.unix.sun_path[1..end];
             // SAFETY: `from_raw_parts` to convert from `&[c_char]` to `&[u8]`.
@@ -192,7 +192,7 @@ impl fmt::Debug for SocketAddrUnix {
         if let Some(path) = self.path() {
             path.fmt(fmt)
         } else {
-            #[cfg(any(target_os = "android", target_os = "linux"))]
+            #[cfg(linux_kernel)]
             if let Some(name) = self.abstract_name() {
                 return name.fmt(fmt);
             }

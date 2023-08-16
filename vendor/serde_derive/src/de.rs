@@ -15,9 +15,7 @@ use this;
 use std::collections::BTreeSet;
 use std::ptr;
 
-pub fn expand_derive_deserialize(
-    input: &mut syn::DeriveInput,
-) -> Result<TokenStream, Vec<syn::Error>> {
+pub fn expand_derive_deserialize(input: &mut syn::DeriveInput) -> syn::Result<TokenStream> {
     replace_receiver(input);
 
     let ctxt = Ctxt::new();
@@ -1169,6 +1167,22 @@ fn deserialize_enum(
     variants: &[Variant],
     cattrs: &attr::Container,
 ) -> Fragment {
+    // The variants have already been checked (in ast.rs) that all untagged variants appear at the end
+    match variants.iter().position(|var| var.attrs.untagged()) {
+        Some(variant_idx) => {
+            let (tagged, untagged) = variants.split_at(variant_idx);
+            let tagged_frag = Expr(deserialize_homogeneous_enum(params, tagged, cattrs));
+            deserialize_untagged_enum_after(params, untagged, cattrs, Some(tagged_frag))
+        }
+        None => deserialize_homogeneous_enum(params, variants, cattrs),
+    }
+}
+
+fn deserialize_homogeneous_enum(
+    params: &Parameters,
+    variants: &[Variant],
+    cattrs: &attr::Container,
+) -> Fragment {
     match cattrs.tag() {
         attr::TagType::External => deserialize_externally_tagged_enum(params, variants, cattrs),
         attr::TagType::Internal { tag } => {
@@ -1669,6 +1683,16 @@ fn deserialize_untagged_enum(
     variants: &[Variant],
     cattrs: &attr::Container,
 ) -> Fragment {
+    let first_attempt = None;
+    deserialize_untagged_enum_after(params, variants, cattrs, first_attempt)
+}
+
+fn deserialize_untagged_enum_after(
+    params: &Parameters,
+    variants: &[Variant],
+    cattrs: &attr::Container,
+    first_attempt: Option<Expr>,
+) -> Fragment {
     let attempts = variants
         .iter()
         .filter(|variant| !variant.attrs.skip_deserializing())
@@ -1677,12 +1701,10 @@ fn deserialize_untagged_enum(
                 params,
                 variant,
                 cattrs,
-                quote!(
-                    _serde::__private::de::ContentRefDeserializer::<__D::Error>::new(&__content)
-                ),
+                quote!(__deserializer),
             ))
         });
-
+    let attempts = first_attempt.into_iter().chain(attempts);
     // TODO this message could be better by saving the errors from the failed
     // attempts. The heuristic used by TOML was to count the number of fields
     // processed before an error, and use the error that happened after the
@@ -1697,6 +1719,7 @@ fn deserialize_untagged_enum(
 
     quote_block! {
         let __content = try!(<_serde::__private::de::Content as _serde::Deserialize>::deserialize(__deserializer));
+        let __deserializer = _serde::__private::de::ContentRefDeserializer::<__D::Error>::new(&__content);
 
         #(
             if let _serde::__private::Ok(__ok) = #attempts {
