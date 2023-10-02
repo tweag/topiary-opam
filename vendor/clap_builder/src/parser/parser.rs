@@ -302,6 +302,13 @@ impl<'cmd> Parser<'cmd> {
                         .map(|p_name| !p_name.is_last_set())
                         .unwrap_or_default();
 
+                let is_terminated = self
+                    .cmd
+                    .get_keymap()
+                    .get(&pos_counter)
+                    .map(|a| a.get_value_terminator().is_some())
+                    .unwrap_or_default();
+
                 let missing_pos = self.cmd.is_allow_missing_positional_set()
                     && is_second_to_last
                     && !trailing_values;
@@ -309,7 +316,7 @@ impl<'cmd> Parser<'cmd> {
                 debug!("Parser::get_matches_with: Positional counter...{pos_counter}");
                 debug!("Parser::get_matches_with: Low index multiples...{low_index_mults:?}");
 
-                if low_index_mults || missing_pos {
+                if (low_index_mults || missing_pos) && !is_terminated {
                     let skip_current = if let Some(n) = raw_args.peek(&args_cursor) {
                         if let Some(arg) = self
                             .cmd
@@ -474,6 +481,10 @@ impl<'cmd> Parser<'cmd> {
             }
         }
 
+        let suggested_trailing_arg = !trailing_values
+            && self.cmd.has_positionals()
+            && (arg_os.is_long() || arg_os.is_short());
+
         if !(self.cmd.is_args_conflicts_with_subcommands_set() && valid_arg_found) {
             let candidates = suggestions::did_you_mean(
                 &arg_os.display().to_string(),
@@ -489,6 +500,7 @@ impl<'cmd> Parser<'cmd> {
                         .get_bin_name()
                         .unwrap_or_else(|| self.cmd.get_name())
                         .to_owned(),
+                    suggested_trailing_arg,
                     Usage::new(self.cmd).create_usage_with_title(&[]),
                 );
             }
@@ -505,9 +517,6 @@ impl<'cmd> Parser<'cmd> {
             }
         }
 
-        let suggested_trailing_arg = !trailing_values
-            && self.cmd.has_positionals()
-            && (arg_os.is_long() || arg_os.is_short());
         ClapError::unknown_argument(
             self.cmd,
             arg_os.display().to_string(),
@@ -729,7 +738,7 @@ impl<'cmd> Parser<'cmd> {
             debug!("Parser::parse_long_arg: Found valid arg or flag '{arg}'");
             Some((long_arg, arg))
         } else if self.cmd.is_infer_long_args_set() {
-            self.cmd.get_arguments().find_map(|a| {
+            let mut iter = self.cmd.get_arguments().filter_map(|a| {
                 if let Some(long) = a.get_long() {
                     if long.starts_with(long_arg) {
                         return Some((long, a));
@@ -738,7 +747,9 @@ impl<'cmd> Parser<'cmd> {
                 a.aliases
                     .iter()
                     .find_map(|(alias, _)| alias.starts_with(long_arg).then(|| (alias.as_str(), a)))
-            })
+            });
+
+            iter.next().filter(|_| iter.next().is_none())
         } else {
             None
         };
@@ -1232,6 +1243,16 @@ impl<'cmd> Parser<'cmd> {
                     Some(Identifier::Index) => true,
                     None => true,
                 };
+                debug!("Help: use_long={use_long}");
+                Err(self.help_err(use_long))
+            }
+            ArgAction::HelpShort => {
+                let use_long = false;
+                debug!("Help: use_long={use_long}");
+                Err(self.help_err(use_long))
+            }
+            ArgAction::HelpLong => {
+                let use_long = true;
                 debug!("Help: use_long={use_long}");
                 Err(self.help_err(use_long))
             }

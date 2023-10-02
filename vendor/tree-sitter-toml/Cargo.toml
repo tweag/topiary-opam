@@ -12,20 +12,33 @@
 [package]
 edition = "2018"
 name = "tree-sitter-toml"
-version = "0.20.0"
+version = "0.5.1"
 build = "bindings/rust/build.rs"
-include = ["bindings/rust/*", "grammar.js", "queries/*", "src/*"]
-autoexamples = false
-description = "TOML grammar for the tree-sitter parsing library"
-readme = "bindings/rust/README.md"
-keywords = ["incremental", "parsing", "toml"]
-categories = ["parsing", "text-editors"]
+include = [
+    "bindings/rust/*",
+    "grammar.js",
+    "queries/*",
+    "src/*",
+]
+description = "toml grammar for the tree-sitter parsing library"
+readme = "README.md"
+keywords = [
+    "incremental",
+    "parsing",
+    "toml",
+]
+categories = [
+    "parsing",
+    "text-editors",
+]
 license = "MIT"
-repository = "https://github.com/Mathspy/tree-sitter-toml"
+repository = "https://github.com/tree-sitter/tree-sitter-toml"
 
 [lib]
 path = "bindings/rust/lib.rs"
-[dependencies.tree-sitter]
-version = "0.20"
-[build-dependencies.cc]
-version = "1.0"
+
+[dependencies]
+tree-sitter = "~0.20"
+
+[build-dependencies]
+cc = "1.0"

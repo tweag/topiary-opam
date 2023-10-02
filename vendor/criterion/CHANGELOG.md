@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.5.1] - 2023-05-26
+
+### Fixed
+ - Quick mode (--quick) no longer crashes with measured times over 5 seconds when --noplot is not active
+
+## [0.5.0] - 2023-05-23
+
+### Changed
+- Replaced lazy_static dependency with once_cell
+- Improved documentation of the `html_reports` feature
+- Replaced atty dependency with is-terminal
+- MSRV bumped to 1.64
+- Upgraded clap dependency to v4
+- Upgraded tempfile dependency to v3.5.0
+
+### Fixed
+- Quick mode (`--quick`) no longer outputs 1ms for measured times over 5 seconds
+- Documentation updates
+
 ## [0.4.0] - 2022-09-10
 
 ### Removed
@@ -527,3 +546,5 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 [0.3.5]: https://github.com/bheisler/criterion.rs/compare/0.3.4...0.3.5
 [0.3.6]: https://github.com/bheisler/criterion.rs/compare/0.3.5...0.3.6
 [0.4.0]: https://github.com/bheisler/criterion.rs/compare/0.3.6...0.4.0
+[0.5.0]: https://github.com/bheisler/criterion.rs/compare/0.4.0...0.5.0
+[0.5.1]: https://github.com/bheisler/criterion.rs/compare/0.5.0...0.5.1

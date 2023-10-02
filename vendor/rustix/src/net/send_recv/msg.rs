@@ -1,4 +1,4 @@
-//! [`recvmsg`], [`sendmsg_noaddr`], and related functions.
+//! [`recvmsg`], [`sendmsg`], and related functions.
 
 #![allow(unsafe_code)]
 
@@ -6,8 +6,7 @@ use crate::backend::{self, c};
 use crate::fd::{AsFd, BorrowedFd, OwnedFd};
 use crate::io::{self, IoSlice, IoSliceMut};
 
-use core::convert::{TryFrom, TryInto};
-use core::iter::{FromIterator, FusedIterator};
+use core::iter::FusedIterator;
 use core::marker::PhantomData;
 use core::mem::{size_of, size_of_val, take};
 use core::{ptr, slice};
@@ -38,7 +37,7 @@ pub fn __cmsg_space(len: usize) -> usize {
     unsafe { c::CMSG_SPACE(len.try_into().expect("CMSG_SPACE size overflow")) as usize }
 }
 
-/// Ancillary message for [`sendmsg_noaddr`], [`sendmsg_v4`], [`sendmsg_v6`],
+/// Ancillary message for [`sendmsg`], [`sendmsg_v4`], [`sendmsg_v6`],
 /// [`sendmsg_unix`], and [`sendmsg_any`].
 #[non_exhaustive]
 pub enum SendAncillaryMessage<'slice, 'fd> {
@@ -158,13 +157,7 @@ impl<'buf, 'slice, 'fd> SendAncillaryBuffer<'buf, 'slice, 'fd> {
         let buffer = leap!(self.buffer.get_mut(..new_length));
 
         // Fill the new part of the buffer with zeroes.
-        // TODO: In Rust 1.50 we can use `fill` here.
-        unsafe {
-            buffer
-                .as_mut_ptr()
-                .add(self.length)
-                .write_bytes(0, new_length - self.length);
-        }
+        buffer[self.length..new_length].fill(0);
         self.length = new_length;
 
         // Get the last header in the buffer.
@@ -396,13 +389,13 @@ impl FusedIterator for AncillaryDrain<'_> {}
 /// [DragonFly BSD]: https://man.dragonflybsd.org/?command=sendmsg&section=2
 /// [illumos]: https://illumos.org/man/3SOCKET/sendmsg
 #[inline]
-pub fn sendmsg_noaddr(
+pub fn sendmsg(
     socket: impl AsFd,
     iov: &[IoSlice<'_>],
     control: &mut SendAncillaryBuffer<'_, '_, '_>,
     flags: SendFlags,
 ) -> io::Result<usize> {
-    backend::net::syscalls::sendmsg_noaddr(socket.as_fd(), iov, control, flags)
+    backend::net::syscalls::sendmsg(socket.as_fd(), iov, control, flags)
 }
 
 /// `sendmsg(msghdr)`—Sends a message on a socket to a specific IPv4 address.
@@ -529,7 +522,7 @@ pub fn sendmsg_any(
     flags: SendFlags,
 ) -> io::Result<usize> {
     match addr {
-        None => backend::net::syscalls::sendmsg_noaddr(socket.as_fd(), iov, control, flags),
+        None => backend::net::syscalls::sendmsg(socket.as_fd(), iov, control, flags),
         Some(SocketAddrAny::V4(addr)) => {
             backend::net::syscalls::sendmsg_v4(socket.as_fd(), addr, iov, control, flags)
         }
@@ -681,7 +674,6 @@ impl<T> DoubleEndedIterator for AncillaryIter<'_, T> {
 
 mod messages {
     use crate::backend::c;
-    use core::convert::TryInto;
     use core::iter::FusedIterator;
     use core::marker::PhantomData;
     use core::mem::zeroed;

@@ -9,7 +9,6 @@
 //! correctly.
 #![allow(unsafe_code)]
 
-use core::convert::TryFrom;
 use core::mem::MaybeUninit;
 use core::num::NonZeroU64;
 use core::ptr;
@@ -19,12 +18,12 @@ use core::sync::atomic::AtomicU8;
 use bitflags::bitflags;
 
 use crate::backend::c::{c_int, c_uint, c_void};
-use crate::backend::process::syscalls;
+use crate::backend::prctl::syscalls;
 use crate::ffi::{CStr, CString};
 use crate::io;
-use crate::process::{
-    prctl_1arg, prctl_2args, prctl_3args, prctl_get_at_arg2_optional, Pid,
-    PointerAuthenticationKeys,
+use crate::pid::Pid;
+use crate::prctl::{
+    prctl_1arg, prctl_2args, prctl_3args, prctl_get_at_arg2_optional, PointerAuthenticationKeys,
 };
 use crate::utils::as_ptr;
 
@@ -412,6 +411,8 @@ const PR_GET_SECUREBITS: c_int = 27;
 
 bitflags! {
     /// `SECBIT_*`.
+    #[repr(transparent)]
+    #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
     pub struct CapabilitiesSecureBits: u32 {
         /// If this bit is set, then the kernel does not grant capabilities when
         /// a `set-user-ID-root` program is executed, or when a process with an effective or real
@@ -733,6 +734,8 @@ const PR_MTE_TAG_MASK: u32 = 0xffff_u32 << PR_MTE_TAG_SHIFT;
 
 bitflags! {
     /// Zero means addresses that are passed for the purpose of being dereferenced by the kernel must be untagged.
+    #[repr(transparent)]
+    #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
     pub struct TaggedAddressMode: u32 {
         /// Addresses that are passed for the purpose of being dereferenced by the kernel may be tagged.
         const ENABLED = 1_u32 << 0;

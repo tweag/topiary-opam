@@ -1,10 +1,8 @@
-#[cfg(feature = "cc")]
-use cc::Build;
 use std::env::var;
 use std::io::Write;
 
-/// The directory for out-of-line (“outline”) libraries.
-const OUTLINE_PATH: &str = "src/backend/linux_raw/arch/outline";
+/// The directory for inline asm.
+const ASM_PATH: &str = "src/backend/linux_raw/arch/asm";
 
 fn main() {
     // Don't rerun this on changes other than build.rs, as we only depend on
@@ -16,17 +14,16 @@ fn main() {
     // Features only used in no-std configurations.
     #[cfg(not(feature = "std"))]
     {
-        use_feature_or_nothing("const_raw_ptr_deref");
-        use_feature_or_nothing("core_ffi_c");
         use_feature_or_nothing("core_c_str");
+        use_feature_or_nothing("core_ffi_c");
         use_feature_or_nothing("alloc_c_string");
+        use_feature_or_nothing("alloc_ffi");
     }
 
     // Gather target information.
     let arch = var("CARGO_CFG_TARGET_ARCH").unwrap();
-    let vendor = var("CARGO_CFG_TARGET_VENDOR").unwrap();
-    let asm_name = format!("{}/{}.s", OUTLINE_PATH, arch);
-    let asm_name_present = std::fs::metadata(&asm_name).is_ok();
+    let inline_asm_name = format!("{}/{}.rs", ASM_PATH, arch);
+    let inline_asm_name_present = std::fs::metadata(inline_asm_name).is_ok();
     let target_os = var("CARGO_CFG_TARGET_OS").unwrap();
     let pointer_width = var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap();
     let endian = var("CARGO_CFG_TARGET_ENDIAN").unwrap();
@@ -42,12 +39,6 @@ fn main() {
     // Check for `--features=use-libc`. This allows crate users to enable the
     // libc backend.
     let feature_use_libc = var("CARGO_FEATURE_USE_LIBC").is_ok();
-
-    // Check for `--features=rustc-dep-of-std`. This is used when rustix is
-    // being used to build std, in which case `can_compile` doesn't work
-    // because `core` isn't available yet, but also, we can assume we have a
-    // recent compiler.
-    let feature_rustc_dep_of_std = var("CARGO_FEATURE_RUSTC_DEP_OF_STD").is_ok();
 
     // Check for `RUSTFLAGS=--cfg=rustix_use_libc`. This allows end users to
     // enable the libc backend even if rustix is depended on transitively.
@@ -71,9 +62,11 @@ fn main() {
     if feature_use_libc
         || cfg_use_libc
         || target_os != "linux"
-        || !asm_name_present
+        || !inline_asm_name_present
         || is_unsupported_abi
         || miri
+        || ((arch == "powerpc64" || arch == "mips" || arch == "mips64")
+            && !rustix_use_experimental_asm)
     {
         // Use the libc backend.
         use_feature("libc");
@@ -81,25 +74,8 @@ fn main() {
         // Use the linux_raw backend.
         use_feature("linux_raw");
         use_feature_or_nothing("core_intrinsics");
-
-        // Use inline asm if we have it, or outline asm otherwise. On 32-bit
-        // x86 our asm support requires naked functions. On PowerPC and MIPS,
-        // Rust's inline asm is considered experimental, so only use it if
-        // `--cfg=rustix_use_experimental_asm` is given.
-        if (feature_rustc_dep_of_std || vendor == "mustang" || can_compile("use std::arch::asm;"))
-            && (arch != "x86" || has_feature("naked_functions"))
-            && ((arch != "powerpc64" && arch != "mips" && arch != "mips64")
-                || rustix_use_experimental_asm)
-        {
-            use_feature("asm");
-            if arch == "x86" {
-                use_feature("naked_functions");
-            }
-            if rustix_use_experimental_asm {
-                use_feature("asm_experimental_arch");
-            }
-        } else {
-            link_in_librustix_outline(&arch, &asm_name);
+        if rustix_use_experimental_asm {
+            use_feature("asm_experimental_arch");
         }
     }
 
@@ -160,61 +136,6 @@ fn main() {
     println!("cargo:rerun-if-env-changed=CARGO_CFG_MIRI");
 }
 
-/// Link in the desired version of librustix_outline_{arch}.a, containing the
-/// outline assembly code for making syscalls.
-fn link_in_librustix_outline(arch: &str, asm_name: &str) {
-    let name = format!("rustix_outline_{}", arch);
-    let profile = var("PROFILE").unwrap();
-    let to = format!("{}/{}/lib{}.a", OUTLINE_PATH, profile, name);
-    println!("cargo:rerun-if-changed={}", to);
-
-    // If "cc" is not enabled, use a pre-built library.
-    #[cfg(not(feature = "cc"))]
-    {
-        let _ = asm_name;
-        println!("cargo:rustc-link-search={}/{}", OUTLINE_PATH, profile);
-        println!("cargo:rustc-link-lib=static={}", name);
-    }
-
-    // If "cc" is enabled, build the library from source, update the pre-built
-    // version, and assert that the pre-built version is checked in.
-    #[cfg(feature = "cc")]
-    {
-        let out_dir = var("OUT_DIR").unwrap();
-        // Add `-gdwarf-3` so that we always get the same output, regardless of
-        // the Rust version we're using. DWARF3 is the version used in
-        // Rust 1.48 and is entirely adequate for our simple needs here.
-        let mut build = Build::new();
-        if profile == "debug" {
-            build.flag("-gdwarf-3");
-        }
-        build.file(&asm_name);
-        build.compile(&name);
-        println!("cargo:rerun-if-changed={}", asm_name);
-        if std::fs::metadata(".git").is_ok() {
-            let from = format!("{}/lib{}.a", out_dir, name);
-            let prev_metadata = std::fs::metadata(&to);
-            std::fs::copy(&from, &to).unwrap();
-            assert!(
-                prev_metadata.is_ok(),
-                "{} didn't previously exist; please inspect the new file and `git add` it",
-                to
-            );
-            assert!(
-                std::process::Command::new("git")
-                    .arg("diff")
-                    .arg("--quiet")
-                    .arg(&to)
-                    .status()
-                    .unwrap()
-                    .success(),
-                "{} changed; please inspect the change and `git commit` it",
-                to
-            );
-        }
-    }
-}
-
 fn use_thumb_mode() -> bool {
     // In thumb mode, r7 is reserved.
     !can_compile("pub unsafe fn f() { core::arch::asm!(\"udf #16\", in(\"r7\") 0); }")
@@ -246,8 +167,8 @@ fn can_compile<T: AsRef<str>>(test: T) -> bool {
     let rustc = var("RUSTC").unwrap();
     let target = var("TARGET").unwrap();
 
-    // Use `RUSTC_WRAPPER` if it's set, unless it's set to an empty string,
-    // as documented [here].
+    // Use `RUSTC_WRAPPER` if it's set, unless it's set to an empty string, as
+    // documented [here].
     // [here]: https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-reads
     let wrapper = var("RUSTC_WRAPPER")
         .ok()

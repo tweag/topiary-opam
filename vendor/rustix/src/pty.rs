@@ -16,12 +16,14 @@ bitflags::bitflags! {
     /// `O_*` flags for use with [`openpt`] and [`ioctl_tiocgptpeer`].
     ///
     /// [`ioctl_tiocgtpeer`]: https://docs.rs/rustix/*/x86_64-unknown-linux-gnu/rustix/pty/fn.ioctl_tiocgtpeer.html
+    #[repr(transparent)]
+    #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
     pub struct OpenptFlags: u32 {
         /// `O_RDWR`
         const RDWR = c::O_RDWR as c::c_uint;
 
         /// `O_NOCTTY`
-        #[cfg(not(target_os = "redox"))]
+        #[cfg(not(any(target_os = "espidf", target_os = "l4re", target_os = "redox")))]
         const NOCTTY = c::O_NOCTTY as c::c_uint;
 
         /// `O_CLOEXEC`
@@ -36,11 +38,8 @@ bitflags::bitflags! {
 impl From<OpenptFlags> for OFlags {
     #[inline]
     fn from(flags: OpenptFlags) -> Self {
-        // SAFETY: `OpenptFlags` is a subset of `OFlags`.
-        #[allow(unsafe_code)]
-        unsafe {
-            Self::from_bits_unchecked(flags.bits() as _)
-        }
+        // `OpenptFlags` is a subset of `OFlags`.
+        Self::from_bits_retain(flags.bits() as _)
     }
 }
 
@@ -78,8 +77,8 @@ pub fn openpt(flags: OpenptFlags) -> io::Result<OwnedFd> {
     // On Linux, open the device ourselves so that we can support `CLOEXEC`.
     #[cfg(linux_kernel)]
     {
-        use crate::fs::{cwd, openat, Mode};
-        match openat(cwd(), cstr!("/dev/ptmx"), flags.into(), Mode::empty()) {
+        use crate::fs::{open, Mode};
+        match open(cstr!("/dev/ptmx"), flags.into(), Mode::empty()) {
             // Match libc `openat` behavior with `ENOSPC`.
             Err(io::Errno::NOSPC) => Err(io::Errno::AGAIN),
             otherwise => otherwise,

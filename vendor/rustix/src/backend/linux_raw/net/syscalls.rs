@@ -6,32 +6,30 @@
 #![allow(unsafe_code)]
 #![allow(clippy::undocumented_unsafe_blocks)]
 
-use super::super::c;
-use super::super::conv::{
-    by_mut, by_ref, c_int, c_uint, ret, ret_owned_fd, ret_usize, size_of, slice, slice_mut,
-    socklen_t, zero,
-};
 use super::msghdr::{
     with_noaddr_msghdr, with_recv_msghdr, with_unix_msghdr, with_v4_msghdr, with_v6_msghdr,
 };
 use super::read_sockaddr::{initialize_family_to_unspec, maybe_read_sockaddr_os, read_sockaddr_os};
 use super::send_recv::{RecvFlags, SendFlags};
-use super::types::{AddressFamily, Protocol, Shutdown, SocketFlags, SocketType};
 use super::write_sockaddr::{encode_sockaddr_v4, encode_sockaddr_v6};
+use crate::backend::c;
+use crate::backend::conv::{
+    by_mut, by_ref, c_int, c_uint, ret, ret_owned_fd, ret_usize, size_of, slice, slice_mut,
+    socklen_t, zero,
+};
 use crate::fd::{BorrowedFd, OwnedFd};
 use crate::io::{self, IoSlice, IoSliceMut};
 use crate::net::{
-    RecvAncillaryBuffer, RecvMsgReturn, SendAncillaryBuffer, SocketAddrAny, SocketAddrUnix,
-    SocketAddrV4, SocketAddrV6,
+    AddressFamily, Protocol, RecvAncillaryBuffer, RecvMsgReturn, SendAncillaryBuffer, Shutdown,
+    SocketAddrAny, SocketAddrUnix, SocketAddrV4, SocketAddrV6, SocketFlags, SocketType,
 };
 use c::{sockaddr, sockaddr_in, sockaddr_in6, socklen_t};
-use core::convert::TryInto;
 use core::mem::MaybeUninit;
 #[cfg(target_arch = "x86")]
 use {
-    super::super::conv::{slice_just_addr, x86_sys},
-    super::super::reg::{ArgReg, SocketArg},
-    linux_raw_sys::general::{
+    crate::backend::conv::{slice_just_addr, x86_sys},
+    crate::backend::reg::{ArgReg, SocketArg},
+    linux_raw_sys::net::{
         SYS_ACCEPT, SYS_ACCEPT4, SYS_BIND, SYS_CONNECT, SYS_GETPEERNAME, SYS_GETSOCKNAME,
         SYS_GETSOCKOPT, SYS_LISTEN, SYS_RECV, SYS_RECVFROM, SYS_RECVMSG, SYS_SEND, SYS_SENDMSG,
         SYS_SENDTO, SYS_SETSOCKOPT, SYS_SHUTDOWN, SYS_SOCKET, SYS_SOCKETPAIR,
@@ -42,7 +40,7 @@ use {
 pub(crate) fn socket(
     family: AddressFamily,
     type_: SocketType,
-    protocol: Protocol,
+    protocol: Option<Protocol>,
 ) -> io::Result<OwnedFd> {
     #[cfg(not(target_arch = "x86"))]
     unsafe {
@@ -67,7 +65,7 @@ pub(crate) fn socket_with(
     family: AddressFamily,
     type_: SocketType,
     flags: SocketFlags,
-    protocol: Protocol,
+    protocol: Option<Protocol>,
 ) -> io::Result<OwnedFd> {
     #[cfg(not(target_arch = "x86"))]
     unsafe {
@@ -97,7 +95,7 @@ pub(crate) fn socketpair(
     family: AddressFamily,
     type_: SocketType,
     flags: SocketFlags,
-    protocol: Protocol,
+    protocol: Option<Protocol>,
 ) -> io::Result<(OwnedFd, OwnedFd)> {
     #[cfg(not(target_arch = "x86"))]
     unsafe {
@@ -256,14 +254,8 @@ pub(crate) fn recvmsg(
 
     with_recv_msghdr(&mut storage, iov, control, |msghdr| {
         #[cfg(not(target_arch = "x86"))]
-        let result = unsafe {
-            ret_usize(syscall!(
-                __NR_recvmsg,
-                sockfd,
-                by_mut(msghdr),
-                c_uint(msg_flags.bits())
-            ))
-        };
+        let result =
+            unsafe { ret_usize(syscall!(__NR_recvmsg, sockfd, by_mut(msghdr), msg_flags)) };
 
         #[cfg(target_arch = "x86")]
         let result = unsafe {
@@ -273,7 +265,7 @@ pub(crate) fn recvmsg(
                 slice_just_addr::<ArgReg<SocketArg>, _>(&[
                     sockfd.into(),
                     by_mut(msghdr),
-                    c_uint(msg_flags.bits()).into(),
+                    msg_flags.into(),
                 ])
             ))
         };
@@ -286,14 +278,14 @@ pub(crate) fn recvmsg(
             RecvMsgReturn {
                 bytes,
                 address: addr,
-                flags: RecvFlags::from_bits_truncate(msghdr.msg_flags),
+                flags: RecvFlags::from_bits_retain(msghdr.msg_flags),
             }
         })
     })
 }
 
 #[inline]
-pub(crate) fn sendmsg_noaddr(
+pub(crate) fn sendmsg(
     sockfd: BorrowedFd<'_>,
     iov: &[IoSlice<'_>],
     control: &mut SendAncillaryBuffer<'_, '_, '_>,
@@ -301,14 +293,8 @@ pub(crate) fn sendmsg_noaddr(
 ) -> io::Result<usize> {
     with_noaddr_msghdr(iov, control, |msghdr| {
         #[cfg(not(target_arch = "x86"))]
-        let result = unsafe {
-            ret_usize(syscall!(
-                __NR_sendmsg,
-                sockfd,
-                by_ref(&msghdr),
-                c_uint(msg_flags.bits())
-            ))
-        };
+        let result =
+            unsafe { ret_usize(syscall!(__NR_sendmsg, sockfd, by_ref(&msghdr), msg_flags)) };
 
         #[cfg(target_arch = "x86")]
         let result = unsafe {
@@ -318,7 +304,7 @@ pub(crate) fn sendmsg_noaddr(
                 slice_just_addr::<ArgReg<SocketArg>, _>(&[
                     sockfd.into(),
                     by_ref(&msghdr),
-                    c_uint(msg_flags.bits())
+                    msg_flags.into()
                 ])
             ))
         };
@@ -337,14 +323,8 @@ pub(crate) fn sendmsg_v4(
 ) -> io::Result<usize> {
     with_v4_msghdr(addr, iov, control, |msghdr| {
         #[cfg(not(target_arch = "x86"))]
-        let result = unsafe {
-            ret_usize(syscall!(
-                __NR_sendmsg,
-                sockfd,
-                by_ref(&msghdr),
-                c_uint(msg_flags.bits())
-            ))
-        };
+        let result =
+            unsafe { ret_usize(syscall!(__NR_sendmsg, sockfd, by_ref(&msghdr), msg_flags)) };
 
         #[cfg(target_arch = "x86")]
         let result = unsafe {
@@ -354,7 +334,7 @@ pub(crate) fn sendmsg_v4(
                 slice_just_addr::<ArgReg<SocketArg>, _>(&[
                     sockfd.into(),
                     by_ref(&msghdr),
-                    c_uint(msg_flags.bits())
+                    msg_flags.into(),
                 ])
             ))
         };
@@ -373,14 +353,8 @@ pub(crate) fn sendmsg_v6(
 ) -> io::Result<usize> {
     with_v6_msghdr(addr, iov, control, |msghdr| {
         #[cfg(not(target_arch = "x86"))]
-        let result = unsafe {
-            ret_usize(syscall!(
-                __NR_sendmsg,
-                sockfd,
-                by_ref(&msghdr),
-                c_uint(msg_flags.bits())
-            ))
-        };
+        let result =
+            unsafe { ret_usize(syscall!(__NR_sendmsg, sockfd, by_ref(&msghdr), msg_flags)) };
 
         #[cfg(target_arch = "x86")]
         let result = unsafe {
@@ -390,7 +364,7 @@ pub(crate) fn sendmsg_v6(
                 slice_just_addr::<ArgReg<SocketArg>, _>(&[
                     sockfd.into(),
                     by_ref(&msghdr),
-                    c_uint(msg_flags.bits())
+                    msg_flags.into()
                 ])
             ))
         };
@@ -409,14 +383,8 @@ pub(crate) fn sendmsg_unix(
 ) -> io::Result<usize> {
     with_unix_msghdr(addr, iov, control, |msghdr| {
         #[cfg(not(target_arch = "x86"))]
-        let result = unsafe {
-            ret_usize(syscall!(
-                __NR_sendmsg,
-                sockfd,
-                by_ref(&msghdr),
-                c_uint(msg_flags.bits())
-            ))
-        };
+        let result =
+            unsafe { ret_usize(syscall!(__NR_sendmsg, sockfd, by_ref(&msghdr), msg_flags)) };
 
         #[cfg(target_arch = "x86")]
         let result = unsafe {
@@ -426,7 +394,7 @@ pub(crate) fn sendmsg_unix(
                 slice_just_addr::<ArgReg<SocketArg>, _>(&[
                     sockfd.into(),
                     by_ref(&msghdr),
-                    c_uint(msg_flags.bits())
+                    msg_flags.into()
                 ])
             ))
         };
@@ -950,12 +918,8 @@ pub(crate) mod sockopt {
     use crate::net::sockopt::Timeout;
     use crate::net::{Ipv4Addr, Ipv6Addr, SocketType};
     use c::{SO_RCVTIMEO_NEW, SO_RCVTIMEO_OLD, SO_SNDTIMEO_NEW, SO_SNDTIMEO_OLD};
-    use core::convert::TryInto;
     use core::time::Duration;
     use linux_raw_sys::general::{__kernel_timespec, timeval};
-
-    // TODO: With Rust 1.53 we can use `Duration::ZERO` instead.
-    const DURATION_ZERO: Duration = Duration::from_secs(0);
 
     #[inline]
     fn getsockopt<T: Copy>(fd: BorrowedFd<'_>, level: u32, optname: u32) -> io::Result<T> {
@@ -1106,12 +1070,7 @@ pub(crate) mod sockopt {
     #[inline]
     pub(crate) fn get_socket_linger(fd: BorrowedFd<'_>) -> io::Result<Option<Duration>> {
         let linger: c::linger = getsockopt(fd, c::SOL_SOCKET as _, c::SO_LINGER)?;
-        // TODO: With Rust 1.50, this could use `.then`.
-        Ok(if linger.l_onoff != 0 {
-            Some(Duration::from_secs(linger.l_linger as u64))
-        } else {
-            None
-        })
+        Ok((linger.l_onoff != 0).then(|| Duration::from_secs(linger.l_linger as u64)))
     }
 
     #[inline]
@@ -1216,7 +1175,7 @@ pub(crate) mod sockopt {
     fn duration_to_linux(timeout: Option<Duration>) -> io::Result<__kernel_timespec> {
         Ok(match timeout {
             Some(timeout) => {
-                if timeout == DURATION_ZERO {
+                if timeout == Duration::ZERO {
                     return Err(io::Errno::INVAL);
                 }
                 let mut timeout = __kernel_timespec {
@@ -1239,7 +1198,7 @@ pub(crate) mod sockopt {
     fn duration_to_linux_old(timeout: Option<Duration>) -> io::Result<timeval> {
         Ok(match timeout {
             Some(timeout) => {
-                if timeout == DURATION_ZERO {
+                if timeout == Duration::ZERO {
                     return Err(io::Errno::INVAL);
                 }
 
@@ -1482,7 +1441,7 @@ pub(crate) mod sockopt {
     #[inline]
     fn to_ipv6mr_multiaddr(multiaddr: &Ipv6Addr) -> c::in6_addr {
         c::in6_addr {
-            in6_u: linux_raw_sys::general::in6_addr__bindgen_ty_1 {
+            in6_u: linux_raw_sys::net::in6_addr__bindgen_ty_1 {
                 u6_addr8: multiaddr.octets(),
             },
         }

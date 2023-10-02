@@ -12,7 +12,7 @@
 [package]
 edition = "2018"
 name = "criterion"
-version = "0.4.0"
+version = "0.5.1"
 authors = [
     "Jorge Aparicio <japaricious@gmail.com>",
     "Brook Heisler <brookheisler@gmail.com>",
@@ -26,7 +26,7 @@ keywords = [
     "benchmark",
 ]
 categories = ["development-tools::profiling"]
-license = "Apache-2.0/MIT"
+license = "Apache-2.0 OR MIT"
 repository = "https://github.com/bheisler/criterion.rs"
 
 [package.metadata.docs.rs]
@@ -51,9 +51,6 @@ version = "0.1.4"
 version = "1.9"
 optional = true
 
-[dependencies.atty]
-version = "0.2.6"
-
 [dependencies.cast]
 version = "0.3"
 
@@ -61,7 +58,7 @@ version = "0.3"
 version = "0.2.0"
 
 [dependencies.clap]
-version = "3.1"
+version = "4"
 features = ["std"]
 default-features = false
 
@@ -77,16 +74,19 @@ version = "0.3"
 optional = true
 default_features = false
 
+[dependencies.is-terminal]
+version = "0.4.6"
+
 [dependencies.itertools]
 version = "0.10"
-
-[dependencies.lazy_static]
-version = "1.4"
 
 [dependencies.num-traits]
 version = "0.2"
 features = ["std"]
 default-features = false
+
+[dependencies.once_cell]
+version = "1.14"
 
 [dependencies.oorandom]
 version = "11.1"
@@ -152,7 +152,7 @@ default-features = false
 version = "0.8"
 
 [dev-dependencies.tempfile]
-version = "3.2.0"
+version = "~3.5.0"
 
 [features]
 async = ["futures"]

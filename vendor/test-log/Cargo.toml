@@ -12,7 +12,7 @@
 [package]
 edition = "2018"
 name = "test-log"
-version = "0.2.11"
+version = "0.2.12"
 authors = ["Daniel Mueller <deso@posteo.net>"]
 include = [
     "src/lib.rs",
@@ -58,6 +58,10 @@ features = [
     "full",
 ]
 
+[dev-dependencies._lazy_static_unused]
+version = "1.0.2"
+package = "lazy_static"
+
 [dev-dependencies.env_logger]
 version = "0.9"
 default-features = false
@@ -65,6 +69,9 @@ default-features = false
 [dev-dependencies.logging]
 version = "0.4"
 package = "log"
+
+[dev-dependencies.test-case]
+version = "3.1"
 
 [dev-dependencies.tokio]
 version = "1.0"

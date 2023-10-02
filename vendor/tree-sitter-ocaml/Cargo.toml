@@ -12,7 +12,7 @@
 [package]
 edition = "2018"
 name = "tree-sitter-ocaml"
-version = "0.20.1"
+version = "0.20.4"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 build = "bindings/rust/build.rs"
 include = [
