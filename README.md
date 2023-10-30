@@ -54,7 +54,7 @@ here for convenience:
 | Debian          | [![][debian_unstable]][rust] [![][debian_testing]][rust] [![][debian_12]][rust] [![][debian_11]][rust]
 | Fedora          | [![][fedora_rawhide]][rust] [![][fedora_38]][rust] [![][fedora_37]][rust] [![][fedora_36]][rust]
 | openSUSE        | [![][opensuse_tumbleweed]][rust] [![][opensuse_leap_15_5]][rust] [![][opensuse_leap_15_4]][rust]
-| Ubuntu          | [![][ubuntu_23_04]][rust] [![][ubuntu_22_10]][rust] [![][ubuntu_22_04]][rust]
+| Ubuntu          | [![][ubuntu_23_10]][rust] [![][ubuntu_23_04]][rust] [![][ubuntu_22_04]][rust]
 
 [alpine_edge]: https://repology.org/badge/version-for-repo/alpine_edge/rust.svg?header=Edge&minversion=1.70.0
 [alpine_3_18]: https://repology.org/badge/version-for-repo/alpine_3_18/rust.svg?header=3.18&minversion=1.70.0
@@ -80,8 +80,8 @@ here for convenience:
 [opensuse_leap_15_5]: https://repology.org/badge/version-for-repo/opensuse_leap_15_5/rust.svg?header=Leap%2015.5&minversion=1.70.0
 [opensuse_leap_15_4]: https://repology.org/badge/version-for-repo/opensuse_leap_15_4/rust.svg?header=Leap%2015.4&minversion=1.70.0
 
+[ubuntu_23_10]: https://repology.org/badge/version-for-repo/ubuntu_23_10/rust.svg?header=23.10&minversion=1.70.0
 [ubuntu_23_04]: https://repology.org/badge/version-for-repo/ubuntu_23_04/rust.svg?header=23.04&minversion=1.70.0
-[ubuntu_22_10]: https://repology.org/badge/version-for-repo/ubuntu_22_10/rust.svg?header=22.10&minversion=1.70.0
 [ubuntu_22_04]: https://repology.org/badge/version-for-repo/ubuntu_22_04/rust.svg?header=22.04&minversion=1.70.0
 
 [rust]: https://repology.org/project/rust/versions
