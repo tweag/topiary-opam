@@ -3,10 +3,10 @@ set -euC
 
 usage () {
     cat <<EOF
-Usage: $0 --language-dir DIR --output-file FILE --topiary-wrapped FILE
+Usage: $0 --queries-dir DIR --output-file FILE --topiary-wrapped FILE
 
   --help                     Show this help and quit
-  --language-dir DIR         Where the language files are installed
+  --queries-dir DIR          Where the queries files are installed
   --output-file FILE         Where to put the generated wrapper
   --topiary-wrapped FILE     Where the wrapped Topiary binary is installed
 EOF
@@ -19,7 +19,7 @@ die () {
     exit 2
 }
 
-language_dir=
+queries_dir=
 output_file=
 topiary_wrapped=
 
@@ -28,8 +28,8 @@ while [ $# -gt 0 ]; do
     shift
 
     case $arg in
-        --language-dir)
-            language_dir=$1
+        --queries-dir)
+            queries_dir=$1
             shift
             ;;
 
@@ -53,11 +53,11 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-[ -z "$language_dir" ] && die 'Error: You need to specify --language-dir.\n'
+[ -z "$queries_dir" ] && die 'Error: You need to specify --queries-dir.\n'
 [ -z "$output_file" ] && die 'Error: You need to specify --output-file.\n'
 [ -z "$topiary_wrapped" ] && die 'Error: You need to specify --topiary-wrapped.\n'
 
-[ "${language_dir% *}" != "$language_dir" ] && die 'Error: --language-dir cannot contain spaces.\n'
+[ "${queries_dir% *}" != "$queries_dir" ] && die 'Error: --queries-dir cannot contain spaces.\n'
 [ "${topiary_wrapped% *}" != "$topiary_wrapped" ] && die 'Error: --topiary-wrapped cannot contain spaces.\n'
 
 cat > "$output_file" <<EOF
@@ -65,8 +65,8 @@ cat > "$output_file" <<EOF
 set -euC
 
 ## If \$TOPIARY_LANGUAGE_DIR is set, then keep it (even if it is null). If it is
-## unset, default to $language_dir.
-export TOPIARY_LANGUAGE_DIR=\${TOPIARY_LANGUAGE_DIR-$language_dir}
+## unset, default to $queries_dir.
+export TOPIARY_LANGUAGE_DIR=\${TOPIARY_LANGUAGE_DIR-$queries_dir}
 
 exec $topiary_wrapped "\$@"
 EOF
