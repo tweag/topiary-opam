@@ -1,6 +1,7 @@
 [workspace]
 members = ["topiary/topiary-cli"]
 exclude = ["topiary/samples"]
+resolver = "2"
 
 ################################################################################
 ## Everything below this point is copied from `topiary/Cargo.toml`.
