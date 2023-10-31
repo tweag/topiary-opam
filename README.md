@@ -187,11 +187,14 @@ How to update
 
 - Commit this update:
   ```console
-  $ git add Cargo.toml Cargo.lock vendor/ .cargo/
+  $ git add Cargo.toml Cargo.lock .cargo/
+  $ git add --force vendor/
   $ git commit -m 'Update Cargo dependencies'
   [main 95d67dc] Update Cargo dependencies
    8 files changed, 125 insertions(+), 57 deletions(-)
   ```
+  Note that we use `--force` when adding `vendor/` because we otherwise risk
+  ignoring files due to `.gitignore` which Cargo will still expect.
 
 - Adapt the OPAM package or the other files if necessary and commit the changes.
 
