@@ -10,9 +10,9 @@
 # See Cargo.toml.orig for the original contents.
 
 [package]
-edition = "2018"
+edition = "2021"
 name = "tree-sitter-rust"
-version = "0.20.3"
+version = "0.20.4"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 build = "bindings/rust/build.rs"
 include = [
@@ -22,7 +22,7 @@ include = [
     "src/*",
 ]
 autoexamples = false
-description = "Rust grammar for the tree-sitter parsing library"
+description = "Rust grammar for tree-sitter"
 readme = "bindings/rust/README.md"
 keywords = [
     "incremental",
@@ -39,8 +39,8 @@ repository = "https://github.com/tree-sitter/tree-sitter-rust"
 [lib]
 path = "bindings/rust/lib.rs"
 
-[dependencies.tree-sitter]
-version = ">= 0.20"
+[dependencies]
+tree-sitter = "~0.20.10"
 
-[build-dependencies.cc]
-version = "1.0"
+[build-dependencies]
+cc = "~1.0.82"

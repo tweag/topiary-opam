@@ -1,3 +1,10 @@
+0.2.12
+------
+- Fixed handling of inner `#[test]` attributes that add arguments to
+  test function
+- Added GitHub Actions workflow for publishing the crate
+
+
 0.2.11
 ------
 - Fixed potential build failure due to unhygienic procedural macros
@@ -25,7 +32,7 @@
 -----
 - Changed `tracing` behavior to capture output and only emit it on test
   failure or when explicitly requested
-- Bumped minimum `tracing-subscriber` version to 0.2.17
+- Bumped minimum `tracing-subscriber` version to `0.2.17`
 
 
 0.2.6

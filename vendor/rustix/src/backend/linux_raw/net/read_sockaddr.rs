@@ -2,7 +2,7 @@
 //! we can interpret the rest of a `sockaddr` produced by the kernel.
 #![allow(unsafe_code)]
 
-use super::super::c;
+use crate::backend::c;
 use crate::io;
 use crate::net::{Ipv4Addr, Ipv6Addr, SocketAddrAny, SocketAddrUnix, SocketAddrV4, SocketAddrV6};
 use core::mem::size_of;
@@ -23,9 +23,9 @@ unsafe fn read_ss_family(storage: *const c::sockaddr) -> u16 {
     // Assert that we know the layout of `sockaddr`.
     let _ = c::sockaddr {
         __storage: c::sockaddr_storage {
-            __bindgen_anon_1: linux_raw_sys::general::__kernel_sockaddr_storage__bindgen_ty_1 {
+            __bindgen_anon_1: linux_raw_sys::net::__kernel_sockaddr_storage__bindgen_ty_1 {
                 __bindgen_anon_1:
-                    linux_raw_sys::general::__kernel_sockaddr_storage__bindgen_ty_1__bindgen_ty_1 {
+                    linux_raw_sys::net::__kernel_sockaddr_storage__bindgen_ty_1__bindgen_ty_1 {
                         ss_family: 0_u16,
                         __data: [0; 126_usize],
                     },
@@ -62,7 +62,7 @@ pub(crate) unsafe fn read_sockaddr(
             if len < size_of::<c::sockaddr_in>() {
                 return Err(io::Errno::INVAL);
             }
-            let decode = *storage.cast::<c::sockaddr_in>();
+            let decode = &*storage.cast::<c::sockaddr_in>();
             Ok(SocketAddrAny::V4(SocketAddrV4::new(
                 Ipv4Addr::from(u32::from_be(decode.sin_addr.s_addr)),
                 u16::from_be(decode.sin_port),
@@ -72,7 +72,7 @@ pub(crate) unsafe fn read_sockaddr(
             if len < size_of::<c::sockaddr_in6>() {
                 return Err(io::Errno::INVAL);
             }
-            let decode = *storage.cast::<c::sockaddr_in6>();
+            let decode = &*storage.cast::<c::sockaddr_in6>();
             Ok(SocketAddrAny::V6(SocketAddrV6::new(
                 Ipv6Addr::from(decode.sin6_addr.in6_u.u6_addr8),
                 u16::from_be(decode.sin6_port),
@@ -87,12 +87,11 @@ pub(crate) unsafe fn read_sockaddr(
             if len == offsetof_sun_path {
                 Ok(SocketAddrAny::Unix(SocketAddrUnix::new(&[][..])?))
             } else {
-                let decode = *storage.cast::<c::sockaddr_un>();
+                let decode = &*storage.cast::<c::sockaddr_un>();
 
                 // On Linux check for Linux's [abstract namespace].
                 //
                 // [abstract namespace]: https://man7.org/linux/man-pages/man7/unix.7.html
-                #[cfg(linux_kernel)]
                 if decode.sun_path[0] == 0 {
                     return SocketAddrUnix::new_abstract_name(
                         &decode.sun_path[1..len - offsetof_sun_path],
@@ -139,7 +138,7 @@ pub(crate) unsafe fn read_sockaddr_os(storage: *const c::sockaddr, len: usize) -
     match read_ss_family(storage).into() {
         c::AF_INET => {
             assert!(len >= size_of::<c::sockaddr_in>());
-            let decode = *storage.cast::<c::sockaddr_in>();
+            let decode = &*storage.cast::<c::sockaddr_in>();
             SocketAddrAny::V4(SocketAddrV4::new(
                 Ipv4Addr::from(u32::from_be(decode.sin_addr.s_addr)),
                 u16::from_be(decode.sin_port),
@@ -147,7 +146,7 @@ pub(crate) unsafe fn read_sockaddr_os(storage: *const c::sockaddr, len: usize) -
         }
         c::AF_INET6 => {
             assert!(len >= size_of::<c::sockaddr_in6>());
-            let decode = *storage.cast::<c::sockaddr_in6>();
+            let decode = &*storage.cast::<c::sockaddr_in6>();
             SocketAddrAny::V6(SocketAddrV6::new(
                 Ipv6Addr::from(decode.sin6_addr.in6_u.u6_addr8),
                 u16::from_be(decode.sin6_port),
@@ -160,12 +159,11 @@ pub(crate) unsafe fn read_sockaddr_os(storage: *const c::sockaddr, len: usize) -
             if len == offsetof_sun_path {
                 SocketAddrAny::Unix(SocketAddrUnix::new(&[][..]).unwrap())
             } else {
-                let decode = *storage.cast::<c::sockaddr_un>();
+                let decode = &*storage.cast::<c::sockaddr_un>();
 
                 // On Linux check for Linux's [abstract namespace].
                 //
                 // [abstract namespace]: https://man7.org/linux/man-pages/man7/unix.7.html
-                #[cfg(linux_kernel)]
                 if decode.sun_path[0] == 0 {
                     return SocketAddrAny::Unix(
                         SocketAddrUnix::new_abstract_name(

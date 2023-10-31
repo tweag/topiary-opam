@@ -13,7 +13,7 @@
 edition = "2021"
 rust-version = "1.64.0"
 name = "serde_spanned"
-version = "0.6.2"
+version = "0.6.3"
 include = [
     "build.rs",
     "src/**/*",
@@ -27,7 +27,6 @@ include = [
 ]
 description = "Serde-compatible spanned Value"
 homepage = "https://github.com/toml-rs/toml"
-documentation = "https://docs.rs/serde_spanned"
 readme = "README.md"
 keywords = [
     "serde",

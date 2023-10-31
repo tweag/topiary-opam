@@ -6,11 +6,10 @@
 //! to be NUL-terminated.
 #![allow(unsafe_code)]
 
-use super::super::c;
+use crate::backend::c;
 use crate::ffi::CStr;
 use crate::{io, path};
 use core::cmp::Ordering;
-use core::convert::TryInto;
 use core::fmt;
 use core::hash::{Hash, Hasher};
 

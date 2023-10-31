@@ -13,7 +13,7 @@
 edition = "2021"
 rust-version = "1.64.0"
 name = "clap_builder"
-version = "4.3.3"
+version = "4.3.21"
 include = [
     "build.rs",
     "src/**/*",
@@ -69,9 +69,6 @@ version = "1.0.0"
 version = "0.3.67"
 optional = true
 
-[dependencies.bitflags]
-version = "1.2.0"
-
 [dependencies.clap_lex]
 version = "0.5.0"
 
@@ -102,7 +99,7 @@ version = "0.3.4"
 version = "2.1.0"
 
 [dev-dependencies.rustversion]
-version = "1.0.12"
+version = "1.0.14"
 
 [dev-dependencies.shlex]
 version = "1.1.0"
@@ -114,7 +111,7 @@ version = "0.4.11"
 version = "1.1.0"
 
 [dev-dependencies.trybuild]
-version = "1.0.80"
+version = "1.0.82"
 
 [dev-dependencies.trycmd]
 version = "0.14.16"

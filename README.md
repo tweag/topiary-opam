@@ -40,7 +40,7 @@ Availability
 ------------
 
 The compilation of Topiary depends on the presence of Rust on the system in a
-recent enough version. Currently, Rust 1.65.0 is required. [Our continuous
+recent enough version. Currently, Rust 1.70.0 is required. [Our continuous
 integration] keeps track of several distributions whose Rust version is listed
 here for convenience:
 
@@ -54,35 +54,35 @@ here for convenience:
 | Debian          | [![][debian_unstable]][rust] [![][debian_testing]][rust] [![][debian_12]][rust] [![][debian_11]][rust]
 | Fedora          | [![][fedora_rawhide]][rust] [![][fedora_38]][rust] [![][fedora_37]][rust] [![][fedora_36]][rust]
 | openSUSE        | [![][opensuse_tumbleweed]][rust] [![][opensuse_leap_15_5]][rust] [![][opensuse_leap_15_4]][rust]
-| Ubuntu          | [![][ubuntu_23_04]][rust] [![][ubuntu_22_10]][rust] [![][ubuntu_22_04]][rust]
+| Ubuntu          | [![][ubuntu_23_10]][rust] [![][ubuntu_23_04]][rust] [![][ubuntu_22_04]][rust]
 
-[alpine_edge]: https://repology.org/badge/version-for-repo/alpine_edge/rust.svg?header=Edge&minversion=1.65.0
-[alpine_3_18]: https://repology.org/badge/version-for-repo/alpine_3_18/rust.svg?header=3.18&minversion=1.65.0
-[alpine_3_17]: https://repology.org/badge/version-for-repo/alpine_3_17/rust.svg?header=3.17&minversion=1.65.0
-[alpine_3_16]: https://repology.org/badge/version-for-repo/alpine_3_16/rust.svg?header=3.16&minversion=1.65.0
+[alpine_edge]: https://repology.org/badge/version-for-repo/alpine_edge/rust.svg?header=Edge&minversion=1.70.0
+[alpine_3_18]: https://repology.org/badge/version-for-repo/alpine_3_18/rust.svg?header=3.18&minversion=1.70.0
+[alpine_3_17]: https://repology.org/badge/version-for-repo/alpine_3_17/rust.svg?header=3.17&minversion=1.70.0
+[alpine_3_16]: https://repology.org/badge/version-for-repo/alpine_3_16/rust.svg?header=3.16&minversion=1.70.0
 
-[arch]: https://repology.org/badge/version-for-repo/arch/rust.svg?header=&minversion=1.65.0
+[arch]: https://repology.org/badge/version-for-repo/arch/rust.svg?header=&minversion=1.70.0
 
-[centos_stream_8]: https://repology.org/badge/version-for-repo/centos_stream_8/rust.svg?header=Stream%208&minversion=1.65.0
-[centos_stream_9]: https://repology.org/badge/version-for-repo/centos_stream_9/rust.svg?header=Stream%209&minversion=1.65.0
+[centos_stream_8]: https://repology.org/badge/version-for-repo/centos_stream_8/rust.svg?header=Stream%208&minversion=1.70.0
+[centos_stream_9]: https://repology.org/badge/version-for-repo/centos_stream_9/rust.svg?header=Stream%209&minversion=1.70.0
 
-[debian_11]: https://repology.org/badge/version-for-repo/debian_11/rust.svg?header=11&minversion=1.65.0
-[debian_12]: https://repology.org/badge/version-for-repo/debian_12/rust.svg?header=12&minversion=1.65.0
-[debian_testing]: https://repology.org/badge/version-for-repo/debian_13/rust.svg?header=Testing&minversion=1.65.0
-[debian_unstable]: https://repology.org/badge/version-for-repo/debian_unstable/rust.svg?header=Unstable&minversion=1.65.0
+[debian_11]: https://repology.org/badge/version-for-repo/debian_11/rust.svg?header=11&minversion=1.70.0
+[debian_12]: https://repology.org/badge/version-for-repo/debian_12/rust.svg?header=12&minversion=1.70.0
+[debian_testing]: https://repology.org/badge/version-for-repo/debian_13/rust.svg?header=Testing&minversion=1.70.0
+[debian_unstable]: https://repology.org/badge/version-for-repo/debian_unstable/rust.svg?header=Unstable&minversion=1.70.0
 
-[fedora_rawhide]: https://repology.org/badge/version-for-repo/fedora_rawhide/rust.svg?header=Rawhide&minversion=1.65.0
-[fedora_38]: https://repology.org/badge/version-for-repo/fedora_38/rust.svg?header=38&minversion=1.65.0
-[fedora_37]: https://repology.org/badge/version-for-repo/fedora_37/rust.svg?header=37&minversion=1.65.0
-[fedora_36]: https://repology.org/badge/version-for-repo/fedora_36/rust.svg?header=36&minversion=1.65.0
+[fedora_rawhide]: https://repology.org/badge/version-for-repo/fedora_rawhide/rust.svg?header=Rawhide&minversion=1.70.0
+[fedora_38]: https://repology.org/badge/version-for-repo/fedora_38/rust.svg?header=38&minversion=1.70.0
+[fedora_37]: https://repology.org/badge/version-for-repo/fedora_37/rust.svg?header=37&minversion=1.70.0
+[fedora_36]: https://repology.org/badge/version-for-repo/fedora_36/rust.svg?header=36&minversion=1.70.0
 
-[opensuse_tumbleweed]: https://repology.org/badge/version-for-repo/opensuse_tumbleweed/rust.svg?header=Tumbleweed&minversion=1.65.0
-[opensuse_leap_15_5]: https://repology.org/badge/version-for-repo/opensuse_leap_15_5/rust.svg?header=Leap%2015.5&minversion=1.65.0
-[opensuse_leap_15_4]: https://repology.org/badge/version-for-repo/opensuse_leap_15_4/rust.svg?header=Leap%2015.4&minversion=1.65.0
+[opensuse_tumbleweed]: https://repology.org/badge/version-for-repo/opensuse_tumbleweed/rust.svg?header=Tumbleweed&minversion=1.70.0
+[opensuse_leap_15_5]: https://repology.org/badge/version-for-repo/opensuse_leap_15_5/rust.svg?header=Leap%2015.5&minversion=1.70.0
+[opensuse_leap_15_4]: https://repology.org/badge/version-for-repo/opensuse_leap_15_4/rust.svg?header=Leap%2015.4&minversion=1.70.0
 
-[ubuntu_23_04]: https://repology.org/badge/version-for-repo/ubuntu_23_04/rust.svg?header=23.04&minversion=1.65.0
-[ubuntu_22_10]: https://repology.org/badge/version-for-repo/ubuntu_22_10/rust.svg?header=22.10&minversion=1.65.0
-[ubuntu_22_04]: https://repology.org/badge/version-for-repo/ubuntu_22_04/rust.svg?header=22.04&minversion=1.65.0
+[ubuntu_23_10]: https://repology.org/badge/version-for-repo/ubuntu_23_10/rust.svg?header=23.10&minversion=1.70.0
+[ubuntu_23_04]: https://repology.org/badge/version-for-repo/ubuntu_23_04/rust.svg?header=23.04&minversion=1.70.0
+[ubuntu_22_04]: https://repology.org/badge/version-for-repo/ubuntu_22_04/rust.svg?header=22.04&minversion=1.70.0
 
 [rust]: https://repology.org/project/rust/versions
 
@@ -113,6 +113,66 @@ This repository is made of the following building blocks:
 
 [topiary-github]: https://github.com/tweag/topiary
 [git submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
+
+How to develop
+--------------
+
+Make sure you have Rust and Cargo. This repository comes with a Nix flake, so
+simply running:
+
+```console
+$ nix develop
+```
+
+should provide you with everything you need. Alternatively, on a `Nix` machine,
+you can use:
+
+```console
+$ nix shell nixpkgs#{cargo,rustc}
+```
+
+Use OPAM's pinning mechanism to inform it of the development version of Topiary.
+
+```console
+$ opam pin add --no-action topiary.dev /path/to/this/repository
+[topiary.dev] synchronised (file:///path/to/this/repository)
+topiary is now pinned to git+file:///path/to/this/repository#branch-name (version dev)
+```
+
+From the root of this repository, `.` suffices; OPAM will make an absolute link
+out of this. After this, you can simply rely on OPAM's usual commands and you
+will get access to a new version of Topiary, `dev`:
+
+```console
+$ opam show topiary
+
+<><> topiary: information on all versions <><><><><><><><><><><><><><><><><><><>
+name         topiary
+all-versions 0.1.0  0.2.0  0.2.1  0.2.2  0.2.3  dev
+
+<><> Version-specific details <><><><><><><><><><><><><><><><><><><><><><><><><>
+version     dev
+pin         git+file:///path/to/this/repository#branch-name
+[...]
+
+$ opam install topiary
+
+<><> Synchronising pinned packages ><><><><><><><><><><><><><><><><><><><><><><>
+[topiary.dev] synchronised (git+file:///path/to/this/repository#branch-name)
+
+The following actions will be performed:
+  ∗ install topiary dev*
+
+<><> Processing actions <><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+⬇ retrieved topiary.dev  (no changes)
+∗ installed topiary.dev
+Done.
+```
+
+If your working directory is not clean, you might want to add `--working-dir`
+(or `-w` for short) to your commands; otherwise, OPAM only picks up on the Git
+index and not the work tree. Be careful, though, as this might hide some subtle
+bugs due to some files not being committed.
 
 How to update
 -------------
@@ -187,11 +247,14 @@ How to update
 
 - Commit this update:
   ```console
-  $ git add Cargo.toml Cargo.lock vendor/ .cargo/
+  $ git add Cargo.toml Cargo.lock .cargo/
+  $ git add --force vendor/
   $ git commit -m 'Update Cargo dependencies'
   [main 95d67dc] Update Cargo dependencies
    8 files changed, 125 insertions(+), 57 deletions(-)
   ```
+  Note that we use `--force` when adding `vendor/` because we otherwise risk
+  ignoring files due to `.gitignore` which Cargo will still expect.
 
 - Adapt the OPAM package or the other files if necessary and commit the changes.
 

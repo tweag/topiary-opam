@@ -13,7 +13,7 @@
 edition = "2021"
 rust-version = "1.64.0"
 name = "toml"
-version = "0.7.4"
+version = "0.7.6"
 authors = ["Alex Crichton <alex@alexcrichton.com>"]
 include = [
     "build.rs",
@@ -32,7 +32,6 @@ implementations of the standard Serialize/Deserialize traits for TOML data to
 facilitate deserializing and serializing Rust structures.
 """
 homepage = "https://github.com/toml-rs/toml"
-documentation = "https://docs.rs/toml"
 readme = "README.md"
 keywords = [
     "encoding",
@@ -118,22 +117,22 @@ name = "encoder_compliance"
 harness = false
 
 [dependencies.indexmap]
-version = "1.9.1"
+version = "2.0.0"
 optional = true
 
 [dependencies.serde]
 version = "1.0.145"
 
 [dependencies.serde_spanned]
-version = "0.6.2"
+version = "0.6.3"
 features = ["serde"]
 
 [dependencies.toml_datetime]
-version = "0.6.2"
+version = "0.6.3"
 features = ["serde"]
 
 [dependencies.toml_edit]
-version = "0.19.9"
+version = "0.19.12"
 features = ["serde"]
 optional = true
 

@@ -13,7 +13,7 @@
 edition = "2021"
 rust-version = "1.64.0"
 name = "toml_edit"
-version = "0.19.10"
+version = "0.19.14"
 authors = [
     "Andronik Ordian <write@reusable.software>",
     "Ed Page <eopage@gmail.com>",
@@ -30,7 +30,6 @@ include = [
     "tests/**/*",
 ]
 description = "Yet another format-preserving TOML parser."
-documentation = "https://docs.rs/toml_edit"
 readme = "README.md"
 keywords = [
     "encoding",
@@ -107,7 +106,7 @@ name = "invalid"
 harness = false
 
 [dependencies.indexmap]
-version = "1.9.1"
+version = "2.0.0"
 features = ["std"]
 
 [dependencies.kstring]
@@ -120,15 +119,15 @@ version = "1.0.145"
 optional = true
 
 [dependencies.serde_spanned]
-version = "0.6.2"
+version = "0.6.3"
 features = ["serde"]
 optional = true
 
 [dependencies.toml_datetime]
-version = "0.6.2"
+version = "0.6.3"
 
 [dependencies.winnow]
-version = "0.4.6"
+version = "0.5.0"
 
 [dev-dependencies.libtest-mimic]
 version = "0.6.0"

@@ -6,19 +6,17 @@
 #![allow(unsafe_code)]
 #![allow(clippy::undocumented_unsafe_blocks)]
 
-use super::super::c;
-use super::super::conv::{by_ref, c_uint, ret, ret_owned_fd};
+use crate::backend::c;
+use crate::backend::conv::{by_ref, c_uint, ret, ret_owned_fd};
 use crate::fd::{BorrowedFd, OwnedFd};
 use crate::ffi::CString;
 use crate::io;
 use crate::path::DecInt;
 use crate::pty::OpenptFlags;
-#[cfg(any(apple, freebsdlike, linux_like, target_os = "fuchsia"))]
 use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 use linux_raw_sys::ioctl::{TIOCGPTN, TIOCGPTPEER, TIOCSPTLCK};
 
-#[cfg(any(apple, freebsdlike, linux_like, target_os = "fuchsia"))]
 #[inline]
 pub(crate) fn ptsname(fd: BorrowedFd, mut buffer: Vec<u8>) -> io::Result<CString> {
     unsafe {
@@ -28,9 +26,8 @@ pub(crate) fn ptsname(fd: BorrowedFd, mut buffer: Vec<u8>) -> io::Result<CString
         buffer.clear();
         buffer.extend_from_slice(b"/dev/pts/");
         buffer.extend_from_slice(DecInt::new(n.assume_init()).as_bytes());
-        // With Rust 1.58 we can append a '\0' ourselves and use
-        // `from_vec_with_nul_unchecked`.
-        Ok(CString::from_vec_unchecked(buffer))
+        buffer.push(b'\0');
+        Ok(CString::from_vec_with_nul_unchecked(buffer))
     }
 }
 
@@ -54,7 +51,7 @@ pub(crate) fn ioctl_tiocgptpeer(fd: BorrowedFd, flags: OpenptFlags) -> io::Resul
             __NR_ioctl,
             fd,
             c_uint(TIOCGPTPEER),
-            c_uint(flags.bits())
+            flags
         ))
     }
 }

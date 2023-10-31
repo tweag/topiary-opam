@@ -15,7 +15,7 @@ build:[
       "--release"
       "--package" "topiary-cli" ]
   [ "sh" "make-topiary-wrapper.sh"
-      "--language-dir" "%{share}%/topiary/languages"
+      "--queries-dir" "%{share}%/topiary/queries"
       "--topiary-wrapped" "%{bin}%/.topiary-wrapped/topiary"
       "--output-file" "topiary-wrapper" ]
 ]
@@ -25,7 +25,7 @@ install: [
   [ "cp" "target/release/topiary" "%{bin}%/.topiary-wrapped/topiary" ]
   [ "cp" "topiary-wrapper" "%{bin}%/topiary" ]
   [ "mkdir" "%{share}%/topiary" ]
-  [ "cp" "-R" "topiary/languages" "%{share}%/topiary/languages" ]
+  [ "cp" "-R" "topiary/topiary-queries/queries" "%{share}%/topiary/queries" ]
 ]
 
 synopsis: "A formatter for OCaml based on the Topiary universal formatting engine"

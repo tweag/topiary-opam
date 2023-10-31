@@ -1,7 +1,10 @@
-use super::super::c;
+//! The BSD sockets API requires us to read the `ss_family` field before
+//! we can interpret the rest of a `sockaddr` produced by the kernel.
+
 #[cfg(unix)]
 use super::addr::SocketAddrUnix;
 use super::ext::{in6_addr_s6_addr, in_addr_s_addr, sockaddr_in6_sin6_scope_id};
+use crate::backend::c;
 #[cfg(not(windows))]
 use crate::ffi::CStr;
 use crate::io;
@@ -23,11 +26,11 @@ struct sockaddr_header {
 unsafe fn read_ss_family(storage: *const c::sockaddr_storage) -> u16 {
     // Assert that we know the layout of `sockaddr`.
     let _ = c::sockaddr {
-        #[cfg(any(bsd, target_os = "haiku"))]
+        #[cfg(any(bsd, target_os = "espidf", target_os = "haiku", target_os = "nto"))]
         sa_len: 0_u8,
-        #[cfg(any(bsd, target_os = "haiku"))]
+        #[cfg(any(bsd, target_os = "espidf", target_os = "haiku", target_os = "nto"))]
         sa_family: 0_u8,
-        #[cfg(not(any(bsd, target_os = "haiku")))]
+        #[cfg(not(any(bsd, target_os = "espidf", target_os = "haiku", target_os = "nto")))]
         sa_family: 0_u16,
         #[cfg(not(target_os = "haiku"))]
         sa_data: [0; 14],
@@ -44,6 +47,11 @@ pub(crate) unsafe fn initialize_family_to_unspec(storage: *mut c::sockaddr_stora
     (*storage.cast::<sockaddr_header>()).ss_family = c::AF_UNSPEC as _;
 }
 
+/// Read a socket address encoded in a platform-specific format.
+///
+/// # Safety
+///
+/// `storage` must point to valid socket address storage.
 pub(crate) unsafe fn read_sockaddr(
     storage: *const c::sockaddr_storage,
     len: usize,
