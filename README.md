@@ -264,7 +264,7 @@ How to update
 - Add a tag mimmicking that of Topiary (eg. `v0.1.0` for Topiary's `v0.1.0`).
 
 - Create an archive containing all the content of this repository at that tag:
-  ```
+  ```console
   $ git-archive-all source-code-with-submodules.tar.xz
   ```
   This will be necessary to provide a downloadable archive that contains the
@@ -274,7 +274,7 @@ How to update
   Topiary. Attach the archive.
 
 - Compute the MD5 and SHA512 sums of the archive in question:
-  ```
+  ```console
   $ md5sum source-code-with-submodules.tar.xz
   cd825a17db25cb94fd876eef055090e4  source-code-with-submodules.tar.xz
   $ sha512sum source-code-with-submodules.tar.xz
