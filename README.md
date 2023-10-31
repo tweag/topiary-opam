@@ -114,6 +114,66 @@ This repository is made of the following building blocks:
 [topiary-github]: https://github.com/tweag/topiary
 [git submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
 
+How to develop
+--------------
+
+Make sure you have Rust and Cargo. This repository comes with a Nix flake, so
+simply running:
+
+```console
+$ nix develop
+```
+
+should provide you with everything you need. Alternatively, on a `Nix` machine,
+you can use:
+
+```console
+$ nix shell nixpkgs#{cargo,rustc}
+```
+
+Use OPAM's pinning mechanism to inform it of the development version of Topiary.
+
+```console
+$ opam pin add --no-action topiary.dev /path/to/this/repository
+[topiary.dev] synchronised (file:///path/to/this/repository)
+topiary is now pinned to git+file:///path/to/this/repository#branch-name (version dev)
+```
+
+From the root of this repository, `.` suffices; OPAM will make an absolute link
+out of this. After this, you can simply rely on OPAM's usual commands and you
+will get access to a new version of Topiary, `dev`:
+
+```console
+$ opam show topiary
+
+<><> topiary: information on all versions <><><><><><><><><><><><><><><><><><><>
+name         topiary
+all-versions 0.1.0  0.2.0  0.2.1  0.2.2  0.2.3  dev
+
+<><> Version-specific details <><><><><><><><><><><><><><><><><><><><><><><><><>
+version     dev
+pin         git+file:///path/to/this/repository#branch-name
+[...]
+
+$ opam install topiary
+
+<><> Synchronising pinned packages ><><><><><><><><><><><><><><><><><><><><><><>
+[topiary.dev] synchronised (git+file:///path/to/this/repository#branch-name)
+
+The following actions will be performed:
+  ∗ install topiary dev*
+
+<><> Processing actions <><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+⬇ retrieved topiary.dev  (no changes)
+∗ installed topiary.dev
+Done.
+```
+
+If your working directory is not clean, you might want to add `--working-dir`
+(or `-w` for short) to your commands; otherwise, OPAM only picks up on the Git
+index and not the work tree. Be careful, though, as this might hide some subtle
+bugs due to some files not being committed.
+
 How to update
 -------------
 
