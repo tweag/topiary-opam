@@ -127,7 +127,7 @@ jobs:
           - {tag: opensuse,        ef: expected-failure}
           - {tag: opensuse-tumbleweed}
           - {tag: ubuntu}
-          - {tag: ubuntu-lts,      ef: expected-failure}
+          - {tag: ubuntu-lts}
 
     runs-on: ubuntu-latest
 
