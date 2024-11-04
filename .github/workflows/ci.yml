@@ -107,7 +107,7 @@ jobs:
         uses: ./.github/actions/run-tests
         with:
           topiary: opam exec -- topiary
-          samples: topiary/topiary/tests/samples
+          samples: topiary/topiary-cli/tests/samples
 
   docker-based:
     name: docker-based
@@ -161,7 +161,7 @@ jobs:
         uses: ./.github/actions/run-tests
         with:
           topiary: docker run --interactive topiary
-          samples: topiary/topiary/tests/samples
+          samples: topiary/topiary-cli/tests/samples
 
   flake-checks:
     name: flake-checks
