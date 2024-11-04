@@ -20,7 +20,7 @@
         formatter = pkgs.nixfmt;
 
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [ cargo git-archive-all ];
+          buildInputs = with pkgs; [ cargo rustc git-archive-all ];
           shellHook = config.pre-commit.installationScript;
         };
 
