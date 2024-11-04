@@ -58,7 +58,6 @@ jobs:
       matrix:
         include:
           - {os: ubuntu}
-          - {os: windows, ef: expected-failure}
           - {os: macos}
 
     runs-on: ${{ matrix.os }}-latest
@@ -93,7 +92,7 @@ jobs:
           printf 'Topiary is: '
           opam exec -- sh -c 'command -v topiary'
           printf 'in version: '
-          opam exec -- topiary --version
+          opam exec -- sh -c 'topiary --version'
           echo '::endgroup::'
 
       - name: Check the outcome of the build
