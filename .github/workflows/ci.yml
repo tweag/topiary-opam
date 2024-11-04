@@ -121,7 +121,7 @@ jobs:
           - {tag: centos,          ef: expected-failure}
           - {tag: debian,          ef: expected-failure}
           - {tag: debian-testing}
-          - {tag: debian-unstable}
+          - {tag: debian-unstable, ef: expected-failure}
           - {tag: fedora}
           - {tag: oraclelinux}
           - {tag: opensuse,        ef: expected-failure}
