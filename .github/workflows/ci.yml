@@ -123,7 +123,7 @@ jobs:
           - {tag: debian-unstable, ef: expected-failure}
           - {tag: fedora}
           - {tag: oraclelinux}
-          - {tag: opensuse,        ef: expected-failure}
+          - {tag: opensuse}
           - {tag: opensuse-tumbleweed}
           - {tag: ubuntu}
           - {tag: ubuntu-lts}
