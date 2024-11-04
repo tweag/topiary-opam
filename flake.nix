@@ -25,8 +25,14 @@
         };
 
         pre-commit.settings.hooks = {
-          nixfmt.enable = true;
-          deadnix.enable = true;
+          nixfmt = {
+            enable = true;
+            excludes = [ "vendor/.*" ];
+          };
+          deadnix = {
+            enable = true;
+            excludes = [ "vendor/.*" ];
+          };
           opam-lint.enable = true;
         };
       };
