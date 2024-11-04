@@ -219,6 +219,8 @@ impl<'de> serde::Deserializer<'de> for Value {
             Value::Number(n) => n.deserialize_any(visitor),
             #[cfg(any(feature = "std", feature = "alloc"))]
             Value::String(v) => visitor.visit_string(v),
+            #[cfg(not(any(feature = "std", feature = "alloc")))]
+            Value::String(_) => unreachable!(),
             Value::Array(v) => visit_array(v, visitor),
             Value::Object(v) => visit_object(v, visitor),
         }
@@ -475,6 +477,14 @@ impl<'de> EnumAccess<'de> for EnumDeserializer {
 }
 
 impl<'de> IntoDeserializer<'de, Error> for Value {
+    type Deserializer = Self;
+
+    fn into_deserializer(self) -> Self::Deserializer {
+        self
+    }
+}
+
+impl<'de> IntoDeserializer<'de, Error> for &'de Value {
     type Deserializer = Self;
 
     fn into_deserializer(self) -> Self::Deserializer {
@@ -1175,6 +1185,22 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer<'de> {
     deserialize_numeric_key!(deserialize_i128, do_deserialize_i128);
     deserialize_numeric_key!(deserialize_u128, do_deserialize_u128);
 
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        if self.key == "true" {
+            visitor.visit_bool(true)
+        } else if self.key == "false" {
+            visitor.visit_bool(false)
+        } else {
+            Err(serde::de::Error::invalid_type(
+                Unexpected::Str(&self.key),
+                &visitor,
+            ))
+        }
+    }
+
     #[inline]
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Error>
     where
@@ -1211,8 +1237,8 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer<'de> {
     }
 
     forward_to_deserialize_any! {
-        bool char str string bytes byte_buf unit unit_struct seq tuple
-        tuple_struct map struct identifier ignored_any
+        char str string bytes byte_buf unit unit_struct seq tuple tuple_struct
+        map struct identifier ignored_any
     }
 }
 
@@ -1315,6 +1341,8 @@ impl<'de> de::Deserializer<'de> for BorrowedCowStrDeserializer<'de> {
             Cow::Borrowed(string) => visitor.visit_borrowed_str(string),
             #[cfg(any(feature = "std", feature = "alloc"))]
             Cow::Owned(string) => visitor.visit_string(string),
+            #[cfg(not(any(feature = "std", feature = "alloc")))]
+            Cow::Owned(_) => unreachable!(),
         }
     }
 

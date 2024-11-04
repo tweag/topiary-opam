@@ -146,6 +146,8 @@ pub struct Prefilter {
     pre: Arc<dyn PrefilterI>,
     #[cfg(feature = "alloc")]
     is_fast: bool,
+    #[cfg(feature = "alloc")]
+    max_needle_len: usize,
 }
 
 impl Prefilter {
@@ -195,15 +197,6 @@ impl Prefilter {
     ///     Some(Span::from(6..9)),
     ///     pre.find(hay.as_bytes(), Span::from(0..hay.len())),
     /// );
-    /// // Now we put 'samwise' back before 'sam', but change the match
-    /// // semantics to 'All'. In this case, there is no preference
-    /// // order semantics and the first match detected is returned.
-    /// let pre = Prefilter::new(MatchKind::All, &["samwise", "sam"])
-    ///     .expect("a prefilter");
-    /// assert_eq!(
-    ///     Some(Span::from(6..9)),
-    ///     pre.find(hay.as_bytes(), Span::from(0..hay.len())),
-    /// );
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
@@ -211,12 +204,19 @@ impl Prefilter {
         kind: MatchKind,
         needles: &[B],
     ) -> Option<Prefilter> {
-        Choice::new(kind, needles).and_then(Prefilter::from_choice)
+        Choice::new(kind, needles).and_then(|choice| {
+            let max_needle_len =
+                needles.iter().map(|b| b.as_ref().len()).max().unwrap_or(0);
+            Prefilter::from_choice(choice, max_needle_len)
+        })
     }
 
     /// This turns a prefilter selection into a `Prefilter`. That is, in turns
     /// the enum given into a trait object.
-    fn from_choice(choice: Choice) -> Option<Prefilter> {
+    fn from_choice(
+        choice: Choice,
+        max_needle_len: usize,
+    ) -> Option<Prefilter> {
         #[cfg(not(feature = "alloc"))]
         {
             None
@@ -233,7 +233,7 @@ impl Prefilter {
                 Choice::AhoCorasick(p) => Arc::new(p),
             };
             let is_fast = pre.is_fast();
-            Some(Prefilter { pre, is_fast })
+            Some(Prefilter { pre, is_fast, max_needle_len })
         }
     }
 
@@ -420,6 +420,20 @@ impl Prefilter {
         }
     }
 
+    /// Return the length of the longest needle
+    /// in this Prefilter
+    #[inline]
+    pub fn max_needle_len(&self) -> usize {
+        #[cfg(not(feature = "alloc"))]
+        {
+            unreachable!()
+        }
+        #[cfg(feature = "alloc")]
+        {
+            self.max_needle_len
+        }
+    }
+
     /// Implementations might return true here if they believe themselves to
     /// be "fast." The concept of "fast" is deliberately left vague, but in
     /// practice this usually corresponds to whether it's believed that SIMD
@@ -438,7 +452,7 @@ impl Prefilter {
     /// *know* a prefilter will be fast without actually trying the prefilter.
     /// (Which of course we cannot afford to do.)
     #[inline]
-    pub(crate) fn is_fast(&self) -> bool {
+    pub fn is_fast(&self) -> bool {
         #[cfg(not(feature = "alloc"))]
         {
             unreachable!()

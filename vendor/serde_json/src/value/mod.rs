@@ -106,12 +106,13 @@ pub use crate::map::Map;
 pub use crate::number::Number;
 
 #[cfg(feature = "raw_value")]
+#[cfg_attr(docsrs, doc(cfg(feature = "raw_value")))]
 pub use crate::raw::{to_raw_value, RawValue};
 
 /// Represents any valid JSON value.
 ///
 /// See the [`serde_json::value` module documentation](self) for usage examples.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Value {
     /// Represents a JSON null value.
     ///
@@ -511,6 +512,28 @@ impl Value {
         match *self {
             Value::Number(_) => true,
             _ => false,
+        }
+    }
+
+    /// If the `Value` is a Number, returns the associated [`Number`]. Returns
+    /// None otherwise.
+    ///
+    /// ```
+    /// # use serde_json::{json, Number};
+    /// #
+    /// let v = json!({ "a": 1, "b": 2.2, "c": -3, "d": "4" });
+    ///
+    /// assert_eq!(v["a"].as_number(), Some(&Number::from(1u64)));
+    /// assert_eq!(v["b"].as_number(), Some(&Number::from_f64(2.2).unwrap()));
+    /// assert_eq!(v["c"].as_number(), Some(&Number::from(-3i64)));
+    ///
+    /// // The string `"4"` is not a number.
+    /// assert_eq!(v["d"].as_number(), None);
+    /// ```
+    pub fn as_number(&self) -> Option<&Number> {
+        match self {
+            Value::Number(number) => Some(number),
+            _ => None,
         }
     }
 

@@ -13,7 +13,7 @@ impl KeyDeserializer {
     }
 }
 
-impl<'de> serde::de::IntoDeserializer<'de, Error> for KeyDeserializer {
+impl<'de> IntoDeserializer<'de, Error> for KeyDeserializer {
     type Deserializer = Self;
 
     fn into_deserializer(self) -> Self::Deserializer {
@@ -62,15 +62,26 @@ impl<'de> serde::de::Deserializer<'de> for KeyDeserializer {
         self.deserialize_any(visitor)
     }
 
+    fn deserialize_newtype_struct<V>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value, Error>
+    where
+        V: serde::de::Visitor<'de>,
+    {
+        visitor.visit_newtype_struct(self)
+    }
+
     serde::forward_to_deserialize_any! {
         bool u8 u16 u32 u64 i8 i16 i32 i64 f32 f64 char str string seq
-        bytes byte_buf map option unit newtype_struct
+        bytes byte_buf map option unit
         ignored_any unit_struct tuple_struct tuple identifier
     }
 }
 
 impl<'de> serde::de::EnumAccess<'de> for KeyDeserializer {
-    type Error = super::Error;
+    type Error = Error;
     type Variant = UnitOnly<Self::Error>;
 
     fn variant_seed<T>(self, seed: T) -> Result<(T::Value, Self::Variant), Self::Error>

@@ -1,14 +1,16 @@
 #[cfg(feature = "read")]
-use alloc::vec::Vec;
+use alloc::boxed::Box;
 
-use core::cmp::{Ord, Ordering};
+use core::cmp::Ordering;
 use core::fmt::{self, Debug};
 use core::iter::FromIterator;
 use core::mem;
 use core::num::Wrapping;
 
 use super::util::{ArrayLike, ArrayVec};
-use crate::common::{DebugFrameOffset, EhFrameOffset, Encoding, Format, Register, SectionId};
+use crate::common::{
+    DebugFrameOffset, EhFrameOffset, Encoding, Format, Register, SectionId, Vendor,
+};
 use crate::constants::{self, DwEhPe};
 use crate::endianity::Endianity;
 use crate::read::{
@@ -34,6 +36,7 @@ pub struct DebugFrame<R: Reader> {
     section: R,
     address_size: u8,
     segment_size: u8,
+    vendor: Vendor,
 }
 
 impl<R: Reader> DebugFrame<R> {
@@ -51,6 +54,13 @@ impl<R: Reader> DebugFrame<R> {
     /// This is only used if the CIE version is less than 4.
     pub fn set_segment_size(&mut self, segment_size: u8) {
         self.segment_size = segment_size
+    }
+
+    /// Set the vendor extensions to use.
+    ///
+    /// This defaults to `Vendor::Default`.
+    pub fn set_vendor(&mut self, vendor: Vendor) {
+        self.vendor = vendor;
     }
 }
 
@@ -95,6 +105,7 @@ impl<R: Reader> From<R> for DebugFrame<R> {
             section,
             address_size: mem::size_of::<usize>() as u8,
             segment_size: 0,
+            vendor: Vendor::Default,
         }
     }
 }
@@ -158,11 +169,7 @@ impl<R: Reader> EhFrameHdr<R> {
         if fde_count_enc == constants::DW_EH_PE_omit || table_enc == constants::DW_EH_PE_omit {
             fde_count = 0
         } else {
-            let ptr = parse_encoded_pointer(fde_count_enc, &parameters, &mut reader)?;
-            fde_count = match ptr {
-                Pointer::Direct(c) => c,
-                Pointer::Indirect(_) => return Err(Error::UnsupportedPointerEncoding),
-            }
+            fde_count = parse_encoded_pointer(fde_count_enc, &parameters, &mut reader)?.direct()?;
         }
 
         Ok(ParsedEhFrameHdr {
@@ -348,11 +355,8 @@ impl<'a, R: Reader + 'a> EhHdrTable<'a, R> {
             let head = reader.split(R::Offset::from_u64((len / 2) * row_size)?)?;
             let tail = reader.clone();
 
-            let pivot = parse_encoded_pointer(self.hdr.table_enc, &parameters, &mut reader)?;
-            let pivot = match pivot {
-                Pointer::Direct(x) => x,
-                Pointer::Indirect(_) => return Err(Error::UnsupportedPointerEncoding),
-            };
+            let pivot =
+                parse_encoded_pointer(self.hdr.table_enc, &parameters, &mut reader)?.direct()?;
 
             match pivot.cmp(&address) {
                 Ordering::Equal => {
@@ -379,15 +383,8 @@ impl<'a, R: Reader + 'a> EhHdrTable<'a, R> {
     ///
     /// This does not support indirect pointers.
     pub fn pointer_to_offset(&self, ptr: Pointer) -> Result<EhFrameOffset<R::Offset>> {
-        let ptr = match ptr {
-            Pointer::Direct(x) => x,
-            _ => return Err(Error::UnsupportedPointerEncoding),
-        };
-
-        let eh_frame_ptr = match self.hdr.eh_frame_ptr() {
-            Pointer::Direct(x) => x,
-            _ => return Err(Error::UnsupportedPointerEncoding),
-        };
+        let ptr = ptr.direct()?;
+        let eh_frame_ptr = self.hdr.eh_frame_ptr().direct()?;
 
         // Calculate the offset in the EhFrame section
         R::Offset::from_u64(ptr - eh_frame_ptr).map(EhFrameOffset)
@@ -462,14 +459,14 @@ impl<'a, R: Reader + 'a> EhHdrTable<'a, R> {
     ///
     /// You must provide a function to get the associated CIE. See
     /// `PartialFrameDescriptionEntry::parse` for more information.
-    pub fn unwind_info_for_address<'ctx, F, A: UnwindContextStorage<R>>(
+    pub fn unwind_info_for_address<'ctx, F, A: UnwindContextStorage<R::Offset>>(
         &self,
         frame: &EhFrame<R>,
         bases: &BaseAddresses,
-        ctx: &'ctx mut UnwindContext<R, A>,
+        ctx: &'ctx mut UnwindContext<R::Offset, A>,
         address: u64,
         get_cie: F,
-    ) -> Result<&'ctx UnwindTableRow<R, A>>
+    ) -> Result<&'ctx UnwindTableRow<R::Offset, A>>
     where
         F: FnMut(
             &EhFrame<R>,
@@ -496,6 +493,7 @@ impl<'a, R: Reader + 'a> EhHdrTable<'a, R> {
 pub struct EhFrame<R: Reader> {
     section: R,
     address_size: u8,
+    vendor: Vendor,
 }
 
 impl<R: Reader> EhFrame<R> {
@@ -504,6 +502,13 @@ impl<R: Reader> EhFrame<R> {
     /// This defaults to the native word size.
     pub fn set_address_size(&mut self, address_size: u8) {
         self.address_size = address_size
+    }
+
+    /// Set the vendor extensions to use.
+    ///
+    /// This defaults to `Vendor::Default`.
+    pub fn set_vendor(&mut self, vendor: Vendor) {
+        self.vendor = vendor;
     }
 }
 
@@ -547,6 +552,7 @@ impl<R: Reader> From<R> for EhFrame<R> {
         EhFrame {
             section,
             address_size: mem::size_of::<usize>() as u8,
+            vendor: Vendor::Default,
         }
     }
 }
@@ -627,6 +633,9 @@ pub trait _UnwindSectionPrivate<R: Reader> {
 
     /// The segment size to use if `has_address_and_segment_sizes` returns false.
     fn segment_size(&self) -> u8;
+
+    /// The vendor extensions to use.
+    fn vendor(&self) -> Vendor;
 }
 
 /// A section holding unwind information: either `.debug_frame` or
@@ -769,13 +778,13 @@ pub trait UnwindSection<R: Reader>: Clone + Debug + _UnwindSectionPrivate<R> {
     /// # }
     /// ```
     #[inline]
-    fn unwind_info_for_address<'ctx, F, A: UnwindContextStorage<R>>(
+    fn unwind_info_for_address<'ctx, F, A: UnwindContextStorage<R::Offset>>(
         &self,
         bases: &BaseAddresses,
-        ctx: &'ctx mut UnwindContext<R, A>,
+        ctx: &'ctx mut UnwindContext<R::Offset, A>,
         address: u64,
         get_cie: F,
-    ) -> Result<&'ctx UnwindTableRow<R, A>>
+    ) -> Result<&'ctx UnwindTableRow<R::Offset, A>>
     where
         F: FnMut(&Self, &BaseAddresses, Self::Offset) -> Result<CommonInformationEntry<R>>,
     {
@@ -822,6 +831,10 @@ impl<R: Reader> _UnwindSectionPrivate<R> for DebugFrame<R> {
     fn segment_size(&self) -> u8 {
         self.segment_size
     }
+
+    fn vendor(&self) -> Vendor {
+        self.vendor
+    }
 }
 
 impl<R: Reader> UnwindSection<R> for DebugFrame<R> {
@@ -861,6 +874,10 @@ impl<R: Reader> _UnwindSectionPrivate<R> for EhFrame<R> {
 
     fn segment_size(&self) -> u8 {
         0
+    }
+
+    fn vendor(&self) -> Vendor {
+        self.vendor
     }
 }
 
@@ -1435,6 +1452,7 @@ impl<R: Reader> CommonInformationEntry<R> {
                 address_size: self.address_size,
                 section: section.section(),
             },
+            vendor: section.vendor(),
         }
     }
 
@@ -1570,6 +1588,24 @@ where
             get_cie,
         )
     }
+
+    /// Get the offset of this entry from the start of its containing section.
+    pub fn offset(&self) -> R::Offset {
+        self.offset
+    }
+
+    /// Get the offset of this FDE's CIE.
+    pub fn cie_offset(&self) -> Section::Offset {
+        self.cie_offset
+    }
+
+    /// > A constant that gives the number of bytes of the header and
+    /// > instruction stream for this function, not including the length field
+    /// > itself (see Section 7.2.2). The size of the length field plus the value
+    /// > of length must be an integral multiple of the address size.
+    pub fn entry_len(&self) -> R::Offset {
+        self.length
+    }
 }
 
 /// A `FrameDescriptionEntry` is a set of CFA instructions for an address range.
@@ -1683,12 +1719,12 @@ impl<R: Reader> FrameDescriptionEntry<R> {
             let initial_address = parse_encoded_pointer(encoding, parameters, input)?;
 
             // Ignore indirection.
-            let initial_address = initial_address.into();
+            let initial_address = initial_address.pointer();
 
             // Address ranges cannot be relative to anything, so just grab the
             // data format bits from the encoding.
             let address_range = parse_encoded_pointer(encoding.format(), parameters, input)?;
-            Ok((initial_address, address_range.into()))
+            Ok((initial_address, address_range.pointer()))
         } else {
             let initial_address = input.read_address(cie.address_size)?;
             let address_range = input.read_address(cie.address_size)?;
@@ -1698,11 +1734,11 @@ impl<R: Reader> FrameDescriptionEntry<R> {
 
     /// Return the table of unwind information for this FDE.
     #[inline]
-    pub fn rows<'a, 'ctx, Section: UnwindSection<R>, A: UnwindContextStorage<R>>(
+    pub fn rows<'a, 'ctx, Section: UnwindSection<R>, A: UnwindContextStorage<R::Offset>>(
         &self,
         section: &'a Section,
         bases: &'a BaseAddresses,
-        ctx: &'ctx mut UnwindContext<R, A>,
+        ctx: &'ctx mut UnwindContext<R::Offset, A>,
     ) -> Result<UnwindTable<'a, 'ctx, R, A>> {
         UnwindTable::new(section, bases, ctx, self)
     }
@@ -1713,13 +1749,17 @@ impl<R: Reader> FrameDescriptionEntry<R> {
     /// context in the form `Ok((unwind_info, context))`. If not found,
     /// `Err(gimli::Error::NoUnwindInfoForAddress)` is returned. If parsing or
     /// CFI evaluation fails, the error is returned.
-    pub fn unwind_info_for_address<'ctx, Section: UnwindSection<R>, A: UnwindContextStorage<R>>(
+    pub fn unwind_info_for_address<
+        'ctx,
+        Section: UnwindSection<R>,
+        A: UnwindContextStorage<R::Offset>,
+    >(
         &self,
         section: &Section,
         bases: &BaseAddresses,
-        ctx: &'ctx mut UnwindContext<R, A>,
+        ctx: &'ctx mut UnwindContext<R::Offset, A>,
         address: u64,
-    ) -> Result<&'ctx UnwindTableRow<R, A>> {
+    ) -> Result<&'ctx UnwindTableRow<R::Offset, A>> {
         let mut table = self.rows(section, bases, ctx)?;
         while let Some(row) = table.next_row()? {
             if row.contains(address) {
@@ -1778,6 +1818,7 @@ impl<R: Reader> FrameDescriptionEntry<R> {
                 address_size: self.cie.address_size,
                 section: section.section(),
             },
+            vendor: section.vendor(),
         }
     }
 
@@ -1830,12 +1871,23 @@ impl<R: Reader> FrameDescriptionEntry<R> {
     feature = "read",
     doc = "
 Normally you would only need to use [`StoreOnHeap`], which places the stack
-on the heap using [`Vec`]. This is the default storage type parameter for [`UnwindContext`].
+on the heap using [`Box`]. This is the default storage type parameter for [`UnwindContext`].
+
+You may want to supply your own storage type for one of the following reasons:
+
+  1. In rare cases you may run into failed unwinds due to the fixed stack size
+     used by [`StoreOnHeap`], so you may want to try a larger `Box`. If denial
+     of service is not a concern, then you could also try a `Vec`-based stack which
+     can grow as needed.
+  2. You may want to avoid heap allocations entirely. You can use a fixed-size
+     stack with in-line arrays, which will place the entire storage in-line into
+     [`UnwindContext`].
 "
 )]
 ///
-/// If you need to avoid [`UnwindContext`] from allocating memory, e.g. for signal safety,
-/// you can provide you own storage specification:
+/// Here's an implementation which uses a fixed-size stack and allocates everything in-line,
+/// which will cause `UnwindContext` to be large:
+///
 /// ```rust,no_run
 /// # use gimli::*;
 /// #
@@ -1846,9 +1898,9 @@ on the heap using [`Vec`]. This is the default storage type parameter for [`Unwi
 /// #
 /// struct StoreOnStack;
 ///
-/// impl<R: Reader> UnwindContextStorage<R> for StoreOnStack {
-///     type Rules = [(Register, RegisterRule<R>); 192];
-///     type Stack = [UnwindTableRow<R, Self>; 4];
+/// impl<T: ReaderOffset> UnwindContextStorage<T> for StoreOnStack {
+///     type Rules = [(Register, RegisterRule<T>); 192];
+///     type Stack = [UnwindTableRow<T, Self>; 4];
 /// }
 ///
 /// let mut ctx = UnwindContext::<_, StoreOnStack>::new_in();
@@ -1863,30 +1915,39 @@ on the heap using [`Vec`]. This is the default storage type parameter for [`Unwi
 /// # unreachable!()
 /// # }
 /// ```
-pub trait UnwindContextStorage<R: Reader>: Sized {
+pub trait UnwindContextStorage<T: ReaderOffset>: Sized {
     /// The storage used for register rules in a unwind table row.
     ///
     /// Note that this is nested within the stack.
-    type Rules: ArrayLike<Item = (Register, RegisterRule<R>)>;
+    type Rules: ArrayLike<Item = (Register, RegisterRule<T>)>;
 
     /// The storage used for unwind table row stack.
-    type Stack: ArrayLike<Item = UnwindTableRow<R, Self>>;
+    type Stack: ArrayLike<Item = UnwindTableRow<T, Self>>;
 }
 
 #[cfg(feature = "read")]
 const MAX_RULES: usize = 192;
+#[cfg(feature = "read")]
+const MAX_UNWIND_STACK_DEPTH: usize = 4;
 
 #[cfg(feature = "read")]
-impl<R: Reader> UnwindContextStorage<R> for StoreOnHeap {
-    type Rules = [(Register, RegisterRule<R>); MAX_RULES];
-    type Stack = Vec<UnwindTableRow<R, Self>>;
+impl<T: ReaderOffset> UnwindContextStorage<T> for StoreOnHeap {
+    type Rules = [(Register, RegisterRule<T>); MAX_RULES];
+    type Stack = Box<[UnwindTableRow<T, Self>; MAX_UNWIND_STACK_DEPTH]>;
 }
 
 /// Common context needed when evaluating the call frame unwinding information.
 ///
-/// This structure can be large so it is advisable to place it on the heap.
+/// By default, this structure is small and allocates its internal storage
+/// on the heap using [`Box`] during [`UnwindContext::new`].
+///
+/// This can be overridden by providing a custom [`UnwindContextStorage`] type parameter.
+/// When using a custom storage with in-line arrays, the [`UnwindContext`] type itself
+/// will be big, so in that case it's recommended to place [`UnwindContext`] on the
+/// heap, e.g. using `Box::new(UnwindContext::<R, MyCustomStorage>::new_in())`.
+///
 /// To avoid re-allocating the context multiple times when evaluating multiple
-/// CFI programs, it can be reused.
+/// CFI programs, the same [`UnwindContext`] can be reused for multiple unwinds.
 ///
 /// ```
 /// use gimli::{UnwindContext, UnwindTable};
@@ -1896,7 +1957,7 @@ impl<R: Reader> UnwindContextStorage<R> for StoreOnHeap {
 /// # let eh_frame: gimli::EhFrame<_> = unreachable!();
 /// # let bases = unimplemented!();
 /// // An uninitialized context.
-/// let mut ctx = Box::new(UnwindContext::new());
+/// let mut ctx = UnwindContext::new();
 ///
 /// // Initialize the context by evaluating the CIE's initial instruction program,
 /// // and generate the unwind table.
@@ -1909,7 +1970,7 @@ impl<R: Reader> UnwindContextStorage<R> for StoreOnHeap {
 /// # }
 /// ```
 #[derive(Clone, PartialEq, Eq)]
-pub struct UnwindContext<R: Reader, A: UnwindContextStorage<R> = StoreOnHeap> {
+pub struct UnwindContext<T: ReaderOffset, A: UnwindContextStorage<T> = StoreOnHeap> {
     // Stack of rows. The last row is the row currently being built by the
     // program. There is always at least one row. The vast majority of CFI
     // programs will only ever have one row on the stack.
@@ -1923,12 +1984,12 @@ pub struct UnwindContext<R: Reader, A: UnwindContextStorage<R> = StoreOnHeap> {
     // `DW_CFA_restore`. Otherwise, when we are currently evaluating a CIE's
     // initial instructions, `is_initialized` will be `false` and initial rules
     // cannot be read.
-    initial_rule: Option<(Register, RegisterRule<R>)>,
+    initial_rule: Option<(Register, RegisterRule<T>)>,
 
     is_initialized: bool,
 }
 
-impl<R: Reader, S: UnwindContextStorage<R>> Debug for UnwindContext<R, S> {
+impl<T: ReaderOffset, S: UnwindContextStorage<T>> Debug for UnwindContext<T, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("UnwindContext")
             .field("stack", &self.stack)
@@ -1938,14 +1999,14 @@ impl<R: Reader, S: UnwindContextStorage<R>> Debug for UnwindContext<R, S> {
     }
 }
 
-impl<R: Reader, A: UnwindContextStorage<R>> Default for UnwindContext<R, A> {
+impl<T: ReaderOffset, A: UnwindContextStorage<T>> Default for UnwindContext<T, A> {
     fn default() -> Self {
         Self::new_in()
     }
 }
 
 #[cfg(feature = "read")]
-impl<R: Reader> UnwindContext<R> {
+impl<T: ReaderOffset> UnwindContext<T> {
     /// Construct a new call frame unwinding context.
     pub fn new() -> Self {
         Self::new_in()
@@ -1956,7 +2017,7 @@ impl<R: Reader> UnwindContext<R> {
 ///
 /// These methods are guaranteed not to allocate, acquire locks, or perform any
 /// other signal-unsafe operations, if an non-allocating storage is used.
-impl<R: Reader, A: UnwindContextStorage<R>> UnwindContext<R, A> {
+impl<T: ReaderOffset, A: UnwindContextStorage<T>> UnwindContext<T, A> {
     /// Construct a new call frame unwinding context.
     pub fn new_in() -> Self {
         let mut ctx = UnwindContext {
@@ -1969,15 +2030,18 @@ impl<R: Reader, A: UnwindContextStorage<R>> UnwindContext<R, A> {
     }
 
     /// Run the CIE's initial instructions and initialize this `UnwindContext`.
-    fn initialize<Section: UnwindSection<R>>(
+    fn initialize<Section, R>(
         &mut self,
         section: &Section,
         bases: &BaseAddresses,
         cie: &CommonInformationEntry<R>,
-    ) -> Result<()> {
-        if self.is_initialized {
-            self.reset();
-        }
+    ) -> Result<()>
+    where
+        R: Reader<Offset = T>,
+        Section: UnwindSection<R>,
+    {
+        // Always reset because previous initialization failure may leave dirty state.
+        self.reset();
 
         let mut table = UnwindTable::new_for_cie(section, bases, self, cie);
         while table.next_row()?.is_some() {}
@@ -1994,11 +2058,11 @@ impl<R: Reader, A: UnwindContextStorage<R>> UnwindContext<R, A> {
         self.is_initialized = false;
     }
 
-    fn row(&self) -> &UnwindTableRow<R, A> {
+    fn row(&self) -> &UnwindTableRow<T, A> {
         self.stack.last().unwrap()
     }
 
-    fn row_mut(&mut self) -> &mut UnwindTableRow<R, A> {
+    fn row_mut(&mut self) -> &mut UnwindTableRow<T, A> {
         self.stack.last_mut().unwrap()
     }
 
@@ -2030,14 +2094,14 @@ impl<R: Reader, A: UnwindContextStorage<R>> UnwindContext<R, A> {
         row.start_address = start_address;
     }
 
-    fn set_register_rule(&mut self, register: Register, rule: RegisterRule<R>) -> Result<()> {
+    fn set_register_rule(&mut self, register: Register, rule: RegisterRule<T>) -> Result<()> {
         let row = self.row_mut();
         row.registers.set(register, rule)
     }
 
     /// Returns `None` if we have not completed evaluation of a CIE's initial
     /// instructions.
-    fn get_initial_rule(&self, register: Register) -> Option<RegisterRule<R>> {
+    fn get_initial_rule(&self, register: Register) -> Option<RegisterRule<T>> {
         if !self.is_initialized {
             return None;
         }
@@ -2048,11 +2112,11 @@ impl<R: Reader, A: UnwindContextStorage<R>> UnwindContext<R, A> {
         })
     }
 
-    fn set_cfa(&mut self, cfa: CfaRule<R>) {
+    fn set_cfa(&mut self, cfa: CfaRule<T>) {
         self.row_mut().cfa = cfa;
     }
 
-    fn cfa_mut(&mut self) -> &mut CfaRule<R> {
+    fn cfa_mut(&mut self) -> &mut CfaRule<T> {
         &mut self.row_mut().cfa
     }
 
@@ -2132,7 +2196,7 @@ impl<R: Reader, A: UnwindContextStorage<R>> UnwindContext<R, A> {
 /// > recording just the differences starting at the beginning address of each
 /// > subroutine in the program.
 #[derive(Debug)]
-pub struct UnwindTable<'a, 'ctx, R: Reader, A: UnwindContextStorage<R> = StoreOnHeap> {
+pub struct UnwindTable<'a, 'ctx, R: Reader, A: UnwindContextStorage<R::Offset> = StoreOnHeap> {
     code_alignment_factor: Wrapping<u64>,
     data_alignment_factor: Wrapping<i64>,
     next_start_address: u64,
@@ -2140,20 +2204,20 @@ pub struct UnwindTable<'a, 'ctx, R: Reader, A: UnwindContextStorage<R> = StoreOn
     returned_last_row: bool,
     current_row_valid: bool,
     instructions: CallFrameInstructionIter<'a, R>,
-    ctx: &'ctx mut UnwindContext<R, A>,
+    ctx: &'ctx mut UnwindContext<R::Offset, A>,
 }
 
 /// # Signal Safe Methods
 ///
 /// These methods are guaranteed not to allocate, acquire locks, or perform any
 /// other signal-unsafe operations.
-impl<'a, 'ctx, R: Reader, A: UnwindContextStorage<R>> UnwindTable<'a, 'ctx, R, A> {
+impl<'a, 'ctx, R: Reader, A: UnwindContextStorage<R::Offset>> UnwindTable<'a, 'ctx, R, A> {
     /// Construct a new `UnwindTable` for the given
     /// `FrameDescriptionEntry`'s CFI unwinding program.
     pub fn new<Section: UnwindSection<R>>(
         section: &'a Section,
         bases: &'a BaseAddresses,
-        ctx: &'ctx mut UnwindContext<R, A>,
+        ctx: &'ctx mut UnwindContext<R::Offset, A>,
         fde: &FrameDescriptionEntry<R>,
     ) -> Result<Self> {
         ctx.initialize(section, bases, fde.cie())?;
@@ -2163,7 +2227,7 @@ impl<'a, 'ctx, R: Reader, A: UnwindContextStorage<R>> UnwindTable<'a, 'ctx, R, A
     fn new_for_fde<Section: UnwindSection<R>>(
         section: &'a Section,
         bases: &'a BaseAddresses,
-        ctx: &'ctx mut UnwindContext<R, A>,
+        ctx: &'ctx mut UnwindContext<R::Offset, A>,
         fde: &FrameDescriptionEntry<R>,
     ) -> Self {
         assert!(ctx.stack.len() >= 1);
@@ -2182,7 +2246,7 @@ impl<'a, 'ctx, R: Reader, A: UnwindContextStorage<R>> UnwindTable<'a, 'ctx, R, A
     fn new_for_cie<Section: UnwindSection<R>>(
         section: &'a Section,
         bases: &'a BaseAddresses,
-        ctx: &'ctx mut UnwindContext<R, A>,
+        ctx: &'ctx mut UnwindContext<R::Offset, A>,
         cie: &CommonInformationEntry<R>,
     ) -> Self {
         assert!(ctx.stack.len() >= 1);
@@ -2203,7 +2267,7 @@ impl<'a, 'ctx, R: Reader, A: UnwindContextStorage<R>> UnwindTable<'a, 'ctx, R, A
     ///
     /// Unfortunately, this cannot be used with `FallibleIterator` because of
     /// the restricted lifetime of the yielded item.
-    pub fn next_row(&mut self) -> Result<Option<&UnwindTableRow<R, A>>> {
+    pub fn next_row(&mut self) -> Result<Option<&UnwindTableRow<R::Offset, A>>> {
         assert!(self.ctx.stack.len() >= 1);
         self.ctx.set_start_address(self.next_start_address);
         self.current_row_valid = false;
@@ -2236,7 +2300,7 @@ impl<'a, 'ctx, R: Reader, A: UnwindContextStorage<R>> UnwindTable<'a, 'ctx, R, A
     }
 
     /// Returns the current row with the lifetime of the context.
-    pub fn into_current_row(self) -> Option<&'ctx UnwindTableRow<R, A>> {
+    pub fn into_current_row(self) -> Option<&'ctx UnwindTableRow<R::Offset, A>> {
         if self.current_row_valid {
             Some(self.ctx.row())
         } else {
@@ -2246,7 +2310,7 @@ impl<'a, 'ctx, R: Reader, A: UnwindContextStorage<R>> UnwindTable<'a, 'ctx, R, A
 
     /// Evaluate one call frame instruction. Return `Ok(true)` if the row is
     /// complete, `Ok(false)` otherwise.
-    fn evaluate(&mut self, instruction: CallFrameInstruction<R>) -> Result<bool> {
+    fn evaluate(&mut self, instruction: CallFrameInstruction<R::Offset>) -> Result<bool> {
         use crate::CallFrameInstruction::*;
 
         match instruction {
@@ -2414,6 +2478,18 @@ impl<'a, 'ctx, R: Reader, A: UnwindContextStorage<R>> UnwindTable<'a, 'ctx, R, A
                 self.ctx.row_mut().saved_args_size = size;
             }
 
+            // AArch64 extension.
+            NegateRaState => {
+                let register = crate::AArch64::RA_SIGN_STATE;
+                let value = match self.ctx.row().register(register) {
+                    RegisterRule::Undefined => 0,
+                    RegisterRule::Constant(value) => value,
+                    _ => return Err(Error::CfiInstructionInInvalidContext),
+                };
+                self.ctx
+                    .set_register_rule(register, RegisterRule::Constant(value ^ 1))?;
+            }
+
             // No operation.
             Nop => {}
         };
@@ -2443,11 +2519,11 @@ impl<'a, 'ctx, R: Reader, A: UnwindContextStorage<R>> UnwindTable<'a, 'ctx, R, A
 // - https://github.com/libunwind/libunwind/blob/11fd461095ea98f4b3e3a361f5a8a558519363fa/include/tdep-aarch64/dwarf-config.h#L32
 // - https://github.com/libunwind/libunwind/blob/11fd461095ea98f4b3e3a361f5a8a558519363fa/include/tdep-arm/dwarf-config.h#L31
 // - https://github.com/libunwind/libunwind/blob/11fd461095ea98f4b3e3a361f5a8a558519363fa/include/tdep-mips/dwarf-config.h#L31
-struct RegisterRuleMap<R: Reader, S: UnwindContextStorage<R> = StoreOnHeap> {
+struct RegisterRuleMap<T: ReaderOffset, S: UnwindContextStorage<T> = StoreOnHeap> {
     rules: ArrayVec<S::Rules>,
 }
 
-impl<R: Reader, S: UnwindContextStorage<R>> Debug for RegisterRuleMap<R, S> {
+impl<T: ReaderOffset, S: UnwindContextStorage<T>> Debug for RegisterRuleMap<T, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("RegisterRuleMap")
             .field("rules", &self.rules)
@@ -2455,7 +2531,7 @@ impl<R: Reader, S: UnwindContextStorage<R>> Debug for RegisterRuleMap<R, S> {
     }
 }
 
-impl<R: Reader, S: UnwindContextStorage<R>> Clone for RegisterRuleMap<R, S> {
+impl<T: ReaderOffset, S: UnwindContextStorage<T>> Clone for RegisterRuleMap<T, S> {
     fn clone(&self) -> Self {
         Self {
             rules: self.rules.clone(),
@@ -2463,7 +2539,7 @@ impl<R: Reader, S: UnwindContextStorage<R>> Clone for RegisterRuleMap<R, S> {
     }
 }
 
-impl<R: Reader, S: UnwindContextStorage<R>> Default for RegisterRuleMap<R, S> {
+impl<T: ReaderOffset, S: UnwindContextStorage<T>> Default for RegisterRuleMap<T, S> {
     fn default() -> Self {
         RegisterRuleMap {
             rules: Default::default(),
@@ -2475,12 +2551,12 @@ impl<R: Reader, S: UnwindContextStorage<R>> Default for RegisterRuleMap<R, S> {
 ///
 /// These methods are guaranteed not to allocate, acquire locks, or perform any
 /// other signal-unsafe operations.
-impl<R: Reader, S: UnwindContextStorage<R>> RegisterRuleMap<R, S> {
+impl<T: ReaderOffset, S: UnwindContextStorage<T>> RegisterRuleMap<T, S> {
     fn is_default(&self) -> bool {
         self.rules.is_empty()
     }
 
-    fn get(&self, register: Register) -> RegisterRule<R> {
+    fn get(&self, register: Register) -> RegisterRule<T> {
         self.rules
             .iter()
             .find(|rule| rule.0 == register)
@@ -2491,7 +2567,7 @@ impl<R: Reader, S: UnwindContextStorage<R>> RegisterRuleMap<R, S> {
             .unwrap_or(RegisterRule::Undefined)
     }
 
-    fn set(&mut self, register: Register, rule: RegisterRule<R>) -> Result<()> {
+    fn set(&mut self, register: Register, rule: RegisterRule<T>) -> Result<()> {
         if !rule.is_defined() {
             let idx = self
                 .rules
@@ -2518,7 +2594,7 @@ impl<R: Reader, S: UnwindContextStorage<R>> RegisterRuleMap<R, S> {
             .map_err(|_| Error::TooManyRegisterRules)
     }
 
-    fn iter(&self) -> RegisterRuleIter<R> {
+    fn iter(&self) -> RegisterRuleIter<T> {
         RegisterRuleIter(self.rules.iter())
     }
 }
@@ -2526,7 +2602,7 @@ impl<R: Reader, S: UnwindContextStorage<R>> RegisterRuleMap<R, S> {
 impl<'a, R, S: UnwindContextStorage<R>> FromIterator<&'a (Register, RegisterRule<R>)>
     for RegisterRuleMap<R, S>
 where
-    R: 'a + Reader,
+    R: 'a + ReaderOffset,
 {
     fn from_iter<T>(iter: T) -> Self
     where
@@ -2544,9 +2620,9 @@ where
     }
 }
 
-impl<R, S: UnwindContextStorage<R>> PartialEq for RegisterRuleMap<R, S>
+impl<T, S: UnwindContextStorage<T>> PartialEq for RegisterRuleMap<T, S>
 where
-    R: Reader + PartialEq,
+    T: ReaderOffset + PartialEq,
 {
     fn eq(&self, rhs: &Self) -> bool {
         for &(reg, ref rule) in &*self.rules {
@@ -2567,16 +2643,16 @@ where
     }
 }
 
-impl<R, S: UnwindContextStorage<R>> Eq for RegisterRuleMap<R, S> where R: Reader + Eq {}
+impl<T, S: UnwindContextStorage<T>> Eq for RegisterRuleMap<T, S> where T: ReaderOffset + Eq {}
 
 /// An unordered iterator for register rules.
 #[derive(Debug, Clone)]
-pub struct RegisterRuleIter<'iter, R>(::core::slice::Iter<'iter, (Register, RegisterRule<R>)>)
+pub struct RegisterRuleIter<'iter, T>(::core::slice::Iter<'iter, (Register, RegisterRule<T>)>)
 where
-    R: Reader;
+    T: ReaderOffset;
 
-impl<'iter, R: Reader> Iterator for RegisterRuleIter<'iter, R> {
-    type Item = &'iter (Register, RegisterRule<R>);
+impl<'iter, T: ReaderOffset> Iterator for RegisterRuleIter<'iter, T> {
+    type Item = &'iter (Register, RegisterRule<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
@@ -2586,15 +2662,15 @@ impl<'iter, R: Reader> Iterator for RegisterRuleIter<'iter, R> {
 /// A row in the virtual unwind table that describes how to find the values of
 /// the registers in the *previous* frame for a range of PC addresses.
 #[derive(PartialEq, Eq)]
-pub struct UnwindTableRow<R: Reader, S: UnwindContextStorage<R> = StoreOnHeap> {
+pub struct UnwindTableRow<T: ReaderOffset, S: UnwindContextStorage<T> = StoreOnHeap> {
     start_address: u64,
     end_address: u64,
     saved_args_size: u64,
-    cfa: CfaRule<R>,
-    registers: RegisterRuleMap<R, S>,
+    cfa: CfaRule<T>,
+    registers: RegisterRuleMap<T, S>,
 }
 
-impl<R: Reader, S: UnwindContextStorage<R>> Debug for UnwindTableRow<R, S> {
+impl<T: ReaderOffset, S: UnwindContextStorage<T>> Debug for UnwindTableRow<T, S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("UnwindTableRow")
             .field("start_address", &self.start_address)
@@ -2606,7 +2682,7 @@ impl<R: Reader, S: UnwindContextStorage<R>> Debug for UnwindTableRow<R, S> {
     }
 }
 
-impl<R: Reader, S: UnwindContextStorage<R>> Clone for UnwindTableRow<R, S> {
+impl<T: ReaderOffset, S: UnwindContextStorage<T>> Clone for UnwindTableRow<T, S> {
     fn clone(&self) -> Self {
         Self {
             start_address: self.start_address,
@@ -2618,7 +2694,7 @@ impl<R: Reader, S: UnwindContextStorage<R>> Clone for UnwindTableRow<R, S> {
     }
 }
 
-impl<R: Reader, S: UnwindContextStorage<R>> Default for UnwindTableRow<R, S> {
+impl<T: ReaderOffset, S: UnwindContextStorage<T>> Default for UnwindTableRow<T, S> {
     fn default() -> Self {
         UnwindTableRow {
             start_address: 0,
@@ -2630,7 +2706,7 @@ impl<R: Reader, S: UnwindContextStorage<R>> Default for UnwindTableRow<R, S> {
     }
 }
 
-impl<R: Reader, S: UnwindContextStorage<R>> UnwindTableRow<R, S> {
+impl<T: ReaderOffset, S: UnwindContextStorage<T>> UnwindTableRow<T, S> {
     fn is_default(&self) -> bool {
         self.start_address == 0
             && self.end_address == 0
@@ -2669,7 +2745,7 @@ impl<R: Reader, S: UnwindContextStorage<R>> UnwindTableRow<R, S> {
     }
 
     /// Get the canonical frame address (CFA) recovery rule for this row.
-    pub fn cfa(&self) -> &CfaRule<R> {
+    pub fn cfa(&self) -> &CfaRule<T> {
         &self.cfa
     }
 
@@ -2717,7 +2793,7 @@ impl<R: Reader, S: UnwindContextStorage<R>> UnwindTableRow<R, S> {
     /// >   <tr><td>Vector Mask Registers 0–7</td>        <td>118-125</td> <td>%k0–%k7</td></tr>
     /// >   <tr><td>Reserved</td>                         <td>126-129</td> <td></td></tr>
     /// > </table>
-    pub fn register(&self, register: Register) -> RegisterRule<R> {
+    pub fn register(&self, register: Register) -> RegisterRule<T> {
         self.registers.get(register)
     }
 
@@ -2729,21 +2805,21 @@ impl<R: Reader, S: UnwindContextStorage<R>> UnwindTableRow<R, S> {
     ///
     /// ```
     /// # use gimli::{EndianSlice, LittleEndian, UnwindTableRow};
-    /// # fn foo<'input>(unwind_table_row: UnwindTableRow<EndianSlice<'input, LittleEndian>>) {
+    /// # fn foo<'input>(unwind_table_row: UnwindTableRow<usize>) {
     /// for &(register, ref rule) in unwind_table_row.registers() {
     ///     // ...
     ///     # drop(register); drop(rule);
     /// }
     /// # }
     /// ```
-    pub fn registers(&self) -> RegisterRuleIter<R> {
+    pub fn registers(&self) -> RegisterRuleIter<T> {
         self.registers.iter()
     }
 }
 
 /// The canonical frame address (CFA) recovery rules.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum CfaRule<R: Reader> {
+pub enum CfaRule<T: ReaderOffset> {
     /// The CFA is given offset from the given register's value.
     RegisterAndOffset {
         /// The register containing the base value.
@@ -2753,10 +2829,10 @@ pub enum CfaRule<R: Reader> {
     },
     /// The CFA is obtained by evaluating this `Reader` as a DWARF expression
     /// program.
-    Expression(Expression<R>),
+    Expression(UnwindExpression<T>),
 }
 
-impl<R: Reader> Default for CfaRule<R> {
+impl<T: ReaderOffset> Default for CfaRule<T> {
     fn default() -> Self {
         CfaRule::RegisterAndOffset {
             register: Register(0),
@@ -2765,7 +2841,7 @@ impl<R: Reader> Default for CfaRule<R> {
     }
 }
 
-impl<R: Reader> CfaRule<R> {
+impl<T: ReaderOffset> CfaRule<T> {
     fn is_default(&self) -> bool {
         match *self {
             CfaRule::RegisterAndOffset { register, offset } => {
@@ -2783,7 +2859,8 @@ impl<R: Reader> CfaRule<R> {
 /// has been saved and the rule to find the value for the register in the
 /// previous frame."
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum RegisterRule<R: Reader> {
+#[non_exhaustive]
+pub enum RegisterRule<T: ReaderOffset> {
     /// > A register that has this rule has no recoverable value in the previous
     /// > frame. (By convention, it is not preserved by a callee.)
     Undefined,
@@ -2807,17 +2884,20 @@ pub enum RegisterRule<R: Reader> {
 
     /// "The previous value of this register is located at the address produced
     /// by executing the DWARF expression."
-    Expression(Expression<R>),
+    Expression(UnwindExpression<T>),
 
     /// "The previous value of this register is the value produced by executing
     /// the DWARF expression."
-    ValExpression(Expression<R>),
+    ValExpression(UnwindExpression<T>),
 
     /// "The rule is defined externally to this specification by the augmenter."
     Architectural,
+
+    /// This is a pseudo-register with a constant value.
+    Constant(u64),
 }
 
-impl<R: Reader> RegisterRule<R> {
+impl<T: ReaderOffset> RegisterRule<T> {
     fn is_defined(&self) -> bool {
         !matches!(*self, RegisterRule::Undefined)
     }
@@ -2825,7 +2905,8 @@ impl<R: Reader> RegisterRule<R> {
 
 /// A parsed call frame instruction.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum CallFrameInstruction<R: Reader> {
+#[non_exhaustive]
+pub enum CallFrameInstruction<T: ReaderOffset> {
     // 6.4.2.1 Row Creation Methods
     /// > 1. DW_CFA_set_loc
     /// >
@@ -2929,8 +3010,8 @@ pub enum CallFrameInstruction<R: Reader> {
     /// > expression. The required action is to establish that expression as the
     /// > means by which the current CFA is computed.
     DefCfaExpression {
-        /// The DWARF expression.
-        expression: Expression<R>,
+        /// The location of the DWARF expression.
+        expression: UnwindExpression<T>,
     },
 
     // 6.4.2.3 Register Rule Instructions
@@ -3040,8 +3121,8 @@ pub enum CallFrameInstruction<R: Reader> {
     Expression {
         /// The target register's number.
         register: Register,
-        /// The DWARF expression.
-        expression: Expression<R>,
+        /// The location of the DWARF expression.
+        expression: UnwindExpression<T>,
     },
 
     /// > 10. DW_CFA_val_expression
@@ -3057,8 +3138,8 @@ pub enum CallFrameInstruction<R: Reader> {
     ValExpression {
         /// The target register's number.
         register: Register,
-        /// The DWARF expression.
-        expression: Expression<R>,
+        /// The location of the DWARF expression.
+        expression: UnwindExpression<T>,
     },
 
     /// The `Restore` instruction represents both `DW_CFA_restore` and
@@ -3102,6 +3183,17 @@ pub enum CallFrameInstruction<R: Reader> {
         size: u64,
     },
 
+    /// > DW_CFA_AARCH64_negate_ra_state
+    /// >
+    /// > AArch64 Extension
+    /// >
+    /// > The DW_CFA_AARCH64_negate_ra_state operation negates bit 0 of the
+    /// > RA_SIGN_STATE pseudo-register. It does not take any operands. The
+    /// > DW_CFA_AARCH64_negate_ra_state must not be mixed with other DWARF Register
+    /// > Rule Instructions on the RA_SIGN_STATE pseudo-register in one Common
+    /// > Information Entry (CIE) and Frame Descriptor Entry (FDE) program sequence.
+    NegateRaState,
+
     // 6.4.2.5 Padding Instruction
     /// > 1. DW_CFA_nop
     /// >
@@ -3113,12 +3205,13 @@ pub enum CallFrameInstruction<R: Reader> {
 const CFI_INSTRUCTION_HIGH_BITS_MASK: u8 = 0b1100_0000;
 const CFI_INSTRUCTION_LOW_BITS_MASK: u8 = !CFI_INSTRUCTION_HIGH_BITS_MASK;
 
-impl<R: Reader> CallFrameInstruction<R> {
-    fn parse(
+impl<T: ReaderOffset> CallFrameInstruction<T> {
+    fn parse<R: Reader<Offset = T>>(
         input: &mut R,
         address_encoding: Option<DwEhPe>,
         parameters: &PointerEncodingParameters<R>,
-    ) -> Result<CallFrameInstruction<R>> {
+        vendor: Vendor,
+    ) -> Result<CallFrameInstruction<T>> {
         let instruction = input.read_u8()?;
         let high_bits = instruction & CFI_INSTRUCTION_HIGH_BITS_MASK;
 
@@ -3151,10 +3244,7 @@ impl<R: Reader> CallFrameInstruction<R> {
 
             constants::DW_CFA_set_loc => {
                 let address = if let Some(encoding) = address_encoding {
-                    match parse_encoded_pointer(encoding, parameters, input)? {
-                        Pointer::Direct(x) => x,
-                        _ => return Err(Error::UnsupportedPointerEncoding),
-                    }
+                    parse_encoded_pointer(encoding, parameters, input)?.direct()?
                 } else {
                     input.read_address(parameters.address_size)?
                 };
@@ -3234,20 +3324,22 @@ impl<R: Reader> CallFrameInstruction<R> {
             }
 
             constants::DW_CFA_def_cfa_expression => {
-                let len = input.read_uleb128().and_then(R::Offset::from_u64)?;
-                let expression = input.split(len)?;
+                let length = input.read_uleb128().and_then(R::Offset::from_u64)?;
+                let offset = input.offset_from(parameters.section);
+                input.skip(length)?;
                 Ok(CallFrameInstruction::DefCfaExpression {
-                    expression: Expression(expression),
+                    expression: UnwindExpression { offset, length },
                 })
             }
 
             constants::DW_CFA_expression => {
                 let register = input.read_uleb128().and_then(Register::from_u64)?;
-                let len = input.read_uleb128().and_then(R::Offset::from_u64)?;
-                let expression = input.split(len)?;
+                let length = input.read_uleb128().and_then(R::Offset::from_u64)?;
+                let offset = input.offset_from(parameters.section);
+                input.skip(length)?;
                 Ok(CallFrameInstruction::Expression {
                     register,
-                    expression: Expression(expression),
+                    expression: UnwindExpression { offset, length },
                 })
             }
 
@@ -3296,17 +3388,22 @@ impl<R: Reader> CallFrameInstruction<R> {
 
             constants::DW_CFA_val_expression => {
                 let register = input.read_uleb128().and_then(Register::from_u64)?;
-                let len = input.read_uleb128().and_then(R::Offset::from_u64)?;
-                let expression = input.split(len)?;
+                let length = input.read_uleb128().and_then(R::Offset::from_u64)?;
+                let offset = input.offset_from(parameters.section);
+                input.skip(length)?;
                 Ok(CallFrameInstruction::ValExpression {
                     register,
-                    expression: Expression(expression),
+                    expression: UnwindExpression { offset, length },
                 })
             }
 
             constants::DW_CFA_GNU_args_size => {
                 let size = input.read_uleb128()?;
                 Ok(CallFrameInstruction::ArgsSize { size })
+            }
+
+            constants::DW_CFA_AARCH64_negate_ra_state if vendor == Vendor::AArch64 => {
+                Ok(CallFrameInstruction::NegateRaState)
             }
 
             otherwise => Err(Error::UnknownCallFrameInstruction(otherwise)),
@@ -3323,17 +3420,22 @@ pub struct CallFrameInstructionIter<'a, R: Reader> {
     input: R,
     address_encoding: Option<constants::DwEhPe>,
     parameters: PointerEncodingParameters<'a, R>,
+    vendor: Vendor,
 }
 
 impl<'a, R: Reader> CallFrameInstructionIter<'a, R> {
     /// Parse the next call frame instruction.
-    pub fn next(&mut self) -> Result<Option<CallFrameInstruction<R>>> {
+    pub fn next(&mut self) -> Result<Option<CallFrameInstruction<R::Offset>>> {
         if self.input.is_empty() {
             return Ok(None);
         }
 
-        match CallFrameInstruction::parse(&mut self.input, self.address_encoding, &self.parameters)
-        {
+        match CallFrameInstruction::parse(
+            &mut self.input,
+            self.address_encoding,
+            &self.parameters,
+            self.vendor,
+        ) {
             Ok(instruction) => Ok(Some(instruction)),
             Err(e) => {
                 self.input.empty();
@@ -3345,11 +3447,39 @@ impl<'a, R: Reader> CallFrameInstructionIter<'a, R> {
 
 #[cfg(feature = "fallible-iterator")]
 impl<'a, R: Reader> fallible_iterator::FallibleIterator for CallFrameInstructionIter<'a, R> {
-    type Item = CallFrameInstruction<R>;
+    type Item = CallFrameInstruction<R::Offset>;
     type Error = Error;
 
     fn next(&mut self) -> ::core::result::Result<Option<Self::Item>, Self::Error> {
         CallFrameInstructionIter::next(self)
+    }
+}
+
+/// The location of a DWARF expression within an unwind section.
+///
+/// This is stored as an offset and length within the section instead of as a
+/// `Reader` to avoid lifetime issues when reusing [`UnwindContext`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct UnwindExpression<T: ReaderOffset> {
+    /// The offset of the expression within the section.
+    pub offset: T,
+    /// The length of the expression.
+    pub length: T,
+}
+
+impl<T: ReaderOffset> UnwindExpression<T> {
+    /// Get the expression from the section.
+    ///
+    /// The offset and length were previously validated when the
+    /// `UnwindExpression` was created, so this should not fail.
+    pub fn get<R: Reader<Offset = T>, S: UnwindSection<R>>(
+        &self,
+        section: &S,
+    ) -> Result<Expression<R>> {
+        let input = &mut section.section().clone();
+        input.skip(self.offset)?;
+        let data = input.split(self.length)?;
+        Ok(Expression(data))
     }
 }
 
@@ -3389,15 +3519,6 @@ impl Default for Pointer {
     }
 }
 
-impl From<Pointer> for u64 {
-    #[inline]
-    fn from(p: Pointer) -> u64 {
-        match p {
-            Pointer::Direct(p) | Pointer::Indirect(p) => p,
-        }
-    }
-}
-
 impl Pointer {
     #[inline]
     fn new(encoding: constants::DwEhPe, address: u64) -> Pointer {
@@ -3405,6 +3526,23 @@ impl Pointer {
             Pointer::Indirect(address)
         } else {
             Pointer::Direct(address)
+        }
+    }
+
+    /// Return the direct pointer value.
+    #[inline]
+    pub fn direct(self) -> Result<u64> {
+        match self {
+            Pointer::Direct(p) => Ok(p),
+            Pointer::Indirect(_) => Err(Error::UnsupportedPointerEncoding),
+        }
+    }
+
+    /// Return the pointer value, discarding indirectness information.
+    #[inline]
+    pub fn pointer(self) -> u64 {
+        match self {
+            Pointer::Direct(p) | Pointer::Indirect(p) => p,
         }
     }
 }
@@ -3498,7 +3636,7 @@ mod tests {
     use crate::constants;
     use crate::endianity::{BigEndian, Endianity, LittleEndian, NativeEndian};
     use crate::read::{
-        EndianSlice, Error, Expression, Pointer, ReaderOffsetId, Result, Section as ReadSection,
+        EndianSlice, Error, Pointer, ReaderOffsetId, Result, Section as ReadSection,
     };
     use crate::test_util::GimliSectionMethods;
     use alloc::boxed::Box;
@@ -3637,7 +3775,7 @@ mod tests {
                 .uleb(cie.code_alignment_factor)
                 .sleb(cie.data_alignment_factor)
                 .uleb(cie.return_address_register.0.into())
-                .append_bytes(cie.initial_instructions.into())
+                .append_bytes(cie.initial_instructions.slice())
                 .mark(&end);
 
             cie.length = (&end - &start) as usize;
@@ -3714,11 +3852,11 @@ mod tests {
                     let section = section.uleb(u64::from(fde.cie.address_size));
                     match fde.cie.address_size {
                         4 => section.D32({
-                            let x: u64 = lsda.into();
+                            let x: u64 = lsda.pointer();
                             x as u32
                         }),
                         8 => section.D64({
-                            let x: u64 = lsda.into();
+                            let x: u64 = lsda.pointer();
                             x
                         }),
                         x => panic!("Unsupported address size: {}", x),
@@ -3732,7 +3870,7 @@ mod tests {
                 section
             };
 
-            let section = section.append_bytes(fde.instructions.into()).mark(&end);
+            let section = section.append_bytes(fde.instructions.slice()).mark(&end);
 
             fde.length = (&end - &start) as usize;
             length.set_const(fde.length as u64);
@@ -3857,7 +3995,7 @@ mod tests {
         let start = Label::new();
         let end = Label::new();
 
-        let augmentation = Some("replicant");
+        let augmentation = "replicant";
         let expected_rest = [1, 2, 3];
 
         let kind = debug_frame_le();
@@ -3870,7 +4008,7 @@ mod tests {
             // Version
             .D8(4)
             // Augmentation
-            .append_bytes(augmentation.unwrap().as_bytes())
+            .append_bytes(augmentation.as_bytes())
             // Null terminator
             .D8(0)
             // Extra augmented data that we can't understand.
@@ -4438,14 +4576,15 @@ mod tests {
     fn parse_cfi_instruction<R: Reader + Default>(
         input: &mut R,
         address_size: u8,
-    ) -> Result<CallFrameInstruction<R>> {
+    ) -> Result<CallFrameInstruction<R::Offset>> {
+        let section = input.clone();
         let parameters = &PointerEncodingParameters {
             bases: &SectionBaseAddresses::default(),
             func_base: None,
             address_size,
-            section: &R::default(),
+            section: &section,
         };
-        CallFrameInstruction::parse(input, None, parameters)
+        CallFrameInstruction::parse(input, None, parameters, Vendor::Default)
     }
 
     #[test]
@@ -4558,7 +4697,12 @@ mod tests {
             section: &EndianSlice::new(&[], LittleEndian),
         };
         assert_eq!(
-            CallFrameInstruction::parse(input, Some(constants::DW_EH_PE_textrel), parameters),
+            CallFrameInstruction::parse(
+                input,
+                Some(constants::DW_EH_PE_textrel),
+                parameters,
+                Vendor::Default
+            ),
             Ok(CallFrameInstruction::SetLoc {
                 address: expected_addr,
             })
@@ -4832,13 +4976,17 @@ mod tests {
             .append_bytes(&expected_rest);
 
         length.set_const((&end - &start) as u64);
+        let expected_expression = UnwindExpression {
+            offset: (&start - &section.start()) as usize,
+            length: (&end - &start) as usize,
+        };
         let contents = section.get_contents().unwrap();
         let input = &mut EndianSlice::new(&contents, LittleEndian);
 
         assert_eq!(
             parse_cfi_instruction(input, 8),
             Ok(CallFrameInstruction::DefCfaExpression {
-                expression: Expression(EndianSlice::new(&expected_expr, LittleEndian)),
+                expression: expected_expression,
             })
         );
         assert_eq!(*input, EndianSlice::new(&expected_rest, LittleEndian));
@@ -4864,6 +5012,10 @@ mod tests {
             .append_bytes(&expected_rest);
 
         length.set_const((&end - &start) as u64);
+        let expected_expression = UnwindExpression {
+            offset: (&start - &section.start()) as usize,
+            length: (&end - &start) as usize,
+        };
         let contents = section.get_contents().unwrap();
         let input = &mut EndianSlice::new(&contents, LittleEndian);
 
@@ -4871,7 +5023,7 @@ mod tests {
             parse_cfi_instruction(input, 8),
             Ok(CallFrameInstruction::Expression {
                 register: Register(expected_reg),
-                expression: Expression(EndianSlice::new(&expected_expr, LittleEndian)),
+                expression: expected_expression,
             })
         );
         assert_eq!(*input, EndianSlice::new(&expected_rest, LittleEndian));
@@ -5004,6 +5156,10 @@ mod tests {
             .append_bytes(&expected_rest);
 
         length.set_const((&end - &start) as u64);
+        let expected_expression = UnwindExpression {
+            offset: (&start - &section.start()) as usize,
+            length: (&end - &start) as usize,
+        };
         let contents = section.get_contents().unwrap();
         let input = &mut EndianSlice::new(&contents, LittleEndian);
 
@@ -5011,8 +5167,29 @@ mod tests {
             parse_cfi_instruction(input, 8),
             Ok(CallFrameInstruction::ValExpression {
                 register: Register(expected_reg),
-                expression: Expression(EndianSlice::new(&expected_expr, LittleEndian)),
+                expression: expected_expression,
             })
+        );
+        assert_eq!(*input, EndianSlice::new(&expected_rest, LittleEndian));
+    }
+
+    #[test]
+    fn test_parse_cfi_instruction_negate_ra_state() {
+        let expected_rest = [1, 2, 3, 4];
+        let section = Section::with_endian(Endian::Little)
+            .D8(constants::DW_CFA_AARCH64_negate_ra_state.0)
+            .append_bytes(&expected_rest);
+        let contents = section.get_contents().unwrap();
+        let input = &mut EndianSlice::new(&contents, LittleEndian);
+        let parameters = &PointerEncodingParameters {
+            bases: &SectionBaseAddresses::default(),
+            func_base: None,
+            address_size: 8,
+            section: &EndianSlice::default(),
+        };
+        assert_eq!(
+            CallFrameInstruction::parse(input, None, parameters, Vendor::AArch64),
+            Ok(CallFrameInstruction::NegateRaState)
         );
         assert_eq!(*input, EndianSlice::new(&expected_rest, LittleEndian));
     }
@@ -5053,25 +5230,30 @@ mod tests {
             .D8(expected_delta);
 
         length.set_const((&end - &start) as u64);
+        let expected_expression = UnwindExpression {
+            offset: (&start - &section.start()) as usize,
+            length: (&end - &start) as usize,
+        };
         let contents = section.get_contents().unwrap();
         let input = EndianSlice::new(&contents, BigEndian);
         let parameters = PointerEncodingParameters {
             bases: &SectionBaseAddresses::default(),
             func_base: None,
             address_size: 8,
-            section: &EndianSlice::default(),
+            section: &input,
         };
         let mut iter = CallFrameInstructionIter {
             input,
             address_encoding: None,
             parameters,
+            vendor: Vendor::Default,
         };
 
         assert_eq!(
             iter.next(),
             Ok(Some(CallFrameInstruction::ValExpression {
                 register: Register(expected_reg),
-                expression: Expression(EndianSlice::new(&expected_expr, BigEndian)),
+                expression: expected_expression,
             }))
         );
 
@@ -5102,6 +5284,7 @@ mod tests {
             input,
             address_encoding: None,
             parameters,
+            vendor: Vendor::Default,
         };
 
         assert_eq!(
@@ -5112,18 +5295,13 @@ mod tests {
     }
 
     fn assert_eval<'a, I>(
-        mut initial_ctx: UnwindContext<EndianSlice<'a, LittleEndian>>,
-        expected_ctx: UnwindContext<EndianSlice<'a, LittleEndian>>,
+        mut initial_ctx: UnwindContext<usize>,
+        expected_ctx: UnwindContext<usize>,
         cie: CommonInformationEntry<EndianSlice<'a, LittleEndian>>,
         fde: Option<FrameDescriptionEntry<EndianSlice<'a, LittleEndian>>>,
         instructions: I,
     ) where
-        I: AsRef<
-            [(
-                Result<bool>,
-                CallFrameInstruction<EndianSlice<'a, LittleEndian>>,
-            )],
-        >,
+        I: AsRef<[(Result<bool>, CallFrameInstruction<usize>)]>,
     {
         {
             let section = &DebugFrame::from(EndianSlice::default());
@@ -5132,7 +5310,7 @@ mod tests {
                 Some(fde) => UnwindTable::new_for_fde(section, bases, &mut initial_ctx, &fde),
                 None => UnwindTable::new_for_cie(section, bases, &mut initial_ctx, &cie),
             };
-            for &(ref expected_result, ref instruction) in instructions.as_ref() {
+            for (expected_result, instruction) in instructions.as_ref() {
                 assert_eq!(*expected_result, table.evaluate(instruction.clone()));
             }
         }
@@ -5265,10 +5443,10 @@ mod tests {
     fn test_eval_def_cfa_register_invalid_context() {
         let cie = make_test_cie();
         let mut ctx = UnwindContext::new();
-        ctx.set_cfa(CfaRule::Expression(Expression(EndianSlice::new(
-            &[],
-            LittleEndian,
-        ))));
+        ctx.set_cfa(CfaRule::Expression(UnwindExpression {
+            offset: 0,
+            length: 0,
+        }));
         let expected = ctx.clone();
         let instructions = [(
             Err(Error::CfiInstructionInInvalidContext),
@@ -5300,10 +5478,10 @@ mod tests {
     fn test_eval_def_cfa_offset_invalid_context() {
         let cie = make_test_cie();
         let mut ctx = UnwindContext::new();
-        ctx.set_cfa(CfaRule::Expression(Expression(EndianSlice::new(
-            &[],
-            LittleEndian,
-        ))));
+        ctx.set_cfa(CfaRule::Expression(UnwindExpression {
+            offset: 10,
+            length: 11,
+        }));
         let expected = ctx.clone();
         let instructions = [(
             Err(Error::CfiInstructionInInvalidContext),
@@ -5314,19 +5492,17 @@ mod tests {
 
     #[test]
     fn test_eval_def_cfa_expression() {
-        let expr = [1, 2, 3, 4];
+        let expr = UnwindExpression {
+            offset: 10,
+            length: 11,
+        };
         let cie = make_test_cie();
         let ctx = UnwindContext::new();
         let mut expected = ctx.clone();
-        expected.set_cfa(CfaRule::Expression(Expression(EndianSlice::new(
-            &expr,
-            LittleEndian,
-        ))));
+        expected.set_cfa(CfaRule::Expression(expr));
         let instructions = [(
             Ok(false),
-            CallFrameInstruction::DefCfaExpression {
-                expression: Expression(EndianSlice::new(&expr, LittleEndian)),
-            },
+            CallFrameInstruction::DefCfaExpression { expression: expr },
         )];
         assert_eval(ctx, expected, cie, None, instructions);
     }
@@ -5451,21 +5627,21 @@ mod tests {
 
     #[test]
     fn test_eval_expression() {
-        let expr = [1, 2, 3, 4];
+        let expr = UnwindExpression {
+            offset: 10,
+            length: 11,
+        };
         let cie = make_test_cie();
         let ctx = UnwindContext::new();
         let mut expected = ctx.clone();
         expected
-            .set_register_rule(
-                Register(9),
-                RegisterRule::Expression(Expression(EndianSlice::new(&expr, LittleEndian))),
-            )
+            .set_register_rule(Register(9), RegisterRule::Expression(expr))
             .unwrap();
         let instructions = [(
             Ok(false),
             CallFrameInstruction::Expression {
                 register: Register(9),
-                expression: Expression(EndianSlice::new(&expr, LittleEndian)),
+                expression: expr,
             },
         )];
         assert_eval(ctx, expected, cie, None, instructions);
@@ -5473,21 +5649,21 @@ mod tests {
 
     #[test]
     fn test_eval_val_expression() {
-        let expr = [1, 2, 3, 4];
+        let expr = UnwindExpression {
+            offset: 10,
+            length: 11,
+        };
         let cie = make_test_cie();
         let ctx = UnwindContext::new();
         let mut expected = ctx.clone();
         expected
-            .set_register_rule(
-                Register(9),
-                RegisterRule::ValExpression(Expression(EndianSlice::new(&expr, LittleEndian))),
-            )
+            .set_register_rule(Register(9), RegisterRule::ValExpression(expr))
             .unwrap();
         let instructions = [(
             Ok(false),
             CallFrameInstruction::ValExpression {
                 register: Register(9),
-                expression: Expression(EndianSlice::new(&expr, LittleEndian)),
+                expression: expr,
             },
         )];
         assert_eval(ctx, expected, cie, None, instructions);
@@ -5576,6 +5752,55 @@ mod tests {
             ),
         ];
 
+        assert_eval(ctx, expected, cie, None, instructions);
+    }
+
+    #[test]
+    fn test_eval_negate_ra_state() {
+        let cie = make_test_cie();
+        let ctx = UnwindContext::new();
+        let mut expected = ctx.clone();
+        expected
+            .set_register_rule(crate::AArch64::RA_SIGN_STATE, RegisterRule::Constant(1))
+            .unwrap();
+        let instructions = [(Ok(false), CallFrameInstruction::NegateRaState)];
+        assert_eval(ctx, expected, cie, None, instructions);
+
+        let cie = make_test_cie();
+        let ctx = UnwindContext::new();
+        let mut expected = ctx.clone();
+        expected
+            .set_register_rule(crate::AArch64::RA_SIGN_STATE, RegisterRule::Constant(0))
+            .unwrap();
+        let instructions = [
+            (Ok(false), CallFrameInstruction::NegateRaState),
+            (Ok(false), CallFrameInstruction::NegateRaState),
+        ];
+        assert_eval(ctx, expected, cie, None, instructions);
+
+        // NegateRaState can't be used with other instructions.
+        let cie = make_test_cie();
+        let ctx = UnwindContext::new();
+        let mut expected = ctx.clone();
+        expected
+            .set_register_rule(
+                crate::AArch64::RA_SIGN_STATE,
+                RegisterRule::Offset(cie.data_alignment_factor as i64),
+            )
+            .unwrap();
+        let instructions = [
+            (
+                Ok(false),
+                CallFrameInstruction::Offset {
+                    register: crate::AArch64::RA_SIGN_STATE,
+                    factored_offset: 1,
+                },
+            ),
+            (
+                Err(Error::CfiInstructionInInvalidContext),
+                CallFrameInstruction::NegateRaState,
+            ),
+        ];
         assert_eval(ctx, expected, cie, None, instructions);
     }
 
@@ -5736,7 +5961,100 @@ mod tests {
     }
 
     #[test]
+    fn test_unwind_table_cie_invalid_rule() {
+        let initial_instructions1 = Section::with_endian(Endian::Little)
+            // Test that stack length is reset.
+            .D8(constants::DW_CFA_remember_state.0)
+            // Test that stack value is reset (different register from that used later).
+            .D8(constants::DW_CFA_offset.0 | 4)
+            .uleb(8)
+            // Invalid due to missing operands.
+            .D8(constants::DW_CFA_offset.0);
+        let initial_instructions1 = initial_instructions1.get_contents().unwrap();
+
+        let cie1 = CommonInformationEntry {
+            offset: 0,
+            length: 0,
+            format: Format::Dwarf32,
+            version: 4,
+            augmentation: None,
+            address_size: 8,
+            segment_size: 0,
+            code_alignment_factor: 1,
+            data_alignment_factor: 1,
+            return_address_register: Register(3),
+            initial_instructions: EndianSlice::new(&initial_instructions1, LittleEndian),
+        };
+
+        let initial_instructions2 = Section::with_endian(Endian::Little)
+            // Register 3 is 4 from the CFA.
+            .D8(constants::DW_CFA_offset.0 | 3)
+            .uleb(4)
+            .append_repeated(constants::DW_CFA_nop.0, 4);
+        let initial_instructions2 = initial_instructions2.get_contents().unwrap();
+
+        let cie2 = CommonInformationEntry {
+            offset: 0,
+            length: 0,
+            format: Format::Dwarf32,
+            version: 4,
+            augmentation: None,
+            address_size: 8,
+            segment_size: 0,
+            code_alignment_factor: 1,
+            data_alignment_factor: 1,
+            return_address_register: Register(3),
+            initial_instructions: EndianSlice::new(&initial_instructions2, LittleEndian),
+        };
+
+        let fde1 = FrameDescriptionEntry {
+            offset: 0,
+            length: 0,
+            format: Format::Dwarf32,
+            cie: cie1.clone(),
+            initial_segment: 0,
+            initial_address: 0,
+            address_range: 100,
+            augmentation: None,
+            instructions: EndianSlice::new(&[], LittleEndian),
+        };
+
+        let fde2 = FrameDescriptionEntry {
+            offset: 0,
+            length: 0,
+            format: Format::Dwarf32,
+            cie: cie2.clone(),
+            initial_segment: 0,
+            initial_address: 0,
+            address_range: 100,
+            augmentation: None,
+            instructions: EndianSlice::new(&[], LittleEndian),
+        };
+
+        let section = &DebugFrame::from(EndianSlice::default());
+        let bases = &BaseAddresses::default();
+        let mut ctx = Box::new(UnwindContext::new());
+
+        let table = fde1
+            .rows(section, bases, &mut ctx)
+            .map_eof(&initial_instructions1);
+        assert_eq!(table.err(), Some(Error::UnexpectedEof(ReaderOffsetId(4))));
+        assert!(!ctx.is_initialized);
+        assert_eq!(ctx.stack.len(), 2);
+        assert_eq!(ctx.initial_rule, None);
+
+        let _table = fde2
+            .rows(section, bases, &mut ctx)
+            .expect("Should run initial program OK");
+        assert!(ctx.is_initialized);
+        assert_eq!(ctx.stack.len(), 1);
+        let expected_initial_rule = (Register(3), RegisterRule::Offset(4));
+        assert_eq!(ctx.initial_rule, Some(expected_initial_rule));
+    }
+
+    #[test]
     fn test_unwind_table_next_row() {
+        #[allow(clippy::identity_op)]
         let initial_instructions = Section::with_endian(Endian::Little)
             // The CFA is -12 from register 4.
             .D8(constants::DW_CFA_def_cfa_sf.0)
@@ -6262,7 +6580,6 @@ mod tests {
 
         section.start().set_const(0);
         let section = section.get_contents().unwrap();
-        let section = EndianSlice::new(&section, LittleEndian);
         let eh_frame = kind.section(&section);
 
         // Setup eh_frame_hdr
@@ -6294,14 +6611,14 @@ mod tests {
             iter.next(),
             Ok(Some((
                 Pointer::Direct(10),
-                Pointer::Direct(0x12345 + start_of_fde1.value().unwrap() as u64)
+                Pointer::Direct(0x12345 + start_of_fde1.value().unwrap())
             )))
         );
         assert_eq!(
             iter.next(),
             Ok(Some((
                 Pointer::Direct(20),
-                Pointer::Direct(0x12345 + start_of_fde2.value().unwrap() as u64)
+                Pointer::Direct(0x12345 + start_of_fde2.value().unwrap())
             )))
         );
         assert_eq!(iter.next(), Ok(None));
@@ -6310,7 +6627,7 @@ mod tests {
             table.iter(&bases).nth(0),
             Ok(Some((
                 Pointer::Direct(10),
-                Pointer::Direct(0x12345 + start_of_fde1.value().unwrap() as u64)
+                Pointer::Direct(0x12345 + start_of_fde1.value().unwrap())
             )))
         );
 
@@ -6318,7 +6635,7 @@ mod tests {
             table.iter(&bases).nth(1),
             Ok(Some((
                 Pointer::Direct(20),
-                Pointer::Direct(0x12345 + start_of_fde2.value().unwrap() as u64)
+                Pointer::Direct(0x12345 + start_of_fde2.value().unwrap())
             )))
         );
         assert_eq!(table.iter(&bases).nth(2), Ok(None));
@@ -6359,7 +6676,7 @@ mod tests {
         let bases = Default::default();
 
         assert_eq!(
-            parse_cfi_entry(&bases, &EhFrame::new(&*section, LittleEndian), rest),
+            parse_cfi_entry(&bases, &EhFrame::new(&section, LittleEndian), rest),
             Ok(None)
         );
 
@@ -6384,9 +6701,9 @@ mod tests {
 
         let kind = eh_frame_le();
         let section = Section::with_endian(kind.endian())
-            .append_bytes(&buf)
+            .append_bytes(buf)
             .fde(kind, cie_offset as u64, &mut fde)
-            .append_bytes(&buf);
+            .append_bytes(buf);
 
         let section = section.get_contents().unwrap();
         let eh_frame = kind.section(&section);
@@ -6469,7 +6786,7 @@ mod tests {
         let section = EndianSlice::new(&section, LittleEndian);
 
         let mut offset = None;
-        match parse_fde(
+        let result = parse_fde(
             eh_frame,
             &mut section.range_from(end_of_cie.value().unwrap() as usize..),
             |_, _, o| {
@@ -6477,7 +6794,8 @@ mod tests {
                 assert_eq!(o, EhFrameOffset(start_of_cie.value().unwrap() as usize));
                 Ok(cie.clone())
             },
-        ) {
+        );
+        match result {
             Ok(actual) => assert_eq!(actual, fde),
             otherwise => panic!("Unexpected result {:?}", otherwise),
         }
@@ -6543,8 +6861,10 @@ mod tests {
         let section = EhFrame::new(&[], LittleEndian);
         let input = &mut EndianSlice::new(&[], LittleEndian);
 
-        let mut augmentation = Augmentation::default();
-        augmentation.is_signal_trampoline = true;
+        let augmentation = Augmentation {
+            is_signal_trampoline: true,
+            ..Default::default()
+        };
 
         assert_eq!(
             Augmentation::parse(aug_str, &bases, address_size, &section, input),
@@ -6588,8 +6908,10 @@ mod tests {
         let input = &mut section.section().clone();
         let aug_str = &mut EndianSlice::new(b"zL", LittleEndian);
 
-        let mut augmentation = Augmentation::default();
-        augmentation.lsda = Some(constants::DW_EH_PE_uleb128);
+        let augmentation = Augmentation {
+            lsda: Some(constants::DW_EH_PE_uleb128),
+            ..Default::default()
+        };
 
         assert_eq!(
             Augmentation::parse(aug_str, &bases, address_size, &section, input),
@@ -6616,8 +6938,10 @@ mod tests {
         let input = &mut section.section().clone();
         let aug_str = &mut EndianSlice::new(b"zP", LittleEndian);
 
-        let mut augmentation = Augmentation::default();
-        augmentation.personality = Some((constants::DW_EH_PE_udata8, Pointer::Direct(0xf00d_f00d)));
+        let augmentation = Augmentation {
+            personality: Some((constants::DW_EH_PE_udata8, Pointer::Direct(0xf00d_f00d))),
+            ..Default::default()
+        };
 
         assert_eq!(
             Augmentation::parse(aug_str, &bases, address_size, &section, input),
@@ -6643,8 +6967,10 @@ mod tests {
         let input = &mut section.section().clone();
         let aug_str = &mut EndianSlice::new(b"zR", LittleEndian);
 
-        let mut augmentation = Augmentation::default();
-        augmentation.fde_address_encoding = Some(constants::DW_EH_PE_udata4);
+        let augmentation = Augmentation {
+            fde_address_encoding: Some(constants::DW_EH_PE_udata4),
+            ..Default::default()
+        };
 
         assert_eq!(
             Augmentation::parse(aug_str, &bases, address_size, &section, input),
@@ -6669,8 +6995,10 @@ mod tests {
         let input = &mut section.section().clone();
         let aug_str = &mut EndianSlice::new(b"zS", LittleEndian);
 
-        let mut augmentation = Augmentation::default();
-        augmentation.is_signal_trampoline = true;
+        let augmentation = Augmentation {
+            is_signal_trampoline: true,
+            ..Default::default()
+        };
 
         assert_eq!(
             Augmentation::parse(aug_str, &bases, address_size, &section, input),
@@ -6840,9 +7168,8 @@ mod tests {
         cie.format = Format::Dwarf32;
         cie.version = 1;
         cie.augmentation = Some(Augmentation::default());
-        cie.augmentation.as_mut().unwrap().lsda = Some(constants::DwEhPe(
-            constants::DW_EH_PE_funcrel.0 | constants::DW_EH_PE_absptr.0,
-        ));
+        cie.augmentation.as_mut().unwrap().lsda =
+            Some(constants::DW_EH_PE_funcrel | constants::DW_EH_PE_absptr);
 
         let mut fde = FrameDescriptionEntry {
             offset: 0,
@@ -6933,13 +7260,13 @@ mod tests {
     #[test]
     fn register_rule_map_eq() {
         // Different order, but still equal.
-        let map1: RegisterRuleMap<EndianSlice<LittleEndian>> = [
+        let map1: RegisterRuleMap<usize> = [
             (Register(0), RegisterRule::SameValue),
             (Register(3), RegisterRule::Offset(1)),
         ]
         .iter()
         .collect();
-        let map2: RegisterRuleMap<EndianSlice<LittleEndian>> = [
+        let map2: RegisterRuleMap<usize> = [
             (Register(3), RegisterRule::Offset(1)),
             (Register(0), RegisterRule::SameValue),
         ]
@@ -6949,13 +7276,13 @@ mod tests {
         assert_eq!(map2, map1);
 
         // Not equal.
-        let map3: RegisterRuleMap<EndianSlice<LittleEndian>> = [
+        let map3: RegisterRuleMap<usize> = [
             (Register(0), RegisterRule::SameValue),
             (Register(2), RegisterRule::Offset(1)),
         ]
         .iter()
         .collect();
-        let map4: RegisterRuleMap<EndianSlice<LittleEndian>> = [
+        let map4: RegisterRuleMap<usize> = [
             (Register(3), RegisterRule::Offset(1)),
             (Register(0), RegisterRule::SameValue),
         ]
@@ -6965,24 +7292,26 @@ mod tests {
         assert!(map4 != map3);
 
         // One has undefined explicitly set, other implicitly has undefined.
-        let mut map5 = RegisterRuleMap::<EndianSlice<LittleEndian>>::default();
+        let mut map5 = RegisterRuleMap::<usize>::default();
         map5.set(Register(0), RegisterRule::SameValue).unwrap();
         map5.set(Register(0), RegisterRule::Undefined).unwrap();
-        let map6 = RegisterRuleMap::<EndianSlice<LittleEndian>>::default();
+        let map6 = RegisterRuleMap::<usize>::default();
         assert_eq!(map5, map6);
         assert_eq!(map6, map5);
     }
 
     #[test]
     fn iter_register_rules() {
-        let mut row = UnwindTableRow::<EndianSlice<LittleEndian>>::default();
-        row.registers = [
-            (Register(0), RegisterRule::SameValue),
-            (Register(1), RegisterRule::Offset(1)),
-            (Register(2), RegisterRule::ValOffset(2)),
-        ]
-        .iter()
-        .collect();
+        let row = UnwindTableRow::<usize> {
+            registers: [
+                (Register(0), RegisterRule::SameValue),
+                (Register(1), RegisterRule::Offset(1)),
+                (Register(2), RegisterRule::ValOffset(2)),
+            ]
+            .iter()
+            .collect(),
+            ..Default::default()
+        };
 
         let mut found0 = false;
         let mut found1 = false;
@@ -6991,17 +7320,17 @@ mod tests {
         for &(register, ref rule) in row.registers() {
             match register.0 {
                 0 => {
-                    assert_eq!(found0, false);
+                    assert!(!found0);
                     found0 = true;
                     assert_eq!(*rule, RegisterRule::SameValue);
                 }
                 1 => {
-                    assert_eq!(found1, false);
+                    assert!(!found1);
                     found1 = true;
                     assert_eq!(*rule, RegisterRule::Offset(1));
                 }
                 2 => {
-                    assert_eq!(found2, false);
+                    assert!(!found2);
                     found2 = true;
                     assert_eq!(*rule, RegisterRule::ValOffset(2));
                 }
@@ -7009,16 +7338,16 @@ mod tests {
             }
         }
 
-        assert_eq!(found0, true);
-        assert_eq!(found1, true);
-        assert_eq!(found2, true);
+        assert!(found0);
+        assert!(found1);
+        assert!(found2);
     }
 
     #[test]
     #[cfg(target_pointer_width = "64")]
     fn size_of_unwind_ctx() {
         use core::mem;
-        let size = mem::size_of::<UnwindContext<EndianSlice<NativeEndian>>>();
+        let size = mem::size_of::<UnwindContext<usize>>();
         let max_size = 30968;
         if size > max_size {
             assert_eq!(size, max_size);
@@ -7029,7 +7358,7 @@ mod tests {
     #[cfg(target_pointer_width = "64")]
     fn size_of_register_rule_map() {
         use core::mem;
-        let size = mem::size_of::<RegisterRuleMap<EndianSlice<NativeEndian>>>();
+        let size = mem::size_of::<RegisterRuleMap<usize>>();
         let max_size = 6152;
         if size > max_size {
             assert_eq!(size, max_size);
@@ -7039,8 +7368,7 @@ mod tests {
     #[test]
     fn test_parse_pointer_encoding_ok() {
         use crate::endianity::NativeEndian;
-        let expected =
-            constants::DwEhPe(constants::DW_EH_PE_uleb128.0 | constants::DW_EH_PE_pcrel.0);
+        let expected = constants::DW_EH_PE_uleb128 | constants::DW_EH_PE_pcrel;
         let input = [expected.0, 1, 2, 3, 4];
         let input = &mut EndianSlice::new(&input, NativeEndian);
         assert_eq!(parse_pointer_encoding(input), Ok(expected));
@@ -7272,8 +7600,7 @@ mod tests {
 
     #[test]
     fn test_parse_encoded_pointer_uleb128() {
-        let encoding =
-            constants::DwEhPe(constants::DW_EH_PE_absptr.0 | constants::DW_EH_PE_uleb128.0);
+        let encoding = constants::DW_EH_PE_absptr | constants::DW_EH_PE_uleb128;
         let expected_rest = [1, 2, 3, 4];
 
         let input = Section::with_endian(Endian::Little)
@@ -7298,8 +7625,7 @@ mod tests {
 
     #[test]
     fn test_parse_encoded_pointer_udata2() {
-        let encoding =
-            constants::DwEhPe(constants::DW_EH_PE_absptr.0 | constants::DW_EH_PE_udata2.0);
+        let encoding = constants::DW_EH_PE_absptr | constants::DW_EH_PE_udata2;
         let expected_rest = [1, 2, 3, 4];
 
         let input = Section::with_endian(Endian::Little)
@@ -7324,8 +7650,7 @@ mod tests {
 
     #[test]
     fn test_parse_encoded_pointer_udata4() {
-        let encoding =
-            constants::DwEhPe(constants::DW_EH_PE_absptr.0 | constants::DW_EH_PE_udata4.0);
+        let encoding = constants::DW_EH_PE_absptr | constants::DW_EH_PE_udata4;
         let expected_rest = [1, 2, 3, 4];
 
         let input = Section::with_endian(Endian::Little)
@@ -7350,8 +7675,7 @@ mod tests {
 
     #[test]
     fn test_parse_encoded_pointer_udata8() {
-        let encoding =
-            constants::DwEhPe(constants::DW_EH_PE_absptr.0 | constants::DW_EH_PE_udata8.0);
+        let encoding = constants::DW_EH_PE_absptr | constants::DW_EH_PE_udata8;
         let expected_rest = [1, 2, 3, 4];
 
         let input = Section::with_endian(Endian::Little)
@@ -7376,8 +7700,7 @@ mod tests {
 
     #[test]
     fn test_parse_encoded_pointer_sleb128() {
-        let encoding =
-            constants::DwEhPe(constants::DW_EH_PE_textrel.0 | constants::DW_EH_PE_sleb128.0);
+        let encoding = constants::DW_EH_PE_textrel | constants::DW_EH_PE_sleb128;
         let expected_rest = [1, 2, 3, 4];
 
         let input = Section::with_endian(Endian::Little)
@@ -7402,10 +7725,9 @@ mod tests {
 
     #[test]
     fn test_parse_encoded_pointer_sdata2() {
-        let encoding =
-            constants::DwEhPe(constants::DW_EH_PE_absptr.0 | constants::DW_EH_PE_sdata2.0);
+        let encoding = constants::DW_EH_PE_absptr | constants::DW_EH_PE_sdata2;
         let expected_rest = [1, 2, 3, 4];
-        let expected = 0x111 as i16;
+        let expected = 0x111_i16;
 
         let input = Section::with_endian(Endian::Little)
             .L16(expected as u16)
@@ -7429,10 +7751,9 @@ mod tests {
 
     #[test]
     fn test_parse_encoded_pointer_sdata4() {
-        let encoding =
-            constants::DwEhPe(constants::DW_EH_PE_absptr.0 | constants::DW_EH_PE_sdata4.0);
+        let encoding = constants::DW_EH_PE_absptr | constants::DW_EH_PE_sdata4;
         let expected_rest = [1, 2, 3, 4];
-        let expected = 0x111_1111 as i32;
+        let expected = 0x111_1111_i32;
 
         let input = Section::with_endian(Endian::Little)
             .L32(expected as u32)
@@ -7456,10 +7777,9 @@ mod tests {
 
     #[test]
     fn test_parse_encoded_pointer_sdata8() {
-        let encoding =
-            constants::DwEhPe(constants::DW_EH_PE_absptr.0 | constants::DW_EH_PE_sdata8.0);
+        let encoding = constants::DW_EH_PE_absptr | constants::DW_EH_PE_sdata8;
         let expected_rest = [1, 2, 3, 4];
-        let expected = -0x11_1111_1222_2222 as i64;
+        let expected = -0x11_1111_1222_2222_i64;
 
         let input = Section::with_endian(Endian::Little)
             .L64(expected as u64)
@@ -7570,5 +7890,32 @@ mod tests {
             Ok(Pointer::Indirect(0x1234_5678))
         );
         assert_eq!(rest, EndianSlice::new(&expected_rest, LittleEndian));
+    }
+
+    #[test]
+    fn test_unwind_context_reuse() {
+        fn unwind_one(ctx: &mut UnwindContext<usize>, data: &[u8]) {
+            let debug_frame = DebugFrame::new(data, NativeEndian);
+            let bases = Default::default();
+            let result = debug_frame.unwind_info_for_address(
+                &bases,
+                ctx,
+                0xbadb_ad99,
+                DebugFrame::cie_from_offset,
+            );
+            assert!(result.is_err());
+            assert_eq!(result.unwrap_err(), Error::NoUnwindInfoForAddress);
+        }
+
+        // Use the same context for two different data lifetimes.
+        let mut ctx: UnwindContext<usize> = UnwindContext::new();
+        {
+            let data1 = vec![];
+            unwind_one(&mut ctx, &data1);
+        }
+        {
+            let data2 = vec![];
+            unwind_one(&mut ctx, &data2);
+        }
     }
 }

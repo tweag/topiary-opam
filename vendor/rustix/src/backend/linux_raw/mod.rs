@@ -17,17 +17,10 @@
 #[macro_use]
 mod arch;
 mod conv;
-#[cfg(any(
-    feature = "param",
-    feature = "runtime",
-    feature = "time",
-    target_arch = "x86"
-))]
-mod elf;
 mod reg;
-#[cfg(any(feature = "time", target_arch = "x86"))]
+#[cfg(any(feature = "time", feature = "process", target_arch = "x86"))]
 mod vdso;
-#[cfg(any(feature = "time", target_arch = "x86"))]
+#[cfg(any(feature = "time", feature = "process", target_arch = "x86"))]
 mod vdso_wrappers;
 
 #[cfg(feature = "event")]
@@ -36,9 +29,10 @@ pub(crate) mod event;
     feature = "fs",
     all(
         not(feature = "use-libc-auxv"),
-        not(target_vendor = "mustang"),
+        not(feature = "use-explicitly-provided-auxv"),
         any(
             feature = "param",
+            feature = "process",
             feature = "runtime",
             feature = "time",
             target_arch = "x86",
@@ -51,10 +45,15 @@ pub(crate) mod io;
 pub(crate) mod io_uring;
 #[cfg(feature = "mm")]
 pub(crate) mod mm;
+#[cfg(feature = "mount")]
+pub(crate) mod mount;
+#[cfg(all(feature = "fs", not(feature = "mount")))]
+pub(crate) mod mount; // for deprecated mount functions in "fs"
 #[cfg(feature = "net")]
 pub(crate) mod net;
 #[cfg(any(
     feature = "param",
+    feature = "process",
     feature = "runtime",
     feature = "time",
     target_arch = "x86",
@@ -70,6 +69,8 @@ pub(crate) mod pty;
 pub(crate) mod rand;
 #[cfg(feature = "runtime")]
 pub(crate) mod runtime;
+#[cfg(feature = "shm")]
+pub(crate) mod shm;
 #[cfg(feature = "system")]
 pub(crate) mod system;
 #[cfg(feature = "termios")]
@@ -100,7 +101,7 @@ pub(crate) mod prctl;
     feature = "thread",
     all(
         not(feature = "use-libc-auxv"),
-        not(target_vendor = "mustang"),
+        not(feature = "use-explicitly-provided-auxv"),
         any(
             feature = "param",
             feature = "runtime",

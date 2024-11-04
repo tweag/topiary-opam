@@ -2,6 +2,134 @@
 
 --------------------------------------------------------------------------------
 
+## 0.29.0
+
+Released 2024/04/11.
+
+### Breaking changes
+
+* Changed `Reader` type parameter to `ReaderOffset` for `read::UnwindContext` and related types.
+  Replaced `Expression` with `UnwindExpression` in unwind information types.
+  [#703](https://github.com/gimli-rs/gimli/pull/703)
+
+### Changed
+
+* Changed `write::Sections::for_each` and `for_each_mut` to specify section lifetime.
+  [#699](https://github.com/gimli-rs/gimli/pull/699)
+
+* Fixed writing unwind information with an LSDA encoding that is not `DW_EH_PE_absptr`.
+  [#704](https://github.com/gimli-rs/gimli/pull/704)
+
+* Fixed parsing for an empty DWP index.
+  [#706](https://github.com/gimli-rs/gimli/pull/706)
+
+* Improved error handling in `read::Unit::dwo_name`.
+  [#693](https://github.com/gimli-rs/gimli/pull/693)
+
+* Fixed warnings.
+  [#692](https://github.com/gimli-rs/gimli/pull/692)
+  [#694](https://github.com/gimli-rs/gimli/pull/694)
+  [#695](https://github.com/gimli-rs/gimli/pull/695)
+  [#696](https://github.com/gimli-rs/gimli/pull/696)
+
+### Added
+
+* Added MIPS register definitions.
+  [#690](https://github.com/gimli-rs/gimli/pull/690)
+
+* Added PowerPC register definitions.
+  [#691](https://github.com/gimli-rs/gimli/pull/691)
+
+* Added `read::DwarfSections` and `read::DwarfPackageSections`.
+  [#698](https://github.com/gimli-rs/gimli/pull/698)
+
+* Implemented `BitOr` for `DwEhPe`.
+  [#709](https://github.com/gimli-rs/gimli/pull/709)
+
+* Added `read::Relocate`, `read::RelocateReader`, and `write::RelocateWriter`.
+  [#709](https://github.com/gimli-rs/gimli/pull/709)
+
+--------------------------------------------------------------------------------
+
+## 0.28.1
+
+Released 2023/11/24.
+
+### Changed
+
+* Changed `read::AbbreviationsCache` to require manual population using
+  `Dwarf::populate_abbreviations_cache`.
+  [#679](https://github.com/gimli-rs/gimli/pull/679)
+
+* Changed the default `read::UnwindContextStorage` to use `Box` instead of `Vec`
+  so that its memory usage is limited.
+  [#687](https://github.com/gimli-rs/gimli/pull/687)
+
+* Changed `read::UnwindTable::new` to always reset the context, because
+  previous errors may have left the context in an invalid state.
+  [#684](https://github.com/gimli-rs/gimli/pull/684)
+
+* Changed the `Debug` implementation for `read::EndianSlice` to limit the number
+  of bytes it displays.
+  [#686](https://github.com/gimli-rs/gimli/pull/686)
+
+### Added
+
+* Added more AArch64 register definitions.
+  [#680](https://github.com/gimli-rs/gimli/pull/680)
+
+* Added `read::Unit::new_with_abbreviations`.
+  [#677](https://github.com/gimli-rs/gimli/pull/677)
+
+* Added `read::Evaluation::value_result`.
+  [#676](https://github.com/gimli-rs/gimli/pull/676)
+
+--------------------------------------------------------------------------------
+
+## 0.28.0
+
+Released 2023/08/12.
+
+### Breaking changes
+
+* Deleted `impl From<EndianSlice> for &[u8]`. Use `EndianSlice::slice` instead.
+  [#669](https://github.com/gimli-rs/gimli/pull/669)
+
+* Deleted `impl Index<usize> for EndianSlice` and
+  `impl Index<RangeFrom<usize>> for EndianSlice`.
+  [#669](https://github.com/gimli-rs/gimli/pull/669)
+
+* Replaced `impl From<Pointer> for u64` with `Pointer::pointer`.
+  [#670](https://github.com/gimli-rs/gimli/pull/670)
+
+* Updated `fallible-iterator` to 0.3.0.
+  [#672](https://github.com/gimli-rs/gimli/pull/672)
+
+* Changed some optional dependencies to use the `dep:` feature syntax.
+  [#672](https://github.com/gimli-rs/gimli/pull/672)
+
+* Added `non_exhaustive` attribute to `read::RegisterRule`,
+  `read::CallFrameInstruction`, and `write::CallFrameInstruction`.
+  [#673](https://github.com/gimli-rs/gimli/pull/673)
+
+### Changed
+
+* The minimum supported rust version for the `read` feature and its dependencies
+  increased to 1.60.0.
+
+* The minimum supported rust version for other features increased to 1.65.0.
+
+### Added
+
+* Added `Vendor`, `read::DebugFrame::set_vendor`, and `read::EhFrame::set_vendor`.
+  [#673](https://github.com/gimli-rs/gimli/pull/673)
+
+* Added more ARM and AArch64 register definitions, and
+  `DW_CFA_AARCH64_negate_ra_state` support.
+  [#673](https://github.com/gimli-rs/gimli/pull/673)
+
+--------------------------------------------------------------------------------
+
 ## 0.27.3
 
 Released 2023/06/14.

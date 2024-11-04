@@ -1,10 +1,10 @@
-use std::fs::File;
-use std::io;
-use std::os::windows::io::{
-    AsRawHandle, FromRawHandle, IntoRawHandle, RawHandle,
+use std::{
+    fs::File,
+    io,
+    os::windows::io::{AsRawHandle, FromRawHandle, IntoRawHandle, RawHandle},
+    path::Path,
+    process,
 };
-use std::path::Path;
-use std::process;
 
 /// A handle represents an owned and valid Windows handle to a file-like
 /// object.
@@ -66,7 +66,7 @@ impl Handle {
     pub fn from_path_any<P: AsRef<Path>>(path: P) -> io::Result<Handle> {
         use std::fs::OpenOptions;
         use std::os::windows::fs::OpenOptionsExt;
-        use winapi::um::winbase::FILE_FLAG_BACKUP_SEMANTICS;
+        use windows_sys::Win32::Storage::FileSystem::FILE_FLAG_BACKUP_SEMANTICS;
 
         let file = OpenOptions::new()
             .read(true)

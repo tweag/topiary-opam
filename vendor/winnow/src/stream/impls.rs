@@ -1,6 +1,7 @@
 macro_rules! impl_partial_eq {
     ($lhs:ty, $rhs:ty) => {
-        impl<'a, 'b> PartialEq<$rhs> for $lhs {
+        #[allow(unused_lifetimes)]
+        impl<'a> PartialEq<$rhs> for $lhs {
             #[inline]
             fn eq(&self, other: &$rhs) -> bool {
                 let l = self.as_ref();
@@ -9,7 +10,8 @@ macro_rules! impl_partial_eq {
             }
         }
 
-        impl<'a, 'b> PartialEq<$lhs> for $rhs {
+        #[allow(unused_lifetimes)]
+        impl<'a> PartialEq<$lhs> for $rhs {
             #[inline]
             fn eq(&self, other: &$lhs) -> bool {
                 PartialEq::eq(other, self)
@@ -20,7 +22,8 @@ macro_rules! impl_partial_eq {
 
 macro_rules! impl_partial_ord {
     ($lhs:ty, $rhs:ty) => {
-        impl<'a, 'b> PartialOrd<$rhs> for $lhs {
+        #[allow(unused_lifetimes)]
+        impl<'a> PartialOrd<$rhs> for $lhs {
             #[inline]
             fn partial_cmp(&self, other: &$rhs) -> Option<Ordering> {
                 let l = self.as_ref();
@@ -29,7 +32,8 @@ macro_rules! impl_partial_ord {
             }
         }
 
-        impl<'a, 'b> PartialOrd<$lhs> for $rhs {
+        #[allow(unused_lifetimes)]
+        impl<'a> PartialOrd<$lhs> for $rhs {
             #[inline]
             fn partial_cmp(&self, other: &$lhs) -> Option<Ordering> {
                 PartialOrd::partial_cmp(other, self)
@@ -238,14 +242,14 @@ mod bytes {
     impl PartialOrd for Bytes {
         #[inline]
         fn partial_cmp(&self, other: &Bytes) -> Option<Ordering> {
-            PartialOrd::partial_cmp(self.as_bytes(), other.as_bytes())
+            Some(self.cmp(other))
         }
     }
 
     impl Ord for Bytes {
         #[inline]
         fn cmp(&self, other: &Bytes) -> Ordering {
-            self.partial_cmp(other).unwrap()
+            Ord::cmp(self.as_bytes(), other.as_bytes())
         }
     }
 
@@ -485,14 +489,14 @@ mod bstr {
     impl PartialOrd for BStr {
         #[inline]
         fn partial_cmp(&self, other: &BStr) -> Option<Ordering> {
-            PartialOrd::partial_cmp(self.as_bytes(), other.as_bytes())
+            Some(self.cmp(other))
         }
     }
 
     impl Ord for BStr {
         #[inline]
         fn cmp(&self, other: &BStr) -> Ordering {
-            self.partial_cmp(other).unwrap()
+            Ord::cmp(self.as_bytes(), other.as_bytes())
         }
     }
 

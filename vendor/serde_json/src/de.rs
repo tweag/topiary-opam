@@ -22,6 +22,7 @@ use crate::number::NumberDeserializer;
 pub use crate::read::{Read, SliceRead, StrRead};
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub use crate::read::IoRead;
 
 //////////////////////////////////////////////////////////////////////////////
@@ -480,7 +481,7 @@ impl<'de, R: Read<'de>> Deserializer<R> {
                             // try to keep the number as a `u64` until we grow
                             // too large. At that point, switch to parsing the
                             // value as a `f64`.
-                            if overflow!(significand * 10 + digit, u64::max_value()) {
+                            if overflow!(significand * 10 + digit, u64::MAX) {
                                 return Ok(ParserNumber::F64(tri!(
                                     self.parse_long_integer(positive, significand),
                                 )));
@@ -532,7 +533,7 @@ impl<'de, R: Read<'de>> Deserializer<R> {
         while let c @ b'0'..=b'9' = tri!(self.peek_or_null()) {
             let digit = (c - b'0') as u64;
 
-            if overflow!(significand * 10 + digit, u64::max_value()) {
+            if overflow!(significand * 10 + digit, u64::MAX) {
                 let exponent = exponent_before_decimal_point + exponent_after_decimal_point;
                 return self.parse_decimal_overflow(positive, significand, exponent);
             }
@@ -596,7 +597,7 @@ impl<'de, R: Read<'de>> Deserializer<R> {
             self.eat_char();
             let digit = (c - b'0') as i32;
 
-            if overflow!(exp * 10 + digit, i32::max_value()) {
+            if overflow!(exp * 10 + digit, i32::MAX) {
                 let zero_significand = significand == 0;
                 return self.parse_exponent_overflow(positive, zero_significand, positive_exp);
             }
@@ -788,7 +789,7 @@ impl<'de, R: Read<'de>> Deserializer<R> {
             self.eat_char();
             let digit = (c - b'0') as i32;
 
-            if overflow!(exp * 10 + digit, i32::max_value()) {
+            if overflow!(exp * 10 + digit, i32::MAX) {
                 let zero_significand = self.scratch.iter().all(|&digit| digit == b'0');
                 return self.parse_exponent_overflow(positive, zero_significand, positive_exp);
             }
@@ -2203,6 +2204,41 @@ where
     deserialize_numeric_key!(deserialize_f32, deserialize_f32);
     deserialize_numeric_key!(deserialize_f64);
 
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.de.eat_char();
+
+        let peek = match tri!(self.de.next_char()) {
+            Some(b) => b,
+            None => {
+                return Err(self.de.peek_error(ErrorCode::EofWhileParsingValue));
+            }
+        };
+
+        let value = match peek {
+            b't' => {
+                tri!(self.de.parse_ident(b"rue\""));
+                visitor.visit_bool(true)
+            }
+            b'f' => {
+                tri!(self.de.parse_ident(b"alse\""));
+                visitor.visit_bool(false)
+            }
+            _ => {
+                self.de.scratch.clear();
+                let s = tri!(self.de.read.parse_str(&mut self.de.scratch));
+                Err(de::Error::invalid_type(Unexpected::Str(&s), &visitor))
+            }
+        };
+
+        match value {
+            Ok(value) => Ok(value),
+            Err(err) => Err(self.de.fix_position(err)),
+        }
+    }
+
     #[inline]
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
@@ -2258,7 +2294,7 @@ where
     }
 
     forward_to_deserialize_any! {
-        bool char str string unit unit_struct seq tuple tuple_struct map struct
+        char str string unit unit_struct seq tuple tuple_struct map struct
         identifier ignored_any
     }
 }
@@ -2406,7 +2442,7 @@ where
                         if self_delineated_value {
                             Ok(value)
                         } else {
-                            self.peek_end_of_value().map(|_| value)
+                            self.peek_end_of_value().map(|()| value)
                         }
                     }
                     Err(e) => {

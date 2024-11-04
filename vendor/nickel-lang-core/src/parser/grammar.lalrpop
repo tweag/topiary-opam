@@ -1,0 +1,1608 @@
+//! The Nickel grammar.
+//!
+//! # Uniterm
+//!
+//! Nickel uses the uniterm grammar since
+//! [RFC002](../rfcs/002-merge-types-terms-syntax.md). Uniterm is a common
+//! grammar for both term and types. However, it is only a front-end: the rest of
+//! the interpreter pipeline needs terms and types to be separate objects.
+//!
+//! Most of the time, grammar constructs determine unambiguously if an expression
+//! should be considered as a type or a term. Typically, `e1 -> e2` will always
+//! be a type, and `e1 + e2` a term. This doesn't contradict the fact that `e1 ->
+//! e2` can be used as a term: the point is, even in the latter case, we still
+//! parse `e1 -> e2` as a type first, and then derive a term from it wherever it
+//! is used in a context expecting a term.
+//!
+//! This is not the case of all rules. Record literals and variables can both be
+//! interpreted in a different way, depending on how their usage. In
+//! `x : {foo : Num}`, `{foo : Num}` is interpreted as a record type. In `{foo :
+//! Num}.foo`, it is a record literal with a missing definition for `foo`. The
+//! first interpretation is **not** equivalent to first interpreting it as a
+//! term, and then as a type.
+//!
+//! For those reasons, the `uniterm` module introduces a new AST definition, that
+//! just wraps `RichTerm` and `Type`, together with dedicated variants for the
+//! common constructs that are variables and records. As long as a common
+//! construct is not used in a term or a type context, it can be still
+//! interpreted as both. Once the usage determines the nature of a record or a
+//! variable, it is converted to either a `RichTerm` or a `Type` (although still
+//! possibly wrapped as a `UniTerm`).
+//!
+//! In consequence, this grammar uses three main types `RichTerm`, `Type` and
+//! `UniTerm`, as well as conversion macros `AsTerm`, `AsType` and `AsUniTerm`.
+//! Some rules that are known to only produce `RichTerm` or `Type` may have the
+//! corresponding more precise return type. Other rules that produce or just
+//! propagate general uniterms have to return a `UniTerm`.
+use std::{
+    ffi::OsString,
+    convert::TryFrom,
+};
+
+use codespan::FileId;
+use lalrpop_util::ErrorRecovery;
+
+use super::{
+    ExtendedTerm,
+    utils::*,
+    lexer::{Token, NormalToken, StringToken, MultiStringToken, SymbolicStringStart},
+    error::ParseError,
+    uniterm::*,
+};
+
+use crate::{
+    mk_app,
+    mk_opn,
+    mk_fun,
+    identifier::LocIdent,
+    term::{
+        *,
+        record::{RecordAttrs, Field, FieldMetadata},
+        array::Array,
+        make as mk_term,
+        pattern::*,
+    },
+    typ::*,
+    position::{TermPos, RawSpan},
+    label::Label,
+    combine::Combine,
+};
+
+use malachite::num::basic::traits::Zero;
+
+grammar<'input, 'err, 'wcard>(
+    src_id: FileId,
+    errors: &'err mut Vec<ErrorRecovery<usize, Token<'input>, ParseError>>,
+    next_wildcard_id: &'wcard mut usize,
+);
+
+WithPos<Rule>: Rule = <l: @L> <t: Rule> <r: @R> => t.with_pos(mk_pos(src_id, l, r));
+
+AsTerm<Rule>: RichTerm = <ut: WithPos<Rule>> =>?
+    RichTerm::try_from(ut)
+        .map_err(|e| lalrpop_util::ParseError::User{error: e});
+
+AsType<Rule>: Type = <ut: WithPos<Rule>> =>?
+    Type::try_from(ut)
+        .map_err(|e| lalrpop_util::ParseError::User{error: e});
+
+AsUniTerm<Rule>: UniTerm = <ut: WithPos<Rule>> => UniTerm::from(ut);
+
+AnnotSeries<AnnotAtom>: AnnotAtom = <AnnotAtom+> =>
+    <>.into_iter().fold(Default::default(), Combine::combine);
+
+// A single type or contract annotation. The `Type` rule forbids the use of
+// constructs that can themselves have annotation on the right, such as a `let`.
+// Otherwise, `foo | let x = 1 in x : Num` is ambiguous (the annotation could be
+// either `foo | (let x = 1 in (x : Num))` or `(foo | let x = 1 in x) : Num`).
+//
+// The rule to use for type annotations is given as a parameter. We always use a
+// rule that is syntactically equivalent to the `Type` rule. The parameter is
+// here to control if the type should have its variables fixed now (`FixedType`)
+// or later (bare `Type`). Almost all rules are of the former kind, and use
+// `FixedType` (see `FixedType` and `parser::utils::fix_type_vars`).
+AnnotAtom<TypeRule>: TypeAnnotation = {
+    "|" <l: @L> <ty: TypeRule> <r: @R> => TypeAnnotation {
+        contracts: vec![LabeledType {typ: ty.clone(), label: mk_label(ty, src_id, l, r)}],
+        ..Default::default()
+    },
+    ":" <l: @L> <ty: TypeRule> <r: @R> => TypeAnnotation {
+        typ: Some(LabeledType {typ: ty.clone(), label: mk_label(ty, src_id, l, r)}),
+        ..Default::default()
+    },
+};
+
+// A single metadata annotation attached to a let-binding. Compared to
+// annotations which can appear everywhere (`AnnotAtom`, either a type or a
+// contract annotation), let annotations also include documentation (`doc`).
+LetAnnotAtom<TypeRule>: LetMetadata = {
+    <AnnotAtom<TypeRule>> => <>.into(),
+    "|" "doc" <s: StaticString> => LetMetadata {
+        doc: Some(s),
+        ..Default::default()
+    },
+}
+
+// A single field metadata annotation, without the pseudo-metadata (such as
+// recursive priorities).
+//
+// The rule to use for type annotations is given as a parameter (cf AnnotAtom
+// rule).
+SimpleFieldAnnotAtom<TypeRule>: FieldMetadata = {
+    <LetAnnotAtom<TypeRule>> => <>.into(),
+    "|" "default" => FieldMetadata {
+        priority: MergePriority::Bottom,
+        ..Default::default()
+    },
+    "|" "force" => FieldMetadata {
+        priority: MergePriority::Top,
+        ..Default::default()
+    },
+    "|" "priority" <SignedNumLiteral> => FieldMetadata {
+        priority: MergePriority::Numeral(<>),
+        ..Default::default()
+    },
+    "|" "optional" => FieldMetadata {
+        opt: true,
+        ..Default::default()
+    },
+    "|" "not_exported" => FieldMetadata {
+        not_exported: true,
+        ..Default::default()
+    },
+}
+
+// A single field metadata annotation.
+//
+// The rule to use for type annotations is given as a parameter (cf AnnotAtom
+// rule).
+FieldAnnotAtom<TypeRule>: FieldExtAnnot = {
+    <SimpleFieldAnnotAtom<TypeRule>> => <>.into(),
+// Recursive priorities are disabled as of 1.2.0. Their semantics is non trivial
+// to adapt to RFC005 that landed in 1.0.0, so they are currently on hold. If we
+// drop them altogether, we'll have to clean the corresponding code floating
+// around (not only in the parser, but in the internals module, etc.)
+//    "|" "rec" "force" => FieldExtAnnot {
+//        rec_force: true,
+//        ..Default::default()
+//    },
+//    "|" "rec" "default" => FieldExtAnnot {
+//        rec_default: true,
+//        ..Default::default()
+//    },
+}
+
+// An annotation, with possibly many annotations chained.
+Annot<TypeRule>: TypeAnnotation = AnnotSeries<AnnotAtom<WithPos<TypeRule>>>;
+
+// A let annotation, with possibly many annotations chained. Include type
+// annotations, contract annotations and doc annotations.
+LetAnnot<TypeRule>: LetMetadata = AnnotSeries<LetAnnotAtom<WithPos<TypeRule>>>;
+
+// A simple field annotation, with possibly many annotations chained. A simple
+// field annotation excludes pseudo metadata like recursive priorities operator.
+SimpleFieldAnnot<TypeRule>: FieldMetadata = AnnotSeries<SimpleFieldAnnotAtom<TypeRule>>;
+
+// A field annotation, with possibly many annotations chained.
+FieldAnnot<TypeRule>: FieldExtAnnot =
+    AnnotSeries<FieldAnnotAtom<WithPos<TypeRule>>>;
+
+// A general term. Wrap the root of the grammar as a `RichTerm`.
+pub Term: RichTerm = AsTerm<UniTerm>;
+
+// A general type. Chosen such that it can't have top-level annotations.
+// (see `AnnotAtom`)
+Type: Type = {
+    AsType<InfixExpr>,
+    Forall,
+};
+
+// A type with type variables fixed. See `parser::utils::fix_type_vars`.
+//
+// This rule is public and can be used from external modules to parse an input
+// directly as a type.
+pub FixedType: Type = {
+    <l: @L> <mut ty: Type> <r: @R> =>? {
+        ty.fix_type_vars(mk_span(src_id, l, r))?;
+        Ok(ty)
+    }
+};
+
+// Either a term or a top-level let-binding (a let-binding without an `in`).
+// Used exclusively for the REPL.
+pub ExtendedTerm: ExtendedTerm = {
+    "let" <id: Ident> <ann: LetAnnot<FixedType>?> "=" <mut t: Term> => {
+        if let Some(ann) = ann {
+            t = ann.annotation.attach_term(t);
+        }
+
+        ExtendedTerm::ToplevelLet(id, t)
+    },
+    Term => ExtendedTerm::RichTerm(<>),
+};
+
+// A general uniterm. The root of the grammar.
+UniTerm: UniTerm = {
+    InfixExpr,
+    AnnotatedInfixExpr,
+    AsUniTerm<Forall>,
+    "let" <l: @L> <recursive:"rec"?> <r: @R> <pat:Pattern> <ann: LetAnnot<FixedType>?>
+        "=" <mut t1: Term>
+        "in" <t2: Term> =>? {
+        if let Some(ann) = ann {
+            t1 = ann.annotation.attach_term(t1);
+        }
+
+        Ok(UniTerm::from(mk_let(recursive.is_some(), pat, t1, t2, mk_span(src_id, l, r))?))
+    },
+    <l: @L> "fun" <pats: PatternFun+> "=>" <t: Term> <r: @R> => {
+        let pos = mk_pos(src_id, l, r);
+        let rt = pats.into_iter().rev().fold(t, |t, assgn| RichTerm {
+            term: SharedTerm::new(mk_fun(assgn, t)),
+            pos,
+        });
+
+        UniTerm::from(rt)
+    },
+    "if" <cond: Term> "then" <t1: Term> "else" <t2: Term> =>
+        UniTerm::from(mk_app!(Term::Op1(UnaryOp::IfThenElse, cond), t1, t2)),
+    <err: Error> => {
+        UniTerm::from(err)
+    },
+    "import" <s: StandardStaticString> => UniTerm::from(Term::Import(OsString::from(s))),
+};
+
+AnnotatedInfixExpr: UniTerm = {
+    <t: AsTerm<InfixExpr>> <ann: Annot<FixedType>> => {
+        UniTerm::from(ann.attach_term(t))
+    },
+};
+
+Forall: Type =
+    "forall" <ids: Ident+> "." <ty: WithPos<Type>> => {
+        ids.into_iter().rev().fold(
+            ty,
+            // The variable kind will be determined during the `fix_type_vars`
+            // phase. For now, we put a random one (which is also the default
+            // one, for unused type variables)
+            |acc, var| {
+                let pos = acc.pos;
+                Type {
+                    typ: TypeF::Forall {
+                        var,
+                        var_kind: VarKind::Type,
+                        body: Box::new(acc)
+                    },
+                    pos
+                }
+            }
+        )
+    };
+
+// A n-ary application-like expression (n may be 0, in the sense that this rule
+// also includes previous levels).
+Applicative: UniTerm = {
+    Atom,
+    AsUniTerm<WithPos<TypeArray>>,
+    <t1: AsTerm<Applicative>> <t2: AsTerm<Atom>> => {
+        // We special case the application of an enum tag here. In principle, an
+        // enum variant applied to an argument is of different nature than a
+        // function application. However, for convenience, we made the syntax
+        // the same. So we now have to detect cases like `'Foo {x=1}` and
+        // convert that to a proper enum variant.
+        let term = if let Term::Enum(tag) = t1.as_ref() {
+            Term::EnumVariant {
+                tag: *tag,
+                arg: t2,
+                attrs: EnumVariantAttrs::default(),
+            }
+        }
+        else {
+            Term::App(t1, t2)
+        };
+
+        UniTerm::from(term)
+    },
+    <op: UOp> <t: AsTerm<Atom>> => UniTerm::from(mk_term::op1(op, t)),
+    <op: BOpPre> <t1: AsTerm<Atom>> <t2: AsTerm<Atom>>
+        => UniTerm::from(mk_term::op2(op, t1, t2)),
+    NOpPre<AsTerm<Atom>>,
+    "match" "{" <branches: (MatchBranch ",")*> <last: MatchBranch?> "}" => {
+        let branches = branches
+            .into_iter()
+            .map(|(branch, _comma)| branch)
+            .chain(last)
+            .collect();
+
+        UniTerm::from(Term::Match(MatchData { branches }))
+    }
+};
+
+// The parametrized array type.
+TypeArray: Type = "Array" <t: AsType<Atom>> =>
+    // For some reason, we have to bind the type into a `t`
+    // rather than using the usual `<>` placeholder, otherwise,
+    // it doesn't compile.
+    Type::from(TypeF::Array(Box::new(t)));
+
+// A record operation chain, such as `{foo = data}.bar.baz`.
+RecordOperationChain: RichTerm = {
+    <t: AsTerm<Atom>> "." <id: ExtendedIdent> => mk_term::op1(UnaryOp::RecordAccess(id), t).with_pos(id.pos),
+    <t: AsTerm<Atom>> "." <t_id: WithPos<StrChunks>> => mk_access(t_id, t),
+};
+
+RecordRowTail: RecordRows = {
+    <Ident> => RecordRows(RecordRowsF::TailVar(<>)),
+    "Dyn" => RecordRows(RecordRowsF::TailDyn),
+};
+
+// A record, that can be later interpreted either as a record literal or as a
+// record type.
+UniRecord: UniRecord = {
+   "{" <fields: (<RecordField> ",")*>
+       <last_l: @L> <last: RecordLastField?> <last_r: @R>
+       <tail_l: @L> <tail: (";" RecordRowTail)?> <tail_r: @R>
+   "}" => {
+        let (last_field, attrs) = match last {
+            Some(RecordLastField::Field(f)) => (Some(f), Default::default()),
+            Some(RecordLastField::Ellipsis) =>
+                (None, RecordAttrs { open: true, ..Default::default() }),
+            None => (None, Default::default())
+        };
+
+        let pos_ellipsis = if attrs.open {
+                mk_pos(src_id, last_l, last_r)
+            }
+            else {
+                TermPos::None
+            };
+
+        let fields : Vec<_> = fields.into_iter().chain(last_field.into_iter()).collect();
+        UniRecord {
+            fields,
+            tail: tail.map(|t| (t.1, mk_pos(src_id, tail_l, tail_r))),
+            attrs,
+            pos: TermPos::None,
+            pos_ellipsis,
+        }
+    },
+};
+
+NumberLiteral: Number = {
+    <"dec num literal">,
+    <"hex num literal">,
+    <"oct num literal">,
+    <"bin num literal">,
+};
+
+Atom: UniTerm = {
+    "(" <AsUniTerm<CurriedOp>> ")",
+    "(" <UniTerm> ")",
+    NumberLiteral => UniTerm::from(Term::Num(<>)),
+    "null" => UniTerm::from(Term::Null),
+    Bool => UniTerm::from(Term::Bool(<>)),
+    AsUniTerm<StrChunks>,
+    Ident => UniTerm::from(UniTermNode::Var(<>)),
+    WithPos<UniRecord> => UniTerm::from(UniTermNode::Record(<>)),
+    <EnumTag> => UniTerm::from(Term::Enum(<>)),
+    "[" <terms: (<Term> ",")*> <last: Term?> "]" => {
+        let terms = terms
+            .into_iter()
+            .chain(last.into_iter())
+            .collect();
+
+        UniTerm::from(Term::Array(terms, Default::default()))
+    },
+    AsUniTerm<WithPos<TypeAtom>>,
+    AsUniTerm<RecordOperationChain>,
+};
+
+// A record field definition. The is the only place where we don't fix the type
+// variables inside the annotation right away (note the `Annot<Type>` instead
+// of `Annot<Fixed>`).
+RecordField: FieldDef = {
+    <l: @L> <path: FieldPath> <ann: FieldAnnot<Type>?> <r: @R> <t: ("=" <Term>)?> => {
+        let annot_span = mk_span(src_id, l, r);
+        let span = if let Some(ref value) = t {
+                // value.pos.unwrap(): the position of `t` is necessarily set by
+                // the <Term> rule
+                // result unwrap(): the term and the annotation have spans
+                // coming from the same file (the current one)
+                annot_span.fuse(value.pos.unwrap()).unwrap()
+        } else {
+            annot_span
+        };
+
+        let field = match (ann, t) {
+            (Some(FieldExtAnnot { metadata, rec_force: false, rec_default: false }), None) => {
+                Field { value: None, metadata, ..Default::default() }
+            }
+            (Some(ann), Some(value)) => {
+                ann.attach_term(value)
+            }
+            (Some(_), None) => {
+                panic!("can't use rec default/rec force on a field without definition");
+            }
+            (None, value) => Field { value, ..Default::default() }
+        };
+
+        FieldDef {
+            path,
+            field,
+            pos: TermPos::Original(span),
+        }
+    },
+    <err: Error> => {
+        FieldDef {
+          pos: err.pos,
+          path: vec![FieldPathElem::Expr(err.clone())],
+          field: Default::default(),
+        }
+    },
+};
+
+// An error recovery handler.
+Error : RichTerm =  <l: @L> <t: !> <r: @R> => {
+    let pos = mk_pos(src_id, l, r);
+    errors.push(t.clone());
+
+    RichTerm::new(Term::ParseError(
+      crate::error::ParseError::from_lalrpop(t.error, src_id)),
+      pos,
+    )
+};
+
+RecordLastField: RecordLastField = {
+    <RecordField> => RecordLastField::Field(<>),
+    ".." => RecordLastField::Ellipsis,
+};
+
+// A field path syntax in a field definition, as in `{foo."bar bar".baz = "value"}`.
+FieldPath: FieldPath = {
+    <mut elems: (<FieldPathElem> ".")*> <last: FieldPathElem> => {
+        elems.push(last);
+        elems
+    }
+};
+
+// A field path which only contains static string literals, that is, without any
+// interpolated expression in it.
+pub StaticFieldPath: Vec<LocIdent> = <start: @L> <field_path: FieldPath> <end: @R> =>? {
+    field_path
+        .into_iter()
+        .map(|elem| match elem {
+            FieldPathElem::Ident(ident) => Ok(ident),
+            FieldPathElem::Expr(expr) => {
+                let as_string = expr.as_ref().try_str_chunk_as_static_str().ok_or(
+                    ParseError::InterpolationInStaticPath {
+                        path_elem_span: expr.pos
+                            .into_opt()
+                            .unwrap_or_else(|| mk_span(src_id, start, end)),
+                    },
+                )?;
+                Ok(LocIdent::new_with_pos(as_string, expr.pos))
+            }
+        })
+        .collect()
+};
+
+// This rule is used to parse value assignments on the command line as part of
+// the customize mode, such as `foo.bar.enabled=true` in
+//
+//```
+//$ nickel export config.ncl -- foo.bar.enabled=true`
+//```
+//
+// The returned span (of the right-hand side of the equal sign) is required for
+// the CLI to extract the substring corresponding to the right-hand side, here
+// `true`.
+//
+// It's redundant with the position stored inside the returned `RichTerm`. But
+// this position might theoretically be `None` - we know it can't in practice,
+// because the Term rule inserts position information, but the `TermPos` type
+// alone can't encode this invariant.
+//
+// We could just return a `Term` instead of a `RichTerm`, as position
+// information is already stored in the span. But the <Term> rule produces a
+// RichTerm anyway, so it's simpler to just return it instead of artificially
+// deconstructing it.
+//
+// This rule is currently only used for the CLI and isn't part of the grammar
+// for normal Nickel source code.
+pub CliFieldAssignment: (Vec<LocIdent>, RichTerm, RawSpan) =
+    <path: StaticFieldPath> "=" <start: @L> <value: WithPos<Term>> <end: @R>
+      => (path, value, mk_span(src_id, start, end));
+
+FieldPathElem: FieldPathElem = {
+    <ExtendedIdent> => FieldPathElem::Ident(<>),
+    <WithPos<StrChunks>> => FieldPathElem::Expr(<>),
+};
+
+// A pattern.
+//
+// The PatternF, and in general several pattern rules ending with a capital `F`,
+// are parametrized by other pattern rules. In general, depending on where those
+// patterns and subpatterns occur, they need various restrictions to ensure that
+// parsing is never ambiguous (at least with respect to the LALR(1)/LR(1)
+// capabilities supported by LALRPOP).
+//
+// The various flavours of pattern rules and their respective motivation are
+// detailed below.
+//
+// # Parentheses
+//
+// ## Enum variants
+//
+// Before the introduction of enum variants, functions have been allowed to
+// match on several arguments using a sequence of patterns. For example, `fun
+// {x} {y} z => x + y + z`. With variants, we've added the following pattern
+// form: `'SomeTag argument`. Now, something like `fun 'SomeTag 'SomeArg => ...`
+// is ambiguous: are we matching on a single argument that we expect to be
+// `('SomeTag 'SomeArg)`, or on two separate arguments that are bare enum tags,
+// as in `fun ('SomeTag) ('SomeArg)`?
+//
+// To avoid ambiguity, we force the top-level argument patterns of a function to
+// use a parenthesized version for enum variants. Thus `fun 'Foo 'Bar => ...` is
+// always interpreted as `fun ('Foo) ('Bar) => ...`. The other interpretation
+// can be written as `fun ('Foo 'Bar) => ...`.
+//
+// We allow parenthesized enum variants pattern in general pattern as well, not
+// only for consistency, but because they also make nested enum variant patterns
+// more readable: `'Foo ('Bar 5)` vs `'Foo 'Bar 5`. In fact, we also force
+// nested enum patterns to be parenthesized, and forbid the latter, for better
+// readability. In practice, this means that the argument pattern of an enum
+// variant pattern has the same restriction as a function argument pattern.
+//
+// ## or-patterns
+//
+// The same ambiguity (and solution) extends to or-patterns, which are also
+// ambiguous when used as function arguments. As we want `or` to remain a valid
+// identifier, `fun x or y => ...` could be a function of 3 arguments `x`, `or`
+// and `y`, or a function of one argument matching the pattern `(x or y)` (this
+// isn't a valid or-pattern because the bound variables are different in each or
+// branch, but that's beside the point - checking variables mismatches isn't the
+// job of parsing rules).
+//
+// We thus reuse the exact same idea in order to force or-patterns used at the
+// top-level of a function argument to be parenthesized.
+//
+// ## Or-patterns ambiguities
+//
+// Parsing or-patterns without ambiguity, while still allowing `or` to remain
+// a valid identifier including within patterns (as in `'Foo or`) requires
+// slightly more complicated constraints.
+//
+// The first issue is parentheses: how to parse `x or y or z`? Here we take a
+// simple stance: patterns (enum variant patterns and or-patterns) within an
+// `or`-branch must be parenthesized. So, this is parsed as a flat or-pattern
+// `[x, y, z]`.
+//
+// The second, harder issue is that enum variant patterns might have a trailing
+// `or` identifier. That is, when seeing `'Foo or`, the parser doesn't know if
+// it should shift in the hope of seeing another pattern after the `or`, and
+// parsing the overall result as an or-pattern `['Foo, <another pattern]`, or
+// if it should reduce to the enum variant pattern `'Foo or` and continue.
+//
+// The general trick to solve those kind of issues is to regroup the "common
+// prefix" in one specific rule and disambiguate as late as possible. In this
+// case, more concretely:
+//
+// 1. We split the enum variant pattern rule in two distinct case: the `'<Tag>
+//   or` form, where the argument is an `Any` pattern with identifier `or`, and
+//   everything else
+// 2. Within an or-pattern branch, in the generic case, we restrict patterns
+//   so that they can't include the first form (`'<Tag> or`) nor enum tag
+//   patterns (like `'Foo`). This way, whether in a `('Foo or)` enum variant
+//   pattern, or in a `'Foo or 'Bar` or-pattern, the `'Foo or` part is
+//   invariably parsed using the special rule `EnumVariantOrPattern`.
+// 3. Then, in the or-pattern branch rule, we assemble `or` branches which are
+//   either `'<Tag> or`, which is re-interpreted on the fly not as a enum
+//   variant pattern, but as an enum tag pattern followed by `or`, or the
+//   restricted generic form of pattern followed by an actual `or`.
+//
+// There are other minor details, but with enough variations of pattern rules,
+// we can ensure there's only one way to parse each and every combination with
+// only one look-ahead, thus satisfying the LR(1).
+#[inline]
+PatternF<EnumRule, OrRule, IdentRule>: Pattern = {
+    <l: @L>
+      <alias:(<WithPos<Ident>> "@")?>
+      <data: PatternDataF<EnumRule, OrRule, IdentRule>>
+    <r: @R> => {
+        Pattern {
+           alias,
+           data,
+           pos: mk_pos(src_id, l, r),
+        }
+    },
+};
+
+#[inline]
+PatternDataF<EnumRule, OrRule, IdentRule>: PatternData = {
+    RecordPattern => PatternData::Record(<>),
+    ArrayPattern => PatternData::Array(<>),
+    ConstantPattern => PatternData::Constant(<>),
+    EnumRule => PatternData::Enum(<>),
+    OrRule => PatternData::Or(<>),
+    IdentRule => PatternData::Any(<>),
+    "_" => PatternData::Wildcard,
+};
+
+// A general pattern, unrestricted.
+#[inline]
+Pattern: Pattern = PatternF<EnumPattern, OrPattern, Ident>;
+
+// A pattern restricted to function arguments, which requires or-patterns and
+// enum variant patterns to be parenthesized at the top-level.
+#[inline]
+PatternFun: Pattern = PatternF<EnumPatternParens, OrPatternParens, Ident>;
+
+// A pattern that can be used within a branch of an or-pattern. To avoid a
+// shift-reduce conflicts (because we want to allow `or` to remain a valid
+// identifier, even inside patterns), this pattern has the following
+// restrictions:
+//
+// 1. Enum tag patterns are forbidden (such as `'Foo or 'Bar`).
+// 2. Enum variant patterns shouldn't have the "or" identifier as an argument.
+// 3. Or-pattern must be parenthesized when nested in another or-pattern.
+// 4. Aliases are forbidden at the top-level. Otherwise, we run into troubles
+//   with alias chains. Furthermore, the branches of an or-pattern must have
+//   the same bound variables, so it usually makes more sense to alias the whole
+//   or-pattern instead of one specific branch.
+//
+// See the `PatternF` rule for an explanation of why we need those restrictions.
+#[inline]
+PatternOrBranch: Pattern =
+    <left: @L>
+      <data: PatternDataF<EnumPatternOrBranch, OrPatternParens, Ident>>
+    <right: @R> => {
+        Pattern {
+           alias: None,
+           data,
+           pos: mk_pos(src_id, left, right),
+        }
+    };
+
+ConstantPattern: ConstantPattern = {
+    <start: @L> <data: ConstantPatternData> <end: @R> => ConstantPattern {
+        data,
+        pos: mk_pos(src_id, start, end)
+    }
+};
+
+ConstantPatternData: ConstantPatternData = {
+    Bool => ConstantPatternData::Bool(<>),
+    NumberLiteral => ConstantPatternData::Number(<>),
+    // We could accept multiline strings here, but it's unlikely that this will
+    // result in very readable match expressions. For now we restrict ourselves
+    // to standard string; we can always extend to multiline later if needed
+    StandardStaticString => ConstantPatternData::String(<>.into()),
+    "null" => ConstantPatternData::Null,
+};
+
+RecordPattern: RecordPattern = {
+    <start: @L> "{" <mut field_pats: (<FieldPattern> ",")*> <last: LastFieldPat?> "}" <end: @R> =>? {
+        let tail = match last {
+            Some(LastPattern::Normal(m)) => {
+                field_pats.push(*m);
+                TailPattern::Empty
+            },
+            Some(LastPattern::Ellipsis(Some(captured))) => {
+                TailPattern::Capture(captured)
+            }
+            Some(LastPattern::Ellipsis(None)) => {
+                TailPattern::Open
+            }
+            None => TailPattern::Empty,
+        };
+
+        let pattern = RecordPattern {
+            patterns: field_pats,
+            tail,
+            pos: mk_pos(src_id, start, end)
+        };
+        pattern.check_dup()?;
+
+        Ok(pattern)
+    },
+};
+
+ArrayPattern: ArrayPattern = {
+    <start: @L> "[" <mut patterns: (<Pattern> ",")*> <last: LastElemPat?> "]" <end: @R> => {
+        let tail = match last {
+            Some(LastPattern::Normal(m)) => {
+                patterns.push(*m);
+                TailPattern::Empty
+            },
+            Some(LastPattern::Ellipsis(Some(captured))) => {
+                TailPattern::Capture(captured)
+            }
+            Some(LastPattern::Ellipsis(None)) => {
+                TailPattern::Open
+            }
+            None => TailPattern::Empty,
+        };
+
+        let pattern = ArrayPattern{
+            patterns,
+            tail,
+            pos: mk_pos(src_id, start, end)
+        };
+
+        pattern
+    },
+};
+
+// A pattern for an enum tag (without argument).
+EnumTagPattern: EnumPattern = <start: @L> <tag: EnumTag> <end: @R> => EnumPattern {
+    tag,
+    pattern: None,
+    pos: mk_pos(src_id, start, end),
+};
+
+// A rule which only matches an enum variant pattern of the form `'<Tag> or`.
+// Used to disambiguate between an enum variant pattern and an or-pattern.
+EnumVariantOrPattern: EnumPattern =
+    <start: @L>
+      <tag: EnumTag>
+      <or_arg: WithPos<IdentOr>>
+      <end: @R> => {
+        let pos_or = or_arg.pos;
+
+        EnumPattern {
+          tag,
+          pattern: Some(Box::new(Pattern {
+            data: PatternData::Any(or_arg),
+            alias: None,
+            pos: pos_or,
+          })),
+          pos: mk_pos(src_id, start, end),
+        }
+    };
+
+// An enum variant pattern, excluding the `EnumVariantPatternOr` case: that is,
+// this rule doesn't match the case `'<Tag> or`.
+EnumVariantNoOrPattern: EnumPattern =
+    <start: @L>
+      <tag: EnumTag>
+      <pattern: PatternF<EnumPatternParens, OrPatternParens, WithPos<RestrictedIdent>>>
+    <end: @R> => EnumPattern {
+        tag,
+        pattern: Some(Box::new(pattern)),
+        pos: mk_pos(src_id, start, end),
+    };
+
+// A pattern for an enum variant (with an argument). To avoid ambiguity, we need
+// to decompose it into two disjoint rules, one that only match the `'<Tag> or`
+// input and everything else.
+//
+// The idea is that the former case can also serve as the prefix of an
+// or-pattern, as in `'Foo or 'Bar`; but as long as we parse this common
+// prefix using the same rule and only disambiguate later, there is no
+// shift/reduce conflict.
+EnumVariantPattern: EnumPattern = {
+    EnumVariantOrPattern,
+    EnumVariantNoOrPattern,
+};
+
+// A twisted version of EnumPattern made specifically for the branch of an
+// or-pattern. As we parse `EnumVariantOrPattern` and treat it specifically in
+// an `or` branch (`OrPatternBranch`), we need to remove it from the enum
+// pattern rule. 
+EnumPatternOrBranch: EnumPattern = {
+    EnumVariantNoOrPattern,
+    // Only a top-level un-parenthesized enum variant pattern can be ambiguous.
+    // If it's parenthesized, we allow the general version including the "or"
+    // identifier
+    "(" <EnumVariantPattern> ")",
+};
+
+
+// An unparenthesized enum pattern (including both enum tags and enum
+// variants).
+EnumPatternUnparens: EnumPattern = {
+    EnumTagPattern,
+    EnumVariantPattern,
+};
+
+// A parenthesized enum pattern, including both tags and variants (note that an
+// enum tag alone is never parenthesized: parentheses only applies to enum
+// variant patterns).
+EnumPatternParens: EnumPattern = {
+    EnumTagPattern,
+    "(" <EnumVariantPattern> ")",
+}
+
+// The unrestricted rule for enum patterns. Allows both enum tags and enum
+// variants, and both parenthesized and un-parenthesized enum variants.
+EnumPattern: EnumPattern = {
+    EnumTagPattern,
+    EnumVariantPattern,
+    "(" <EnumVariantPattern> ")"
+};
+
+// An individual element of an or-pattern, plus a trailing "or". This rule is a
+// bit artificial, and is essentially here to dispel the shift/reduce conflict
+// around `'Foo or`/`'Foo or 'Bar` explained in the description of `PatternF`.
+OrPatternBranch: Pattern = {
+    // To avoid various shift-reduce conflicts, the patterns used within an
+    // `or`-branch have several restrictions. See the `PatternOrBranch` rule.
+    <PatternOrBranch> "or",
+    // A variant pattern of the form `'<Tag> or`. The trick is to instead
+    // consider it as the enum tag pattern `'<Tag>` followed by the `or`
+    // contextual keyword after-the-fact.
+    <pat: EnumVariantOrPattern> => {
+        let pos = pat.pos;
+
+        Pattern {
+            pos,
+            alias: None,
+            data: PatternData::Enum(EnumPattern {
+                tag: pat.tag,
+                pattern: None,
+                pos,
+            }),
+        }
+    },
+};
+
+// Unparenthesized or-pattern.
+OrPatternUnparens: OrPattern = {
+    <start: @L>
+      <patterns: OrPatternBranch+>
+      <last: PatternF<EnumPattern, OrPatternParens, Ident>>
+    <end: @R> => {
+        let patterns =
+          patterns.into_iter().chain(std::iter::once(last)).collect();
+
+        OrPattern {
+            patterns,
+            pos: mk_pos(src_id, start, end),
+        }
+    },
+};
+
+// Parenthesized or-pattern.
+OrPatternParens: OrPattern = {
+    "(" <OrPatternUnparens> ")",
+};
+
+// Unrestricted or-pattern, which can be parenthesized or not.
+OrPattern: OrPattern = {
+    OrPatternUnparens,
+    OrPatternParens,
+}
+
+// A binding `ident = <pattern>` inside a record pattern.
+FieldPattern: FieldPattern = {
+    <l: @L> <matched_id:Ident> <annot: Annot<FixedType>?> <default: DefaultAnnot?>
+      "=" <pattern: Pattern> <r: @R> => FieldPattern {
+            matched_id,
+            annotation: annot.unwrap_or_default(),
+            default,
+            pattern,
+            pos: mk_pos(src_id, l, r),
+        },
+    <l: @L> <matched_id:Ident> <annot: Annot<FixedType>?> <default: DefaultAnnot?> <r: @R> =>
+        FieldPattern {
+            matched_id,
+            annotation: annot.unwrap_or_default(),
+            default,
+            pattern: Pattern {
+                data: PatternData::Any(matched_id),
+                pos: matched_id.pos,
+                alias: None,
+            },
+            pos: mk_pos(src_id, l, r)
+        },
+};
+
+// Last field pattern of a record pattern
+LastFieldPat: LastPattern<FieldPattern> = {
+    FieldPattern => LastPattern::Normal(Box::new(<>)),
+    ".." <Ident?> => LastPattern::Ellipsis(<>),
+};
+
+// Last pattern of an array pattern
+LastElemPat: LastPattern<Pattern> = {
+    Pattern => LastPattern::Normal(Box::new(<>)),
+    ".." <Ident?> => LastPattern::Ellipsis(<>),
+}
+
+// A default annotation in a pattern.
+DefaultAnnot: RichTerm = "?" <t: Term> => t;
+
+// A metadata keyword returned as an indent. In some positions, those are
+// considered valid identifiers. See ExtendedIdent below.
+MetadataKeyword: LocIdent = {
+    "doc" => LocIdent::new("doc"),
+    "default" => LocIdent::new("default"),
+    "force" => LocIdent::new("force"),
+    "priority" => LocIdent::new("priority"),
+    "optional" => LocIdent::new("optional"),
+    "not_exported" => LocIdent::new("not_exported"),
+};
+
+// We allow metadata keywords (optional, default, doc, etc.) as field names
+// because:
+//
+//  1. There are many metadata keywords, and it's annoying to quote them all
+//  (and they might be growing, which is causing backward compatibility issues)
+//  2. Metadata keyword can't appear anywhere in field position (and vice-versa), so there's no clash.
+//
+// Thus, for fields, ExtendedIdent is use in place of Ident.
+ExtendedIdent: LocIdent = {
+    WithPos<MetadataKeyword>,
+    Ident,
+};
+
+// The "or" keyword, parsed as an indent.
+IdentOr: LocIdent = "or" => LocIdent::new("or");
+
+// The set of pure identifiers, which are never keywords in any context.
+RestrictedIdent: LocIdent = "identifier" => LocIdent::new(<>);
+
+// Identifiers allowed everywhere, which include pure identifiers and the "or"
+// contextual keyword. With a bit of effort around pattern, we can make it a
+// valid identifier unambiguously.
+#[inline]
+Ident: LocIdent = {
+    WithPos<IdentOr>,
+    WithPos<RestrictedIdent>,
+};
+
+Bool: bool = {
+    "true" => true,
+    "false" => false,
+};
+
+// String-like syntax which supports interpolation.
+// Depending on the opening brace, these either parse as strings, or as "symbolic strings",
+// which get desugared here to an array of terms.
+StrChunks: RichTerm = {
+  <start: StringStart> <fst: ChunkLiteral?> <chunks: (ChunkExpr+ChunkLiteral)*> <lasts:ChunkExpr*> <end: StringEnd> => {
+        debug_assert!(
+            start.is_closed_by(&end),
+            "Fatal parser error: a string starting with {start:?} should never be closed by {end:?}"
+        );
+
+        let chunks: Vec<StrChunk<RichTerm>> = fst.into_iter()
+            .map(StrChunk::Literal)
+            .chain(chunks.into_iter()
+                .map(|(mut es, s)| {
+                    es.push(StrChunk::Literal(s));
+                    es
+                })
+                .flatten())
+            .chain(lasts.into_iter())
+            .collect();
+
+        let chunks = if start.needs_strip_indent() {
+            strip_indent(chunks)
+        } else {
+            chunks
+        };
+
+        if let StringStartDelimiter::Symbolic(prefix) = start {
+            let terms = chunks.into_iter().map(|chunk| match chunk {
+                StrChunk::Literal(_) => Term::StrChunks(vec![chunk]).into(),
+                StrChunk::Expr(e, _) => e,
+            }).collect();
+
+            RichTerm::from(build_record([
+                (
+                  FieldPathElem::Ident("tag".into()),
+                  Field::from(RichTerm::from(Term::Enum("SymbolicString".into())))
+                ),
+                (
+                  FieldPathElem::Ident("prefix".into()),
+                  Field::from(RichTerm::from(Term::Enum(prefix.into())))
+                ),
+                (
+                  FieldPathElem::Ident("fragments".into()),
+                  Field::from(RichTerm::from(Term::Array(terms, Default::default())))
+                )
+            ], Default::default()))
+        } else {
+            let mut chunks = chunks;
+            chunks.reverse();
+            RichTerm::from(Term::StrChunks(chunks))
+        }
+    },
+};
+
+StringStart : StringStartDelimiter<'input> = {
+    "\"" => StringStartDelimiter::Standard,
+    "m%\"" => StringStartDelimiter::Multiline,
+    "symbolic string start" => StringStartDelimiter::Symbolic(<>.0),
+};
+
+StringEnd : StringEndDelimiter = {
+    "\"" => StringEndDelimiter::Standard,
+    "\"%" => StringEndDelimiter::Special,
+};
+
+ChunkLiteral : String =
+    <parts: ChunkLiteralPart+> => {
+        parts.into_iter().fold(String::new(), |mut acc, part| {
+            match part {
+                ChunkLiteralPart::Str(s) => acc.push_str(&s),
+                ChunkLiteralPart::Char(c) => acc.push(c),
+            };
+
+            acc
+        })
+    };
+
+ChunkExpr: StrChunk<RichTerm> = Interpolation <t: WithPos<Term>> "}" => StrChunk::Expr(t, 0);
+
+Interpolation = { "%{", "multstr %{" };
+
+// A construct which looks like a string, but is generic over its delimiters.
+// Used to implement `StaticString` as well as `StringEnumTag`.
+DelimitedStaticString<Start, End>: String = Start <s: ChunkLiteral?> End => s.unwrap_or_default();
+
+StandardStaticString = DelimitedStaticString<"\"", "\"">;
+
+MultilineStaticString: String = DelimitedStaticString<"m%\"","\"%"> => {
+    // strip the common indentation prefix
+    let chunks: Vec<StrChunk<RichTerm>> = vec![StrChunk::Literal(<>)];
+    match strip_indent(chunks).pop().unwrap() {
+        StrChunk::Literal(s) => s,
+        // We build
+        _ => unreachable!(),
+    }
+};
+
+StaticString : String = {
+    StandardStaticString,
+    MultilineStaticString,
+}
+
+StringEnumTag = DelimitedStaticString<"'\"", "\"">;
+
+EnumTag: LocIdent = {
+  "raw enum tag" => <>.into(),
+  <StringEnumTag> => <>.into(),
+};
+
+ChunkLiteralPart: ChunkLiteralPart = {
+    "str literal" => ChunkLiteralPart::Str(<>),
+    "multstr literal" => ChunkLiteralPart::Str(<>),
+    "str esc char" => ChunkLiteralPart::Char(<>),
+};
+
+UOp: UnaryOp = {
+    "typeof" => UnaryOp::Typeof,
+    "blame" => UnaryOp::Blame,
+    "label/flip_polarity" => UnaryOp::LabelFlipPol,
+    "label/polarity" => UnaryOp::LabelPol,
+    "label/go_dom" => UnaryOp::LabelGoDom,
+    "label/go_codom" => UnaryOp::LabelGoCodom,
+    "label/go_array" => UnaryOp::LabelGoArray,
+    "label/go_dict" => UnaryOp::LabelGoDict,
+    "enum/embed" <Ident> => UnaryOp::EnumEmbed(<>),
+    "array/map"  => UnaryOp::ArrayMap,
+    "array/generate" => UnaryOp::ArrayGen,
+    "record/map" => UnaryOp::RecordMap,
+    "seq" => UnaryOp::Seq,
+    "deep_seq" => UnaryOp::DeepSeq,
+    "op force" => UnaryOp::Force{ ignore_not_exported: false },
+    "array/length" => UnaryOp::ArrayLength,
+    "record/fields" => UnaryOp::RecordFields(RecordOpKind::IgnoreEmptyOpt),
+    "record/fields_with_opts" => UnaryOp::RecordFields(RecordOpKind::ConsiderAllFields),
+    "record/values" => UnaryOp::RecordValues,
+    "string/trim" => UnaryOp::StringTrim,
+    "string/chars" => UnaryOp::StringChars,
+    "string/uppercase" => UnaryOp::StringUppercase,
+    "string/lowercase" => UnaryOp::StringLowercase,
+    "string/length" => UnaryOp::StringLength,
+    "to_string" => UnaryOp::ToString,
+    "number/from_string" => UnaryOp::NumberFromString,
+    "enum/from_string" => UnaryOp::EnumFromString,
+    "string/is_match" => UnaryOp::StringIsMatch,
+    "string/find" => UnaryOp::StringFind,
+    "string/find_all" => UnaryOp::StringFindAll,
+    "op rec_force" => UnaryOp::RecForce,
+    "op rec_default" => UnaryOp::RecDefault,
+    "record/empty_with_tail" => UnaryOp::RecordEmptyWithTail,
+    "trace" => UnaryOp::Trace,
+    "label/push_diag" => UnaryOp::LabelPushDiag,
+    <l: @L> "eval_nix" <r: @R> =>? {
+        #[cfg(feature = "nix-experimental")]
+        {
+            Ok(UnaryOp::EvalNix)
+        }
+        #[cfg(not(feature = "nix-experimental"))]
+        {
+            Err(lalrpop_util::ParseError::User {
+                error: ParseError::DisabledFeature {
+                    feature: String::from("nix-experimental"),
+                    span: mk_span(src_id, l, r),
+                }
+            })
+        }
+    },
+    "enum/get_arg" => UnaryOp::EnumGetArg,
+    "enum/make_variant" => UnaryOp::EnumMakeVariant,
+    "enum/is_variant" => UnaryOp::EnumIsVariant,
+    "enum/get_tag" => UnaryOp::EnumGetTag,
+}
+
+PatternGuard: RichTerm = "if" <Term> => <>;
+
+MatchBranch: MatchBranch =
+    <pattern: Pattern> <guard: PatternGuard?> "=>" <body: Term> =>
+        MatchBranch { pattern, guard, body};
+
+// Infix operators by precedence levels. Lowest levels take precedence over
+// highest ones.
+
+InfixBOp2: BinaryOp = {
+    "++" => BinaryOp::StringConcat,
+    "@" => BinaryOp::ArrayConcat,
+}
+
+InfixBOp3: BinaryOp = {
+    "*" => BinaryOp::Mult,
+    "/" => BinaryOp::Div,
+    "%" => BinaryOp::Modulo,
+}
+
+InfixBOp4: BinaryOp = {
+    "+" => BinaryOp::Plus,
+    "-" => BinaryOp::Sub,
+}
+
+InfixUOp5: UnaryOp = {
+    "!" => UnaryOp::BoolNot,
+}
+
+InfixBOp7: BinaryOp = {
+    "<" => BinaryOp::LessThan,
+    "<=" => BinaryOp::LessOrEq,
+    ">" => BinaryOp::GreaterThan,
+    ">=" => BinaryOp::GreaterOrEq,
+}
+
+InfixBOp8: BinaryOp = {
+    "==" => BinaryOp::Eq,
+}
+
+InfixLazyBOp9: UnaryOp = {
+    "&&" => UnaryOp::BoolAnd,
+}
+
+InfixLazyBOp10: UnaryOp = {
+    "||" => UnaryOp::BoolOr,
+}
+
+InfixBOp: BinaryOp = {
+    InfixBOp2,
+    InfixBOp3,
+    InfixBOp4,
+    InfixBOp7,
+    InfixBOp8,
+}
+
+InfixUOpOrLazyBOp: UnaryOp = {
+    InfixUOp5,
+    InfixLazyBOp9,
+    InfixLazyBOp10,
+}
+
+InfixOp: InfixOp = {
+    <InfixBOp> => <>.into(),
+    <InfixUOpOrLazyBOp> => <>.into(),
+}
+
+CurriedOp: RichTerm = {
+    <l: @L> <op: InfixOp> <r: @R> =>
+        op.eta_expand(mk_pos(src_id, l, r)),
+    <l: @L> "&" <r: @R> =>
+        InfixOp::from(BinaryOp::Merge(mk_merge_label(src_id, l, r)))
+            .eta_expand(mk_pos(src_id, l, r)),
+    <l: @L> "|>" <r: @R> =>
+        mk_fun!("x1", "x2",
+            mk_app!(mk_term::var("x2"), mk_term::var("x1"))
+            .with_pos(mk_pos(src_id, l, r))
+        ),
+    <l: @L> "!=" <r: @R> =>
+        mk_fun!("x1", "x2",
+            mk_term::op1(
+                UnaryOp::BoolNot,
+                Term::Op2(BinaryOp::Eq,
+                    mk_term::var("x1"),
+                    mk_term::var("x2")
+                )
+            )
+            .with_pos(mk_pos(src_id, l, r))
+        ),
+    //`foo.bar` is a static
+    // record access, but when used in a curried form, it's a dynamic record
+    // access (that is, `(.) foo bar` is `foo."%{bar}"`). It turns out a dynamic
+    // record access takes the record as the last argument, in the style of the
+    // stdlib. If we want `(.) foo bar` to be `foo."%{bar}"`, we thus have to
+    // flip the arguments.
+    <l: @L> "." <r: @R> =>
+        mk_fun!(
+            "x1",
+            "x2",
+            mk_term::op2(
+                BinaryOp::RecordGet,
+                mk_term::var("x2"),
+                mk_term::var("x1"),
+            ).with_pos(mk_pos(src_id, l, r))
+        ),
+}
+
+InfixUOpApp<UOp, Expr>: UniTerm =
+  <op: UOp> <t: AsTerm<Expr>> => UniTerm::from(mk_term::op1(op, t));
+
+InfixBOpApp<BOp, LExpr, RExpr>: UniTerm =
+  <t1: AsTerm<LExpr>> <op: BOp> <t2: AsTerm<RExpr>> =>
+    UniTerm::from(mk_term::op2(op, t1, t2));
+
+InfixLazyBOpApp<UOp, LExpr, RExpr>: UniTerm =
+  <t1: AsTerm<LExpr>> <op: UOp> <t2: AsTerm<RExpr>> =>
+    UniTerm::from(mk_app!(mk_term::op1(op, t1), t2));
+
+InfixExpr: UniTerm = {
+    #[precedence(level="0")]
+    Applicative,
+
+    #[precedence(level="1")]
+    "-" <AsTerm<InfixExpr>> =>
+        UniTerm::from(mk_term::op2(BinaryOp::Sub, Term::Num(Number::ZERO), <>)),
+
+    #[precedence(level="2")] #[assoc(side="left")]
+    InfixBOpApp<InfixBOp2, InfixExpr, InfixExpr>,
+
+    #[precedence(level="3")] #[assoc(side="left")]
+    InfixBOpApp<InfixBOp3, InfixExpr, InfixExpr>,
+
+    #[precedence(level="4")] #[assoc(side="left")]
+    InfixBOpApp<InfixBOp4, InfixExpr, InfixExpr>,
+
+    #[precedence(level="5")]
+    InfixUOpApp<InfixUOp5, InfixExpr>,
+
+    #[precedence(level="6")] #[assoc(side="left")]
+    <l: @L> <t1: AsTerm<InfixExpr>> "&" <t2: AsTerm<InfixExpr>> <r: @R> =>
+      UniTerm::from(mk_term::op2(BinaryOp::Merge(mk_merge_label(src_id, l, r)), t1, t2)),
+
+    <t1: AsTerm<InfixExpr>> "|>" <t2: AsTerm<InfixExpr>> =>
+        UniTerm::from(mk_app!(t2, t1)),
+
+    #[precedence(level="7")] #[assoc(side="left")]
+    InfixBOpApp<InfixBOp7, InfixExpr, InfixExpr>,
+
+    #[precedence(level="8")] #[assoc(side="left")]
+    InfixBOpApp<InfixBOp8, InfixExpr, InfixExpr>,
+    <t1: AsTerm<InfixExpr>> "!=" <t2: AsTerm<InfixExpr>> =>
+        UniTerm::from(
+            mk_term::op1(UnaryOp::BoolNot, Term::Op2(BinaryOp::Eq, t1, t2))
+        ),
+
+    #[precedence(level="9")] #[assoc(side="left")]
+    InfixLazyBOpApp<InfixLazyBOp9, InfixExpr, InfixExpr>,
+
+    #[precedence(level="10")] #[assoc(side="left")]
+    InfixLazyBOpApp<InfixLazyBOp10, InfixExpr, InfixExpr>,
+
+    #[precedence(level="11")] #[assoc(side="right")]
+    <s: AsType<InfixExpr>> "->" <t: AsType<InfixExpr>> =>
+        UniTerm::from(Type::from(TypeF::Arrow(Box::new(s), Box::new(t)))),
+}
+
+BOpPre: BinaryOp = {
+    "contract/apply" => BinaryOp::ContractApply,
+    "contract/array_lazy_app" => BinaryOp::ContractArrayLazyApp,
+    "contract/record_lazy_app" => BinaryOp::ContractRecordLazyApp,
+    "unseal" => BinaryOp::Unseal,
+    "seal" => BinaryOp::Seal,
+    "label/go_field" => BinaryOp::LabelGoField,
+    "record/has_field" => BinaryOp::RecordHasField(RecordOpKind::IgnoreEmptyOpt),
+    "record/has_field_with_opts" => BinaryOp::RecordHasField(RecordOpKind::ConsiderAllFields),
+    "record/field_is_defined" => BinaryOp::RecordFieldIsDefined(RecordOpKind::IgnoreEmptyOpt),
+    "record/field_is_defined_with_opts" => BinaryOp::RecordFieldIsDefined(RecordOpKind::ConsiderAllFields),
+    "array/at" => BinaryOp::ArrayAt,
+    "hash" => BinaryOp::Hash,
+    "serialize" => BinaryOp::Serialize,
+    "deserialize" => BinaryOp::Deserialize,
+    "pow" => BinaryOp::Pow,
+    "string/split" => BinaryOp::StringSplit,
+    "string/contains" => BinaryOp::StringContains,
+    "record/insert" => BinaryOp::RecordInsert {
+        ext_kind: RecordExtKind::WithValue,
+        metadata: Default::default(),
+        pending_contracts: Default::default(),
+        op_kind: RecordOpKind::IgnoreEmptyOpt,
+    },
+    "record/insert_with_opts" => BinaryOp::RecordInsert {
+        ext_kind: RecordExtKind::WithValue,
+        metadata: Default::default(),
+        pending_contracts: Default::default(),
+        op_kind: RecordOpKind::ConsiderAllFields,
+    },
+    "record/remove" => BinaryOp::RecordRemove(RecordOpKind::IgnoreEmptyOpt),
+    "record/remove_with_opts" => BinaryOp::RecordRemove(RecordOpKind::ConsiderAllFields),
+    "label/with_message" => BinaryOp::LabelWithMessage,
+    "label/with_notes" => BinaryOp::LabelWithNotes,
+    "label/append_note" => BinaryOp::LabelAppendNote,
+    "label/lookup_type_variable" => BinaryOp::LabelLookupTypeVar,
+}
+
+NOpPre<ArgRule>: UniTerm = {
+    "string/replace" <t1: ArgRule> <t2: ArgRule> <t3: ArgRule> =>
+        UniTerm::from(mk_opn!(NAryOp::StringReplace, t1, t2, t3)),
+    "string/replace_regex" <t1: ArgRule> <t2: ArgRule> <t3: ArgRule> =>
+        UniTerm::from(mk_opn!(NAryOp::StringReplaceRegex, t1, t2, t3)),
+    "string/substr" <t1: ArgRule> <t2: ArgRule> <t3: ArgRule> =>
+        UniTerm::from(mk_opn!(NAryOp::StringSubstr, t1, t2, t3)),
+    "record/seal_tail" <t1: ArgRule> <t2: ArgRule> <t3: ArgRule> <t4: ArgRule> =>
+        UniTerm::from(mk_opn!(NAryOp::RecordSealTail, t1, t2, t3, t4)),
+    "record/unseal_tail" <t1: ArgRule> <t2: ArgRule> <t3: ArgRule> =>
+        UniTerm::from(mk_opn!(NAryOp::RecordUnsealTail, t1, t2, t3)),
+    "label/insert_type_variable" <key: ArgRule> <pol: ArgRule> <label: ArgRule> =>
+        UniTerm::from(mk_opn!(NAryOp::LabelInsertTypeVar, key, pol, label)),
+    "array/slice" <t1: ArgRule> <t2: ArgRule> <t3: ArgRule> =>
+        UniTerm::from(mk_opn!(NAryOp::ArraySlice, t1, t2, t3)),
+}
+
+TypeBuiltin: Type = {
+     "Dyn" => Type::from(TypeF::Dyn),
+     "Number" => Type::from(TypeF::Number),
+     "Bool" => Type::from(TypeF::Bool),
+     "String" => Type::from(TypeF::String),
+}
+
+TypeEnumRow: EnumRow = <id: EnumTag> <typ: (AsType<Atom>)?> => {
+    EnumRow {
+        id,
+        typ: typ.map(Box::new),
+    }
+};
+
+TypeEnum: Type = "[|" <rows:(<TypeEnumRow> ",")*> <last: (<TypeEnumRow>)?> <tail: (";" <Ident>)?> "|]" => {
+    let ty = rows.into_iter()
+        .chain(last.into_iter())
+        // As we build row types as a linked list via a fold on the original
+        // iterator, the order of identifiers is reversed. This not a big deal
+        // but it's less confusing to the user to print them in the original
+        // order for error reporting.
+        .rev()
+        .fold(
+            EnumRows(
+                match tail {
+                    Some(id) => EnumRowsF::TailVar(id),
+                    None => EnumRowsF::Empty,
+                }
+            ),
+            |erows, row| {
+                EnumRows(EnumRowsF::Extend {
+                    row,
+                    tail: Box::new(erows)
+                })
+            }
+        );
+
+    Type::from(TypeF::Enum(ty))
+};
+
+TypeAtom: Type = {
+    <TypeBuiltin>,
+    <TypeEnum>,
+    "{" "_" ":" <t: WithPos<Type>> "}" => {
+        Type::from(TypeF::Dict {
+            type_fields: Box::new(t),
+            flavour: DictTypeFlavour::Type
+        })
+    },
+    // Although dictionary contracts aren't really types, we treat them as
+    // types for now - at least syntactically - as they are represented using a
+    // `TypeF::Dict` constructor in the AST. This just simpler for many reasons
+    // (error reporting of contracts and in particular type paths, LSP, and so
+    // on.)
+    //
+    // However, note that we use a fixed type as an argument. This has the
+    // effect of preventing dictionary contracts from capturing type variables
+    // that could be in scope. For example, we want `forall a. {_ | a}` to fail
+    // (see https://github.com/tweag/nickel/issues/1228). Fixing type variables
+    // right away inside the dictionary contract (before the enclosing `forall`
+    // is fixed) will indeed turn it into a term variable, and raise an unbound
+    // type variable error.
+    "{" "_" "|" <t: WithPos<FixedType>> "}" => {
+        Type::from(TypeF::Dict {
+            type_fields: Box::new(t),
+            flavour: DictTypeFlavour::Contract
+        })
+    },
+    "_" => {
+        let id = *next_wildcard_id;
+        *next_wildcard_id += 1;
+        Type::from(TypeF::Wildcard(id))
+    },
+}
+
+SignedNumLiteral: Number = <sign: "-"?> <value: NumberLiteral> => {
+    if sign.is_some() {
+        -value
+    } else {
+        value
+    }
+};
+
+extern {
+    type Location = usize;
+    type Error = ParseError;
+
+    enum Token<'input> {
+        "identifier" => Token::Normal(NormalToken::Identifier(<&'input str>)),
+        "str literal" => Token::Str(StringToken::Literal(<String>)),
+        "str esc char" => Token::Str(StringToken::EscapedChar(<char>)),
+        "multstr literal" => Token::MultiStr(MultiStringToken::Literal(<String>)),
+        "dec num literal" => Token::Normal(NormalToken::DecNumLiteral(<Number>)),
+        "hex num literal" => Token::Normal(NormalToken::HexNumLiteral(<Number>)),
+        "oct num literal" => Token::Normal(NormalToken::OctNumLiteral(<Number>)),
+        "bin num literal" => Token::Normal(NormalToken::BinNumLiteral(<Number>)),
+
+        "raw enum tag" => Token::Normal(NormalToken::RawEnumTag(<&'input str>)),
+        "'\"" => Token::Normal(NormalToken::StrEnumTagBegin),
+
+        "if" => Token::Normal(NormalToken::If),
+        "then" => Token::Normal(NormalToken::Then),
+        "else" => Token::Normal(NormalToken::Else),
+        "forall" => Token::Normal(NormalToken::Forall),
+        "in" => Token::Normal(NormalToken::In),
+        "let" => Token::Normal(NormalToken::Let),
+        "rec" => Token::Normal(NormalToken::Rec),
+        "match" => Token::Normal(NormalToken::Match),
+
+        "null" => Token::Normal(NormalToken::Null),
+        "true" => Token::Normal(NormalToken::True),
+        "false" => Token::Normal(NormalToken::False),
+        "or" => Token::Normal(NormalToken::Or),
+
+        "?" => Token::Normal(NormalToken::QuestionMark),
+        "," => Token::Normal(NormalToken::Comma),
+        ";" => Token::Normal(NormalToken::Semicolon),
+        ":" => Token::Normal(NormalToken::Colon),
+        "$" => Token::Normal(NormalToken::Dollar),
+        "=" => Token::Normal(NormalToken::Equals),
+        "!=" => Token::Normal(NormalToken::NotEquals),
+        "&" => Token::Normal(NormalToken::Ampersand),
+        "." => Token::Normal(NormalToken::Dot),
+        "%{" => Token::Str(StringToken::Interpolation),
+        "multstr %{" => Token::MultiStr(MultiStringToken::Interpolation),
+
+        "+" => Token::Normal(NormalToken::Plus),
+        "-" => Token::Normal(NormalToken::Minus),
+        "*" => Token::Normal(NormalToken::Times),
+        "/" => Token::Normal(NormalToken::Div),
+        "%" => Token::Normal(NormalToken::Percent),
+        "++" => Token::Normal(NormalToken::DoublePlus),
+        "==" => Token::Normal(NormalToken::DoubleEq),
+        "@" => Token::Normal(NormalToken::At),
+        "&&" => Token::Normal(NormalToken::DoubleAnd),
+        "||" => Token::Normal(NormalToken::DoublePipe),
+        "!" => Token::Normal(NormalToken::Bang),
+        ".." => Token::Normal(NormalToken::Ellipsis),
+
+        "fun" => Token::Normal(NormalToken::Fun),
+        "import" => Token::Normal(NormalToken::Import),
+        "|" => Token::Normal(NormalToken::Pipe),
+        "|>" => Token::Normal(NormalToken::RightPipe),
+        "->" => Token::Normal(NormalToken::SimpleArrow),
+        "=>" => Token::Normal(NormalToken::DoubleArrow),
+        "_" => Token::Normal(NormalToken::Underscore),
+        "\"" => Token::Normal(NormalToken::DoubleQuote),
+        "\"%" => Token::MultiStr(MultiStringToken::End),
+        "m%\"" => Token::Normal(NormalToken::MultiStringStart(<usize>)),
+        "symbolic string start" => Token::Normal(NormalToken::SymbolicStringStart(
+          SymbolicStringStart{prefix: <&'input str>, length: <usize>})),
+
+        "Number" => Token::Normal(NormalToken::Number),
+        "Dyn" => Token::Normal(NormalToken::Dyn),
+        "String" => Token::Normal(NormalToken::String),
+        "Bool" => Token::Normal(NormalToken::Bool),
+        "Array" => Token::Normal(NormalToken::Array),
+
+        "typeof" => Token::Normal(NormalToken::Typeof),
+        "contract/apply" => Token::Normal(NormalToken::ContractApply),
+        "contract/array_lazy_app" => Token::Normal(NormalToken::ContractArrayLazyApp),
+        "contract/record_lazy_app" => Token::Normal(NormalToken::ContractRecordLazyApp),
+        "op force" => Token::Normal(NormalToken::OpForce),
+        "blame" => Token::Normal(NormalToken::Blame),
+        "label/flip_polarity" => Token::Normal(NormalToken::LabelFlipPol),
+        "label/polarity" => Token::Normal(NormalToken::LabelPol),
+        "label/go_dom" => Token::Normal(NormalToken::LabelGoDom),
+        "label/go_codom" => Token::Normal(NormalToken::LabelGoCodom),
+        "label/go_array" => Token::Normal(NormalToken::LabelGoArray),
+        "label/go_dict" => Token::Normal(NormalToken::LabelGoDict),
+        "label/go_field" => Token::Normal(NormalToken::LabelGoField),
+        "seal" => Token::Normal(NormalToken::Seal),
+        "unseal" => Token::Normal(NormalToken::Unseal),
+        "enum/embed" => Token::Normal(NormalToken::EnumEmbed),
+        "record/map" => Token::Normal(NormalToken::RecordMap),
+        "record/empty_with_tail" => Token::Normal(NormalToken::RecordEmptyWithTail),
+        "record/insert" => Token::Normal(NormalToken::RecordInsert),
+        "record/insert_with_opts" => Token::Normal(NormalToken::RecordInsertWithOpts),
+        "record/remove" => Token::Normal(NormalToken::RecordRemove),
+        "record/remove_with_opts" => Token::Normal(NormalToken::RecordRemoveWithOpts),
+        "record/seal_tail" => Token::Normal(NormalToken::RecordSealTail),
+        "record/unseal_tail" => Token::Normal(NormalToken::RecordUnsealTail),
+        "seq" => Token::Normal(NormalToken::Seq),
+        "deep_seq" => Token::Normal(NormalToken::DeepSeq),
+        "array/length" => Token::Normal(NormalToken::ArrayLength),
+        "record/fields" => Token::Normal(NormalToken::RecordFields),
+        "record/fields_with_opts" => Token::Normal(NormalToken::RecordFieldsWithOpts),
+        "record/values" => Token::Normal(NormalToken::RecordValues),
+        "pow" => Token::Normal(NormalToken::Pow),
+        "op rec_force" => Token::Normal(NormalToken::OpRecForce),
+        "op rec_default" => Token::Normal(NormalToken::OpRecDefault),
+        "trace" => Token::Normal(NormalToken::Trace),
+        "label/insert_type_variable" => Token::Normal(NormalToken::LabelInsertTypeVar),
+        "label/lookup_type_variable" => Token::Normal(NormalToken::LabelLookupTypeVar),
+
+        "record/has_field" => Token::Normal(NormalToken::RecordHasField),
+        "record/has_field_with_opts" => Token::Normal(NormalToken::RecordHasFieldWithOpts),
+        "record/field_is_defined" => Token::Normal(NormalToken::RecordFieldIsDefined),
+        "record/field_is_defined_with_opts" => Token::Normal(NormalToken::RecordFieldIsDefinedWithOpts),
+        "array/map" => Token::Normal(NormalToken::ArrayMap),
+        "array/generate" => Token::Normal(NormalToken::ArrayGen),
+        "array/at" => Token::Normal(NormalToken::ArrayAt),
+
+        "merge" => Token::Normal(NormalToken::Merge),
+        "default" => Token::Normal(NormalToken::Default),
+        "force" => Token::Normal(NormalToken::Force),
+        "doc" => Token::Normal(NormalToken::Doc),
+        "optional" => Token::Normal(NormalToken::Optional),
+        "priority" => Token::Normal(NormalToken::Priority),
+        "not_exported" => Token::Normal(NormalToken::NotExported),
+
+        "hash" => Token::Normal(NormalToken::OpHash),
+        "serialize" => Token::Normal(NormalToken::Serialize),
+        "deserialize" => Token::Normal(NormalToken::Deserialize),
+        "string/split" => Token::Normal(NormalToken::StringSplit),
+        "string/trim" => Token::Normal(NormalToken::StringTrim),
+        "string/chars" => Token::Normal(NormalToken::StringChars),
+        "string/uppercase" => Token::Normal(NormalToken::StringUppercase),
+        "string/lowercase" => Token::Normal(NormalToken::StringLowercase),
+        "string/contains" => Token::Normal(NormalToken::StringContains),
+        "string/replace" => Token::Normal(NormalToken::StringReplace),
+        "string/replace_regex" => Token::Normal(NormalToken::StringReplaceRegex),
+        "string/is_match" => Token::Normal(NormalToken::StringIsMatch),
+        "string/find" => Token::Normal(NormalToken::StringFind),
+        "string/find_all" => Token::Normal(NormalToken::StringFindAll),
+        "string/length" => Token::Normal(NormalToken::StringLength),
+        "string/substr" => Token::Normal(NormalToken::StringSubstr),
+        "to_string" => Token::Normal(NormalToken::ToString),
+        "number/from_string" => Token::Normal(NormalToken::NumberFromString),
+        "enum/from_string" => Token::Normal(NormalToken::EnumFromString),
+        "label/with_message" => Token::Normal(NormalToken::LabelWithMessage),
+        "label/with_notes" => Token::Normal(NormalToken::LabelWithNotes),
+        "label/append_note" => Token::Normal(NormalToken::LabelAppendNote),
+        "label/push_diag" => Token::Normal(NormalToken::LabelPushDiag),
+        "array/slice" => Token::Normal(NormalToken::ArraySlice),
+        "eval_nix" => Token::Normal(NormalToken::EvalNix),
+        "enum/get_arg" => Token::Normal(NormalToken::EnumGetArg),
+        "enum/make_variant" => Token::Normal(NormalToken::EnumMakeVariant),
+        "enum/is_variant" => Token::Normal(NormalToken::EnumIsVariant),
+        "enum/get_tag" => Token::Normal(NormalToken::EnumGetTag),
+        "pattern_branch" => Token::Normal(NormalToken::PatternBranch),
+
+        "{" => Token::Normal(NormalToken::LBrace),
+        "}" => Token::Normal(NormalToken::RBrace),
+        "[" => Token::Normal(NormalToken::LBracket),
+        "]" => Token::Normal(NormalToken::RBracket),
+        "(" => Token::Normal(NormalToken::LParen),
+        ")" => Token::Normal(NormalToken::RParen),
+        "<" => Token::Normal(NormalToken::LAngleBracket),
+        "<=" => Token::Normal(NormalToken::LessOrEq),
+        ">" => Token::Normal(NormalToken::RAngleBracket),
+        ">=" => Token::Normal(NormalToken::GreaterOrEq),
+        "[|" => Token::Normal(NormalToken::EnumOpen),
+        "|]" => Token::Normal(NormalToken::EnumClose),
+    }
+}

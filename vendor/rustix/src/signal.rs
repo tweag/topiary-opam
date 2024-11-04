@@ -30,10 +30,12 @@ pub enum Signal {
     /// `SIGKILL`
     Kill = c::SIGKILL,
     /// `SIGUSR1`
+    #[cfg(not(target_os = "vita"))]
     Usr1 = c::SIGUSR1,
     /// `SIGSEGV`
     Segv = c::SIGSEGV,
     /// `SIGUSR2`
+    #[cfg(not(target_os = "vita"))]
     Usr2 = c::SIGUSR2,
     /// `SIGPIPE`
     Pipe = c::SIGPIPE,
@@ -49,11 +51,14 @@ pub enum Signal {
         target_os = "aix",
         target_os = "haiku",
         target_os = "nto",
+        target_os = "vita",
         all(
             linux_kernel,
             any(
                 target_arch = "mips",
+                target_arch = "mips32r6",
                 target_arch = "mips64",
+                target_arch = "mips64r6",
                 target_arch = "sparc",
                 target_arch = "sparc64"
             ),
@@ -61,37 +66,49 @@ pub enum Signal {
     )))]
     Stkflt = c::SIGSTKFLT,
     /// `SIGCHLD`
+    #[cfg(not(target_os = "vita"))]
     #[doc(alias = "Chld")]
     Child = c::SIGCHLD,
     /// `SIGCONT`
+    #[cfg(not(target_os = "vita"))]
     Cont = c::SIGCONT,
     /// `SIGSTOP`
+    #[cfg(not(target_os = "vita"))]
     Stop = c::SIGSTOP,
     /// `SIGTSTP`
+    #[cfg(not(target_os = "vita"))]
     Tstp = c::SIGTSTP,
     /// `SIGTTIN`
+    #[cfg(not(target_os = "vita"))]
     Ttin = c::SIGTTIN,
     /// `SIGTTOU`
+    #[cfg(not(target_os = "vita"))]
     Ttou = c::SIGTTOU,
     /// `SIGURG`
+    #[cfg(not(target_os = "vita"))]
     Urg = c::SIGURG,
     /// `SIGXCPU`
+    #[cfg(not(target_os = "vita"))]
     Xcpu = c::SIGXCPU,
     /// `SIGXFSZ`
+    #[cfg(not(target_os = "vita"))]
     Xfsz = c::SIGXFSZ,
     /// `SIGVTALRM`
+    #[cfg(not(target_os = "vita"))]
     #[doc(alias = "Vtalrm")]
     Vtalarm = c::SIGVTALRM,
     /// `SIGPROF`
+    #[cfg(not(target_os = "vita"))]
     Prof = c::SIGPROF,
     /// `SIGWINCH`
+    #[cfg(not(target_os = "vita"))]
     Winch = c::SIGWINCH,
     /// `SIGIO`, aka `SIGPOLL`
     #[doc(alias = "Poll")]
-    #[cfg(not(target_os = "haiku"))]
+    #[cfg(not(any(target_os = "haiku", target_os = "vita")))]
     Io = c::SIGIO,
     /// `SIGPWR`
-    #[cfg(not(any(bsd, target_os = "haiku")))]
+    #[cfg(not(any(bsd, target_os = "haiku", target_os = "vita")))]
     #[doc(alias = "Pwr")]
     Power = c::SIGPWR,
     /// `SIGSYS`, aka `SIGUNUSED`
@@ -107,7 +124,9 @@ pub enum Signal {
             linux_kernel,
             any(
                 target_arch = "mips",
+                target_arch = "mips32r6",
                 target_arch = "mips64",
+                target_arch = "mips64r6",
                 target_arch = "sparc",
                 target_arch = "sparc64"
             )
@@ -139,8 +158,10 @@ impl Signal {
             c::SIGBUS => Some(Self::Bus),
             c::SIGFPE => Some(Self::Fpe),
             c::SIGKILL => Some(Self::Kill),
+            #[cfg(not(target_os = "vita"))]
             c::SIGUSR1 => Some(Self::Usr1),
             c::SIGSEGV => Some(Self::Segv),
+            #[cfg(not(target_os = "vita"))]
             c::SIGUSR2 => Some(Self::Usr2),
             c::SIGPIPE => Some(Self::Pipe),
             c::SIGALRM => Some(Self::Alarm),
@@ -151,32 +172,47 @@ impl Signal {
                 target_os = "aix",
                 target_os = "haiku",
                 target_os = "nto",
+                target_os = "vita",
                 all(
                     linux_kernel,
                     any(
                         target_arch = "mips",
+                        target_arch = "mips32r6",
                         target_arch = "mips64",
+                        target_arch = "mips64r6",
                         target_arch = "sparc",
                         target_arch = "sparc64"
                     ),
                 )
             )))]
             c::SIGSTKFLT => Some(Self::Stkflt),
+            #[cfg(not(target_os = "vita"))]
             c::SIGCHLD => Some(Self::Child),
+            #[cfg(not(target_os = "vita"))]
             c::SIGCONT => Some(Self::Cont),
+            #[cfg(not(target_os = "vita"))]
             c::SIGSTOP => Some(Self::Stop),
+            #[cfg(not(target_os = "vita"))]
             c::SIGTSTP => Some(Self::Tstp),
+            #[cfg(not(target_os = "vita"))]
             c::SIGTTIN => Some(Self::Ttin),
+            #[cfg(not(target_os = "vita"))]
             c::SIGTTOU => Some(Self::Ttou),
+            #[cfg(not(target_os = "vita"))]
             c::SIGURG => Some(Self::Urg),
+            #[cfg(not(target_os = "vita"))]
             c::SIGXCPU => Some(Self::Xcpu),
+            #[cfg(not(target_os = "vita"))]
             c::SIGXFSZ => Some(Self::Xfsz),
+            #[cfg(not(target_os = "vita"))]
             c::SIGVTALRM => Some(Self::Vtalarm),
+            #[cfg(not(target_os = "vita"))]
             c::SIGPROF => Some(Self::Prof),
+            #[cfg(not(target_os = "vita"))]
             c::SIGWINCH => Some(Self::Winch),
-            #[cfg(not(target_os = "haiku"))]
+            #[cfg(not(any(target_os = "haiku", target_os = "vita")))]
             c::SIGIO => Some(Self::Io),
-            #[cfg(not(any(bsd, target_os = "haiku")))]
+            #[cfg(not(any(bsd, target_os = "haiku", target_os = "vita")))]
             c::SIGPWR => Some(Self::Power),
             c::SIGSYS => Some(Self::Sys),
             #[cfg(any(
@@ -188,7 +224,9 @@ impl Signal {
                     linux_kernel,
                     any(
                         target_arch = "mips",
+                        target_arch = "mips32r6",
                         target_arch = "mips64",
+                        target_arch = "mips64r6",
                         target_arch = "sparc",
                         target_arch = "sparc64"
                     )
@@ -208,7 +246,5 @@ impl Signal {
 
 #[test]
 fn test_sizes() {
-    use core::mem::size_of;
-
-    assert_eq!(size_of::<Signal>(), size_of::<c::c_int>());
+    assert_eq_size!(Signal, c::c_int);
 }

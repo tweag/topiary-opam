@@ -27,7 +27,6 @@
 //! schemes for redox in future without breakage of existing
 //! software.
 
-use std::convert::From;
 use std::fmt::Debug;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -52,7 +51,7 @@ use zeroize::Zeroize;
 //use nix::fcntl::{flock, FlockArg};
 
 #[cfg(target_os = "redox")]
-use syscall::flag::{O_EXLOCK, O_SHLOCK};
+use libredox::flag::{O_EXLOCK, O_SHLOCK};
 
 const PASSWD_FILE: &'static str = "/etc/passwd";
 const GROUP_FILE: &'static str = "/etc/group";
@@ -113,6 +112,7 @@ pub enum Error {
     #[error("invalid entry element '{data}'")]
     InvalidData { data: String },
 }
+pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 #[inline]
 fn parse_error(line: usize, reason: &str) -> Error {
@@ -122,9 +122,9 @@ fn parse_error(line: usize, reason: &str) -> Error {
     }
 }
 
-impl From<syscall::Error> for Error {
-    fn from(syscall_error: syscall::Error) -> Error {
-        Error::Os { reason: syscall_error.text() }
+impl From<libredox::error::Error> for Error {
+    fn from(syscall_error: libredox::error::Error) -> Error {
+        Error::Io(std::io::Error::from(syscall_error))
     }
 }
 
@@ -637,6 +637,8 @@ impl GroupBuilder {
 pub struct Group {
     /// Group name
     pub group: String,
+    /// Password (unused, usually "x")
+    pub password: String,
     /// Unique group id
     pub gid: usize,
     /// Group members' usernames
@@ -651,6 +653,9 @@ impl Group {
         let group = parts
             .next()
             .ok_or(parse_error(line, "expected group"))?;
+        let password = parts
+            .next()
+            .ok_or(parse_error(line, "expected password"))?;
         let gid = parts
             .next()
             .ok_or(parse_error(line, "expected gid"))?
@@ -667,6 +672,7 @@ impl Group {
 
         Ok(Group {
             group: group.into(),
+            password: password.into(),
             gid,
             users,
         })
@@ -683,8 +689,9 @@ impl Group {
             }
 
             #[cfg_attr(rustfmt, rustfmt_skip)]
-            Ok(format!("{};{};{}\n",
+            Ok(format!("{};{};{};{}\n",
                 self.group,
+                self.password,
                 self.gid,
                 self.users.join(",").trim_matches(',')
             ))
@@ -718,7 +725,7 @@ impl Id for Group {
 /// let euid = get_euid().unwrap();
 /// ```
 pub fn get_euid() -> Result<usize, Error> {
-    syscall::geteuid()
+    libredox::call::geteuid()
         .map_err(From::from)
 }
 
@@ -736,7 +743,7 @@ pub fn get_euid() -> Result<usize, Error> {
 /// let uid = get_uid().unwrap();
 /// ```
 pub fn get_uid() -> Result<usize, Error> {
-    syscall::getuid()
+    libredox::call::getruid()
         .map_err(From::from)
 }
 
@@ -754,7 +761,7 @@ pub fn get_uid() -> Result<usize, Error> {
 /// let egid = get_egid().unwrap();
 /// ```
 pub fn get_egid() -> Result<usize, Error> {
-    syscall::getegid()
+    libredox::call::getegid()
         .map_err(From::from)
 }
 
@@ -772,7 +779,7 @@ pub fn get_egid() -> Result<usize, Error> {
 /// let gid = get_gid().unwrap();
 /// ```
 pub fn get_gid() -> Result<usize, Error> {
-    syscall::getgid()
+    libredox::call::getrgid()
         .map_err(From::from)
 }
 
@@ -1297,6 +1304,7 @@ impl AllGroups {
 
             self.groups.push(Group {
                 group: builder.group,
+                password: "x".into(),
                 gid: builder.gid.unwrap_or_else(||
                     self.get_unique_id()
                         .expect("no remaining unused group IDs")
@@ -1554,10 +1562,10 @@ mod test {
     /* struct.Group */
     #[test]
     fn empty_groups() {
-        let group_trailing = Group::from_group_entry("nobody;2066; ", 0).unwrap();
+        let group_trailing = Group::from_group_entry("nobody;x;2066; ", 0).unwrap();
         assert_eq!(group_trailing.users.len(), 0);
 
-        let group_no_trailing = Group::from_group_entry("nobody;2066;", 0).unwrap();
+        let group_no_trailing = Group::from_group_entry("nobody;x;2066;", 0).unwrap();
         assert_eq!(group_no_trailing.users.len(), 0);
 
         assert_eq!(group_trailing.group, group_no_trailing.group);
@@ -1596,11 +1604,11 @@ mod test {
         assert_eq!(
             file_content,
             concat!(
-                "root;0;root\n",
-                "user;1000;user\n",
-                "wheel;1;user,root\n",
-                "loip;1007;loip\n",
-                "fbar;7099;fbar\n"
+                "root;x;0;root\n",
+                "user;x;1000;user\n",
+                "wheel;x;1;user,root\n",
+                "loip;x;1007;loip\n",
+                "fbar;x;7099;fbar\n"
             )
         );
 
@@ -1613,11 +1621,11 @@ mod test {
         assert_eq!(
             file_content,
             concat!(
-                "root;0;root\n",
-                "user;1000;user\n",
-                "wheel;1;user,root\n",
-                "loip;1007;loip\n",
-                "fbar;7099;fbar,user\n"
+                "root;x;0;root\n",
+                "user;x;1000;user\n",
+                "wheel;x;1;user,root\n",
+                "loip;x;1007;loip\n",
+                "fbar;x;7099;fbar,user\n"
             )
         );
 
@@ -1627,10 +1635,10 @@ mod test {
         assert_eq!(
             file_content,
             concat!(
-                "root;0;root\n",
-                "user;1000;user\n",
-                "wheel;1;user,root\n",
-                "loip;1007;loip\n"
+                "root;x;0;root\n",
+                "user;x;1000;user\n",
+                "wheel;x;1;user,root\n",
+                "loip;x;1007;loip\n"
             )
         );
     }
@@ -1647,11 +1655,11 @@ mod test {
         assert_eq!(
             file_content,
             concat!(
-                "root;0;root\n",
-                "user;1000;user\n",
-                "wheel;1;user,root\n",
-                "loip;1007;loip\n",
-                "nobody;2260;\n",
+                "root;x;0;root\n",
+                "user;x;1000;user\n",
+                "wheel;x;1;user,root\n",
+                "loip;x;1007;loip\n",
+                "nobody;x;2260;\n",
             )
         );
 
@@ -1665,10 +1673,10 @@ mod test {
         assert_eq!(
             file_content,
             concat!(
-                "root;0;root\n",
-                "user;1000;user\n",
-                "wheel;1;user,root\n",
-                "loip;1007;loip\n"
+                "root;x;0;root\n",
+                "user;x;1000;user\n",
+                "wheel;x;1;user,root\n",
+                "loip;x;1007;loip\n"
             )
         );
     }

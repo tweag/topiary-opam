@@ -1,3 +1,39 @@
+0.2.16
+------
+- Use `tracing-subscriber`'s `tracing-log` feature to unify log output
+  if both `log` and `trace` features are enabled
+- Added `color` feature to enable colored output (enabled by default)
+
+
+0.2.15
+------
+- Formalized MSRV policy
+- Bumped minimum supported Rust version to `1.71`
+- Bumped `env_logger` dependency to `0.11`
+
+
+0.2.14
+------
+- Factored out `test-log-macros` crate to relieve users from having to
+  care about tracing/logging dependencies themselves
+- Introduced `default_log_filter` attribute for setting the default log
+  filter on a per-test basis behind new `unstable` feature
+- Improved compile error output on wrong usage
+- Bumped minimum supported Rust version to `1.61`
+- Bumped `env_logger` dependency to `0.10`
+
+
+0.2.13
+------
+- Improved interaction with nested attributes (such as those used by the
+  `test_case` crate), that may not have been parsable in the past
+- Removed generated `test_impl` function, which could have "leaked" into
+  test cases (#28)
+- Eliminated dependency on `tracing` crate
+- Bumped minimum supported Rust version to `1.56`
+- Bumped `syn` dependency to `2.0`
+
+
 0.2.12
 ------
 - Fixed handling of inner `#[test]` attributes that add arguments to

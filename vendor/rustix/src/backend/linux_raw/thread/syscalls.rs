@@ -3,12 +3,11 @@
 //! # Safety
 //!
 //! See the `rustix::backend` module documentation for details.
-#![allow(unsafe_code)]
-#![allow(clippy::undocumented_unsafe_blocks)]
+#![allow(unsafe_code, clippy::undocumented_unsafe_blocks)]
 
 use crate::backend::c;
 use crate::backend::conv::{
-    by_mut, by_ref, c_int, c_uint, ret, ret_c_int, ret_c_int_infallible, ret_usize,
+    by_mut, by_ref, c_int, c_uint, ret, ret_c_int, ret_c_int_infallible, ret_usize, slice,
     slice_just_addr, slice_just_addr_mut, zero,
 };
 use crate::fd::BorrowedFd;
@@ -274,7 +273,7 @@ unsafe fn futex_old(
 }
 
 #[inline]
-pub(crate) fn setns(fd: BorrowedFd, nstype: c::c_int) -> io::Result<c::c_int> {
+pub(crate) fn setns(fd: BorrowedFd<'_>, nstype: c::c_int) -> io::Result<c::c_int> {
     unsafe { ret_c_int(syscall_readonly!(__NR_setns, fd, c_int(nstype))) }
 }
 
@@ -345,4 +344,10 @@ pub(crate) fn setresgid_thread(
     unsafe {
         ret(syscall_readonly!(__NR_setresgid, rgid, egid, sgid))
     }
+}
+
+#[inline]
+pub(crate) fn setgroups_thread(gids: &[crate::ugid::Gid]) -> io::Result<()> {
+    let (addr, len) = slice(gids);
+    unsafe { ret(syscall_readonly!(__NR_setgroups, len, addr)) }
 }

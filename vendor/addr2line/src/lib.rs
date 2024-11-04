@@ -183,9 +183,9 @@ impl<L: LookupContinuation> LookupResult<L> {
 /// when performing lookups for many addresses in the same executable.
 pub struct Context<R: gimli::Reader> {
     sections: Arc<gimli::Dwarf<R>>,
-    unit_ranges: Vec<UnitRange>,
-    units: Vec<ResUnit<R>>,
-    sup_units: Vec<SupUnit<R>>,
+    unit_ranges: Box<[UnitRange]>,
+    units: Box<[ResUnit<R>]>,
+    sup_units: Box<[SupUnit<R>]>,
 }
 
 /// The type of `Context` that supports the `new` method.
@@ -203,9 +203,7 @@ impl Context<gimli::EndianRcSlice<gimli::RunTimeEndian>> {
     /// Performance sensitive applications may want to use `Context::from_dwarf`
     /// with a more specialised `gimli::Reader` implementation.
     #[inline]
-    pub fn new<'data: 'file, 'file, O: object::Object<'data, 'file>>(
-        file: &'file O,
-    ) -> Result<Self, Error> {
+    pub fn new<'data, O: object::Object<'data>>(file: &O) -> Result<Self, Error> {
         Self::new_with_sup(file, None)
     }
 
@@ -219,9 +217,9 @@ impl Context<gimli::EndianRcSlice<gimli::RunTimeEndian>> {
     ///
     /// Performance sensitive applications may want to use `Context::from_dwarf`
     /// with a more specialised `gimli::Reader` implementation.
-    pub fn new_with_sup<'data: 'file, 'file, O: object::Object<'data, 'file>>(
-        file: &'file O,
-        sup_file: Option<&'file O>,
+    pub fn new_with_sup<'data, O: object::Object<'data>>(
+        file: &O,
+        sup_file: Option<&O>,
     ) -> Result<Self, Error> {
         let endian = if file.is_little_endian() {
             gimli::RunTimeEndian::Little
@@ -229,13 +227,13 @@ impl Context<gimli::EndianRcSlice<gimli::RunTimeEndian>> {
             gimli::RunTimeEndian::Big
         };
 
-        fn load_section<'data: 'file, 'file, O, Endian>(
+        fn load_section<'data, O, Endian>(
             id: gimli::SectionId,
-            file: &'file O,
+            file: &O,
             endian: Endian,
         ) -> Result<gimli::EndianRcSlice<Endian>, Error>
         where
-            O: object::Object<'data, 'file>,
+            O: object::Object<'data>,
             Endian: gimli::Endianity,
         {
             use object::ObjectSection;
@@ -305,9 +303,9 @@ impl<R: gimli::Reader> Context<R> {
         };
         Ok(Context {
             sections,
-            unit_ranges,
-            units,
-            sup_units,
+            unit_ranges: unit_ranges.into_boxed_slice(),
+            units: units.into_boxed_slice(),
+            sup_units: sup_units.into_boxed_slice(),
         })
     }
 
@@ -531,7 +529,7 @@ impl<R: gimli::Reader> Context<R> {
     /// Initialize all line data structures. This is used for benchmarks.
     #[doc(hidden)]
     pub fn parse_lines(&self) -> Result<(), Error> {
-        for unit in &self.units {
+        for unit in self.units.iter() {
             unit.parse_lines(&self.sections)?;
         }
         Ok(())
@@ -540,7 +538,7 @@ impl<R: gimli::Reader> Context<R> {
     /// Initialize all function data structures. This is used for benchmarks.
     #[doc(hidden)]
     pub fn parse_functions(&self) -> Result<(), Error> {
-        for unit in &self.units {
+        for unit in self.units.iter() {
             unit.parse_functions(self).skip_all_loads()?;
         }
         Ok(())
@@ -549,7 +547,7 @@ impl<R: gimli::Reader> Context<R> {
     /// Initialize all inlined function data structures. This is used for benchmarks.
     #[doc(hidden)]
     pub fn parse_inlined_functions(&self) -> Result<(), Error> {
-        for unit in &self.units {
+        for unit in self.units.iter() {
             unit.parse_inlined_functions(self).skip_all_loads()?;
         }
         Ok(())

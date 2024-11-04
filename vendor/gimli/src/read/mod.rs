@@ -41,10 +41,10 @@
 //!
 //! Full example programs:
 //!
-//!   * [A simple parser](https://github.com/gimli-rs/gimli/blob/master/examples/simple.rs)
+//!   * [A simple parser](https://github.com/gimli-rs/gimli/blob/master/crates/examples/src/bin/simple.rs)
 //!
 //!   * [A `dwarfdump`
-//!     clone](https://github.com/gimli-rs/gimli/blob/master/examples/dwarfdump.rs)
+//!     clone](https://github.com/gimli-rs/gimli/blob/master/crates/examples/src/bin/dwarfdump.rs)
 //!
 //!   * [An `addr2line` clone](https://github.com/gimli-rs/addr2line)
 //!
@@ -55,7 +55,7 @@
 //!     compilers used to create each compilation unit within a shared library or
 //!     executable (via `DW_AT_producer`)
 //!
-//!   * [`dwarf-validate`](https://github.com/gimli-rs/gimli/blob/master/examples/dwarf-validate.rs),
+//!   * [`dwarf-validate`](https://github.com/gimli-rs/gimli/blob/master/crates/examples/src/bin/dwarf-validate.rs),
 //!     a program to validate the integrity of some DWARF and its references
 //!     between sections and compilation units.
 //!
@@ -66,6 +66,10 @@
 //! * The [`Dwarf`](./struct.Dwarf.html) type contains the commonly used DWARF
 //! sections. It has methods that simplify access to debugging data that spans
 //! multiple sections. Use of this type is optional, but recommended.
+//!
+//! * The [`DwarfPackage`](./struct.Dwarf.html) type contains the DWARF
+//! package (DWP) sections. It has methods to find a DWARF object (DWO)
+//! within the package.
 //!
 //! * Each section gets its own type. Consider these types the entry points to
 //! the library:
@@ -202,6 +206,9 @@ pub use self::endian_reader::*;
 mod reader;
 pub use self::reader::*;
 
+mod relocate;
+pub use self::relocate::*;
+
 #[cfg(feature = "read")]
 mod abbrev;
 #[cfg(feature = "read")]
@@ -212,9 +219,6 @@ pub use self::aranges::*;
 
 mod index;
 pub use self::index::*;
-
-#[cfg(feature = "read")]
-mod lazy;
 
 #[cfg(feature = "read")]
 mod line;
@@ -737,7 +741,7 @@ mod tests {
 
         let input = &mut EndianSlice::new(&buf, LittleEndian);
         match input.read_initial_length() {
-            Err(Error::UnknownReservedLength) => assert!(true),
+            Err(Error::UnknownReservedLength) => {}
             otherwise => panic!("Unexpected result: {:?}", otherwise),
         };
     }
@@ -748,7 +752,7 @@ mod tests {
 
         let input = &mut EndianSlice::new(&buf, LittleEndian);
         match input.read_initial_length() {
-            Err(Error::UnexpectedEof(_)) => assert!(true),
+            Err(Error::UnexpectedEof(_)) => {}
             otherwise => panic!("Unexpected result: {:?}", otherwise),
         };
     }
@@ -764,7 +768,7 @@ mod tests {
 
         let input = &mut EndianSlice::new(&buf, LittleEndian);
         match input.read_initial_length() {
-            Err(Error::UnexpectedEof(_)) => assert!(true),
+            Err(Error::UnexpectedEof(_)) => {}
             otherwise => panic!("Unexpected result: {:?}", otherwise),
         };
     }
@@ -823,7 +827,7 @@ mod tests {
 
         let input = &mut EndianSlice::new(&buf, LittleEndian);
         match input.read_offset(Format::Dwarf64) {
-            Err(Error::UnsupportedOffset) => assert!(true),
+            Err(Error::UnsupportedOffset) => {}
             otherwise => panic!("Unexpected result: {:?}", otherwise),
         };
     }

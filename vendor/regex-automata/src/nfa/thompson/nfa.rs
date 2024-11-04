@@ -453,10 +453,10 @@ impl NFA {
     /// predict the anchored starting state.
     ///
     /// ```
-    /// use regex_automata::nfa::thompson::{NFA, State};
+    /// use regex_automata::nfa::thompson::{NFA, State, WhichCaptures};
     ///
     /// let nfa = NFA::compiler()
-    ///     .configure(NFA::config().captures(false))
+    ///     .configure(NFA::config().which_captures(WhichCaptures::None))
     ///     .build("a")?;
     /// let state = nfa.state(nfa.start_anchored());
     /// match *state {
@@ -711,7 +711,7 @@ impl NFA {
     /// or not.
     ///
     /// ```
-    /// use regex_automata::nfa::thompson::NFA;
+    /// use regex_automata::nfa::thompson::{NFA, WhichCaptures};
     ///
     /// // Obviously has capture states.
     /// let nfa = NFA::new("(a)")?;
@@ -733,7 +733,7 @@ impl NFA {
     /// // Notice that 'has_capture' is false here even when we have an
     /// // explicit capture group in the pattern.
     /// let nfa = NFA::compiler()
-    ///     .configure(NFA::config().captures(false))
+    ///     .configure(NFA::config().which_captures(WhichCaptures::None))
     ///     .build("(a)")?;
     /// assert!(!nfa.has_capture());
     ///
@@ -1841,14 +1841,12 @@ impl SparseTransitions {
         // This is an alternative implementation that uses binary search. In
         // some ad hoc experiments, like
         //
-        //   smallishru=OpenSubtitles2018.raw.sample.smallish.ru
-        //   regex-cli find nfa thompson pikevm -b "@$smallishru" '\b\w+\b'
+        //   regex-cli find match pikevm -b -p '\b\w+\b' non-ascii-file
         //
         // I could not observe any improvement, and in fact, things seemed to
         // be a bit slower. I can see an improvement in at least one benchmark:
         //
-        //   allcpssmall=all-codepoints-utf8-10x
-        //   regex-cli find nfa thompson pikevm @$allcpssmall '\pL{100}'
+        //   regex-cli find match pikevm -b -p '\pL{100}' all-codepoints-utf8
         //
         // Where total search time goes from 3.2s to 2.4s when using binary
         // search.

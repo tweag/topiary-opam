@@ -82,7 +82,7 @@ impl Number {
     /// ```
     /// # use serde_json::json;
     /// #
-    /// let big = i64::max_value() as u64 + 10;
+    /// let big = i64::MAX as u64 + 10;
     /// let v = json!({ "a": 64, "b": big, "c": 256.0 });
     ///
     /// assert!(v["a"].is_i64());
@@ -97,7 +97,7 @@ impl Number {
     pub fn is_i64(&self) -> bool {
         #[cfg(not(feature = "arbitrary_precision"))]
         match self.n {
-            N::PosInt(v) => v <= i64::max_value() as u64,
+            N::PosInt(v) => v <= i64::MAX as u64,
             N::NegInt(_) => true,
             N::Float(_) => false,
         }
@@ -177,7 +177,7 @@ impl Number {
     /// ```
     /// # use serde_json::json;
     /// #
-    /// let big = i64::max_value() as u64 + 10;
+    /// let big = i64::MAX as u64 + 10;
     /// let v = json!({ "a": 64, "b": big, "c": 256.0 });
     ///
     /// assert_eq!(v["a"].as_i64(), Some(64));
@@ -189,7 +189,7 @@ impl Number {
         #[cfg(not(feature = "arbitrary_precision"))]
         match self.n {
             N::PosInt(n) => {
-                if n <= i64::max_value() as u64 {
+                if n <= i64::MAX as u64 {
                     Some(n as i64)
                 } else {
                     None
@@ -277,6 +277,33 @@ impl Number {
         } else {
             None
         }
+    }
+
+    /// Returns the exact original JSON representation that this Number was
+    /// parsed from.
+    ///
+    /// For numbers constructed not via parsing, such as by `From<i32>`, returns
+    /// the JSON representation that serde\_json would serialize for this
+    /// number.
+    ///
+    /// ```
+    /// # use serde_json::Number;
+    /// for value in [
+    ///     "7",
+    ///     "12.34",
+    ///     "34e-56789",
+    ///     "0.0123456789000000012345678900000001234567890000123456789",
+    ///     "343412345678910111213141516171819202122232425262728293034",
+    ///     "-343412345678910111213141516171819202122232425262728293031",
+    /// ] {
+    ///     let number: Number = serde_json::from_str(value).unwrap();
+    ///     assert_eq!(number.as_str(), value);
+    /// }
+    /// ```
+    #[cfg(feature = "arbitrary_precision")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "arbitrary_precision")))]
+    pub fn as_str(&self) -> &str {
+        &self.n
     }
 
     pub(crate) fn as_f32(&self) -> Option<f32> {

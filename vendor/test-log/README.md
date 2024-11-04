@@ -1,7 +1,7 @@
 [![pipeline](https://github.com/d-e-s-o/test-log/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/d-e-s-o/test-log/actions/workflows/test.yml)
 [![crates.io](https://img.shields.io/crates/v/test-log.svg)](https://crates.io/crates/test-log)
-[![Docs](https://docs.rs/test-log/badge.svg)](https://docs.rs/test-log)
-[![rustc](https://img.shields.io/badge/rustc-1.49+-blue.svg)](https://blog.rust-lang.org/2020/12/31/Rust-1.49.0.html)
+[![Docs](https://docs.rs/test-log/badge.svg)][docs-rs]
+[![rustc](https://img.shields.io/badge/rustc-1.71+-blue.svg)](https://blog.rust-lang.org/2023/07/13/Rust-1.71.0.html)
 
 test-log
 ========
@@ -30,7 +30,7 @@ let _ = env_logger::builder().is_test(true).try_init();
 in **each and every** test.
 
 Similarly, `tracing` based solutions require a subscriber to be
-registered that writes events/spans to the console.
+registered that writes events/spans to the terminal.
 
 This crate takes care of this per-test initialization in an intuitive
 way.
@@ -77,6 +77,21 @@ async fn it_still_works() {
 }
 ```
 
+#### Features
+
+The crate comes with two features pertaining "backend" initialization:
+- `log`, enabled by default, controls initialization for the `log`
+  crate.
+- `trace`, disabled by default, controls initialization for the
+  `tracing` crate.
+
+Depending on what backend the crate-under-test (and its dependencies)
+use, the respective feature(s) should be enabled to make messages that
+are emitted by the test manifest on the terminal.
+
+On top of that, the `color` feature (enabled by default) controls
+whether to color output by default.
+
 #### Logging Configuration
 
 As usual when running `cargo test`, the output is captured by the
@@ -88,8 +103,9 @@ $ cargo test -- --nocapture
 
 Furthermore, the `RUST_LOG` environment variable is honored and can be
 used to influence the log level to work with (among other things).
-Please refer to the [`env_logger` docs][env-docs-rs] for more
-information.
+Please refer to the [`env_logger` docs][env-docs-rs] and
+[`tracing-subscriber`][tracing-env-docs-rs] documentation for supported
+syntax and more information.
 
 If the `trace` feature is enabled, the `RUST_LOG_SPAN_EVENTS`
 environment variable can be used to configure the tracing subscriber to
@@ -101,33 +117,18 @@ Valid events are `new`, `enter`, `exit`, `close`, `active`, and `full`.
 See the [`tracing_subscriber` docs][tracing-events-docs-rs] for details
 on what the events mean.
 
-#### Features
+#### MSRV Policy
+This crate adheres to Cargo's [semantic versioning rules][cargo-semver].
+At a minimum, it builds with the most recent Rust stable release minus
+five minor versions ("N - 5"). E.g., assuming the most recent Rust
+stable is `1.68`, the crate is guaranteed to build with `1.63` and
+higher.
 
-The crate comes with two features:
-- `log`, enabled by default, controls initialization for the `log`
-  crate.
-- `trace`, disabled by default, controls initialization for the
-  `tracing` crate.
-
-Depending on what backend the crate-under-test (and its dependencies)
-use, the respective feature should be enabled to make messages that are
-emitted by the test manifest on the console.
-
-Note that as a user you are required to explicitly add `env_logger` or
-`tracing-subscriber` as a dependency to your project-under-test (when
-enabling the `log` or `trace` feature, respectively). E.g.,
-
-```toml
-[dev-dependencies]
-env_logger = "*"
-tracing = {version = "0.1", default-features = false}
-tracing-subscriber = {version = "0.3", default-features = false, features = ["env-filter", "fmt"]}
-```
-
-
-[docs-rs]: https://docs.rs/crate/test-log
-[env-docs-rs]: https://docs.rs/env_logger/0.9.0/env_logger
+[cargo-semver]: https://doc.rust-lang.org/cargo/reference/resolver.html#semver-compatibility
+[docs-rs]: https://docs.rs/test-log
+[env-docs-rs]: https://docs.rs/env_logger/0.11.2/env_logger
 [log]: https://crates.io/crates/log
 [tokio-test]: https://docs.rs/tokio/1.4.0/tokio/attr.test.html
 [tracing]: https://crates.io/crates/tracing
-[tracing-events-docs-rs]: https://docs.rs/tracing-subscriber/0.3.1/tracing_subscriber/fmt/struct.SubscriberBuilder.html#method.with_span_events
+[tracing-env-docs-rs]: https://docs.rs/tracing-subscriber/0.3.18/tracing_subscriber/filter/struct.EnvFilter.html#directives
+[tracing-events-docs-rs]: https://docs.rs/tracing-subscriber/0.3.18/tracing_subscriber/fmt/struct.SubscriberBuilder.html#method.with_span_events

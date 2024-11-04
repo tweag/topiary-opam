@@ -2,6 +2,29 @@
 
 --------------------------------------------------------------------------------
 
+## 0.22.0 (2024/04/11)
+
+### Breaking changes
+
+* Updated `gimli` and `object` dependencies.
+
+--------------------------------------------------------------------------------
+
+## 0.21.0 (2023/08/12)
+
+### Breaking changes
+
+* Updated `gimli`, `object`, and `fallible-iterator` dependencies.
+
+### Changed
+
+* The minimum supported rust version is 1.65.0.
+
+* Store boxed slices instead of `Vec` objects in `Context`.
+  [#278](https://github.com/gimli-rs/addr2line/pull/278)
+
+--------------------------------------------------------------------------------
+
 ## 0.20.0 (2023/04/15)
 
 ### Breaking changes

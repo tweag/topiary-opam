@@ -1,30 +1,32 @@
-//! Parsing flags from text.
-//!
-//! `bitflags` defines the following *whitespace-insensitive*, *case-sensitive* grammar for flags formatted
-//! as text:
-//!
-//! - _Flags:_ (_Flag_)`|`*
-//! - _Flag:_ _Identifier_ | _HexNumber_
-//! - _Identifier:_ Any Rust identifier
-//! - _HexNumber_: `0x`([0-9a-fA-F])*
-//!
-//! As an example, this is how `Flags::A | Flags::B | 0x0c` can be represented as text:
-//!
-//! ```text
-//! A | B | 0x0c
-//! ```
-//!
-//! Alternatively, it could be represented without whitespace:
-//!
-//! ```text
-//! A|B|0x0C
-//! ```
-//!
-//! Note that identifiers are *case-sensitive*, so the following is *not equivalent*:
-//!
-//! ```text
-//! a | b | 0x0c
-//! ```
+/*!
+Parsing flags from text.
+
+Format and parse a flags value as text using the following grammar:
+
+- _Flags:_ (_Whitespace_ _Flag_ _Whitespace_)`|`*
+- _Flag:_ _Name_ | _Hex Number_
+- _Name:_ The name of any defined flag
+- _Hex Number_: `0x`([0-9a-fA-F])*
+- _Whitespace_: (\s)*
+
+As an example, this is how `Flags::A | Flags::B | 0x0c` can be represented as text:
+
+```text
+A | B | 0x0c
+```
+
+Alternatively, it could be represented without whitespace:
+
+```text
+A|B|0x0C
+```
+
+Note that identifiers are *case-sensitive*, so the following is *not equivalent*:
+
+```text
+a|b|0x0C
+```
+*/
 
 #![allow(clippy::let_unit_value)]
 
@@ -32,10 +34,11 @@ use core::fmt::{self, Write};
 
 use crate::{Bits, Flags};
 
-/// Write a set of flags to a writer.
-///
-/// Any bits that don't correspond to a valid flag will be formatted
-/// as a hex number.
+/**
+Write a flags value as text.
+
+Any bits that aren't part of a contained flag will be formatted as a hex number.
+*/
 pub fn to_writer<B: Flags>(flags: &B, mut writer: impl Write) -> Result<(), fmt::Error>
 where
     B::Bits: WriteHex,
@@ -74,8 +77,10 @@ where
     fmt::Result::Ok(())
 }
 
+#[cfg(feature = "serde")]
 pub(crate) struct AsDisplay<'a, B>(pub(crate) &'a B);
 
+#[cfg(feature = "serde")]
 impl<'a, B: Flags> fmt::Display for AsDisplay<'a, B>
 where
     B::Bits: WriteHex,
@@ -85,9 +90,12 @@ where
     }
 }
 
-/// Parse a set of flags from text.
-///
-/// This function will fail on unknown flags rather than ignore them.
+/**
+Parse a flags value from text.
+
+This function will fail on any names that don't correspond to defined flags.
+Unknown bits will be retained.
+*/
 pub fn from_str<B: Flags>(input: &str) -> Result<B, ParseError>
 where
     B::Bits: ParseHex,
@@ -128,13 +136,102 @@ where
     Ok(parsed_flags)
 }
 
-/// Encode a value as a hex number.
+/**
+Write a flags value as text, ignoring any unknown bits.
+*/
+pub fn to_writer_truncate<B: Flags>(flags: &B, writer: impl Write) -> Result<(), fmt::Error>
+where
+    B::Bits: WriteHex,
+{
+    to_writer(&B::from_bits_truncate(flags.bits()), writer)
+}
+
+/**
+Parse a flags value from text.
+
+This function will fail on any names that don't correspond to defined flags.
+Unknown bits will be ignored.
+*/
+pub fn from_str_truncate<B: Flags>(input: &str) -> Result<B, ParseError>
+where
+    B::Bits: ParseHex,
+{
+    Ok(B::from_bits_truncate(from_str::<B>(input)?.bits()))
+}
+
+/**
+Write only the contained, defined, named flags in a flags value as text.
+*/
+pub fn to_writer_strict<B: Flags>(flags: &B, mut writer: impl Write) -> Result<(), fmt::Error> {
+    // This is a simplified version of `to_writer` that ignores
+    // any bits not corresponding to a named flag
+
+    let mut first = true;
+    let mut iter = flags.iter_names();
+    for (name, _) in &mut iter {
+        if !first {
+            writer.write_str(" | ")?;
+        }
+
+        first = false;
+        writer.write_str(name)?;
+    }
+
+    fmt::Result::Ok(())
+}
+
+/**
+Parse a flags value from text.
+
+This function will fail on any names that don't correspond to defined flags.
+This function will fail to parse hex values.
+*/
+pub fn from_str_strict<B: Flags>(input: &str) -> Result<B, ParseError> {
+    // This is a simplified version of `from_str` that ignores
+    // any bits not corresponding to a named flag
+
+    let mut parsed_flags = B::empty();
+
+    // If the input is empty then return an empty set of flags
+    if input.trim().is_empty() {
+        return Ok(parsed_flags);
+    }
+
+    for flag in input.split('|') {
+        let flag = flag.trim();
+
+        // If the flag is empty then we've got missing input
+        if flag.is_empty() {
+            return Err(ParseError::empty_flag());
+        }
+
+        // If the flag starts with `0x` then it's a hex number
+        // These aren't supported in the strict parser
+        if flag.starts_with("0x") {
+            return Err(ParseError::invalid_hex_flag("unsupported hex flag value"));
+        }
+
+        let parsed_flag = B::from_name(flag).ok_or_else(|| ParseError::invalid_named_flag(flag))?;
+
+        parsed_flags.insert(parsed_flag);
+    }
+
+    Ok(parsed_flags)
+}
+
+/**
+Encode a value as a hex string.
+
+Implementors of this trait should not write the `0x` prefix.
+*/
 pub trait WriteHex {
     /// Write the value as hex.
     fn write_hex<W: fmt::Write>(&self, writer: W) -> fmt::Result;
 }
 
-/// Parse a value from a number encoded as a hex string.
+/**
+Parse a value from a hex string.
+*/
 pub trait ParseHex {
     /// Parse the value from hex.
     fn parse_hex(input: &str) -> Result<Self, ParseError>
