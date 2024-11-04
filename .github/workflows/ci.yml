@@ -58,7 +58,6 @@ jobs:
       matrix:
         include:
           - {os: ubuntu}
-          - {os: windows, ef: expected-failure}
           - {os: macos}
 
     runs-on: ${{ matrix.os }}-latest
@@ -93,7 +92,7 @@ jobs:
           printf 'Topiary is: '
           opam exec -- sh -c 'command -v topiary'
           printf 'in version: '
-          opam exec -- topiary --version
+          opam exec -- sh -c 'topiary --version'
           echo '::endgroup::'
 
       - name: Check the outcome of the build
@@ -107,7 +106,7 @@ jobs:
         uses: ./.github/actions/run-tests
         with:
           topiary: opam exec -- topiary
-          samples: topiary/topiary/tests/samples
+          samples: topiary/topiary-cli/tests/samples
 
   docker-based:
     name: docker-based
@@ -121,10 +120,10 @@ jobs:
           - {tag: centos,          ef: expected-failure}
           - {tag: debian,          ef: expected-failure}
           - {tag: debian-testing}
-          - {tag: debian-unstable}
+          - {tag: debian-unstable, ef: expected-failure}
           - {tag: fedora}
           - {tag: oraclelinux}
-          - {tag: opensuse,        ef: expected-failure}
+          - {tag: opensuse}
           - {tag: opensuse-tumbleweed}
           - {tag: ubuntu}
           - {tag: ubuntu-lts}
@@ -161,7 +160,7 @@ jobs:
         uses: ./.github/actions/run-tests
         with:
           topiary: docker run --interactive topiary
-          samples: topiary/topiary/tests/samples
+          samples: topiary/topiary-cli/tests/samples
 
   flake-checks:
     name: flake-checks

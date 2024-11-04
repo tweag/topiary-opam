@@ -11,8 +11,9 @@
 
 [package]
 edition = "2018"
+rust-version = "1.57"
 name = "web-sys"
-version = "0.3.61"
+version = "0.3.68"
 authors = ["The wasm-bindgen Developers"]
 description = """
 Bindings for all Web APIs, a procedurally generated crate from WebIDL
@@ -20,8 +21,9 @@ Bindings for all Web APIs, a procedurally generated crate from WebIDL
 homepage = "https://rustwasm.github.io/wasm-bindgen/web-sys/index.html"
 documentation = "https://rustwasm.github.io/wasm-bindgen/api/web_sys/"
 readme = "./README.md"
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/rustwasm/wasm-bindgen/tree/master/crates/web-sys"
+resolver = "2"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -32,10 +34,10 @@ test = false
 doctest = false
 
 [dependencies.js-sys]
-version = "0.3.61"
+version = "0.3.68"
 
 [dependencies.wasm-bindgen]
-version = "0.2.84"
+version = "0.2.91"
 
 [features]
 AbortController = []
@@ -88,6 +90,7 @@ AudioContext = [
     "BaseAudioContext",
     "EventTarget",
 ]
+AudioContextLatencyCategory = []
 AudioContextOptions = []
 AudioContextState = []
 AudioData = []
@@ -116,6 +119,9 @@ AudioScheduledSourceNode = [
     "AudioNode",
     "EventTarget",
 ]
+AudioSinkInfo = []
+AudioSinkOptions = []
+AudioSinkType = []
 AudioStreamTrack = [
     "EventTarget",
     "MediaStreamTrack",
@@ -199,6 +205,10 @@ CanvasCaptureMediaStream = [
     "EventTarget",
     "MediaStream",
 ]
+CanvasCaptureMediaStreamTrack = [
+    "EventTarget",
+    "MediaStreamTrack",
+]
 CanvasGradient = []
 CanvasPattern = []
 CanvasRenderingContext2d = []
@@ -219,8 +229,6 @@ ChannelMergerNode = [
     "EventTarget",
 ]
 ChannelMergerOptions = []
-ChannelPixelLayout = []
-ChannelPixelLayoutDataType = []
 ChannelSplitterNode = [
     "AudioNode",
     "EventTarget",
@@ -265,6 +273,8 @@ CompositionEvent = [
     "UiEvent",
 ]
 CompositionEventInit = []
+CompressionFormat = []
+CompressionStream = []
 ComputedEffectTiming = []
 ConnStatusDict = []
 ConnectionType = []
@@ -306,10 +316,6 @@ CredentialsContainer = []
 Crypto = []
 CryptoKey = []
 CryptoKeyPair = []
-Csp = []
-CspPolicies = []
-CspReport = []
-CspReportProperties = []
 CssAnimation = [
     "Animation",
     "EventTarget",
@@ -358,6 +364,7 @@ DataTransferItemList = []
 DateTimeValue = []
 DecoderDoctorNotification = []
 DecoderDoctorNotificationType = []
+DecompressionStream = []
 DedicatedWorkerGlobalScope = [
     "EventTarget",
     "WorkerGlobalScope",
@@ -382,6 +389,7 @@ DeviceRotationRateInit = []
 DhKeyDeriveParams = []
 DirectionSetting = []
 Directory = []
+DirectoryPickerOptions = []
 DisplayMediaStreamConstraints = []
 DisplayNameOptions = []
 DisplayNameResult = []
@@ -407,6 +415,8 @@ DomError = []
 DomException = []
 DomImplementation = []
 DomMatrix = ["DomMatrixReadOnly"]
+DomMatrix2dInit = []
+DomMatrixInit = []
 DomMatrixReadOnly = []
 DomParser = []
 DomPoint = ["DomPointReadOnly"]
@@ -500,26 +510,42 @@ FetchState = []
 File = ["Blob"]
 FileCallback = []
 FileList = []
+FilePickerAcceptType = []
+FilePickerOptions = []
 FilePropertyBag = []
 FileReader = ["EventTarget"]
 FileReaderSync = []
 FileSystem = []
+FileSystemCreateWritableOptions = []
 FileSystemDirectoryEntry = ["FileSystemEntry"]
+FileSystemDirectoryHandle = ["FileSystemHandle"]
 FileSystemDirectoryReader = []
 FileSystemEntriesCallback = []
 FileSystemEntry = []
 FileSystemEntryCallback = []
 FileSystemFileEntry = ["FileSystemEntry"]
+FileSystemFileHandle = ["FileSystemHandle"]
 FileSystemFlags = []
+FileSystemGetDirectoryOptions = []
+FileSystemGetFileOptions = []
+FileSystemHandle = []
+FileSystemHandleKind = []
+FileSystemHandlePermissionDescriptor = []
+FileSystemPermissionDescriptor = []
+FileSystemPermissionMode = []
+FileSystemReadWriteOptions = []
+FileSystemRemoveOptions = []
+FileSystemSyncAccessHandle = []
+FileSystemWritableFileStream = ["WritableStream"]
 FillMode = []
 FlashClassification = []
-FlexLineGrowthState = []
 FlowControlType = []
 FocusEvent = [
     "Event",
     "UiEvent",
 ]
 FocusEventInit = []
+FontData = []
 FontFace = []
 FontFaceDescriptors = []
 FontFaceLoadStatus = []
@@ -558,7 +584,7 @@ GamepadMappingType = []
 GamepadPose = []
 GamepadServiceTest = []
 Geolocation = []
-GetNotificationOptions = []
+GetAnimationsOptions = []
 GetRootNodeOptions = []
 GetUserMediaRequest = []
 Gpu = []
@@ -597,8 +623,7 @@ GpuCompilationMessage = []
 GpuCompilationMessageType = []
 GpuComputePassDescriptor = []
 GpuComputePassEncoder = []
-GpuComputePassTimestampLocation = []
-GpuComputePassTimestampWrite = []
+GpuComputePassTimestampWrites = []
 GpuComputePipeline = []
 GpuComputePipelineDescriptor = []
 GpuCullMode = []
@@ -632,6 +657,9 @@ GpuOrigin2dDict = []
 GpuOrigin3dDict = []
 GpuOutOfMemoryError = ["GpuError"]
 GpuPipelineDescriptorBase = []
+GpuPipelineError = ["DomException"]
+GpuPipelineErrorInit = []
+GpuPipelineErrorReason = []
 GpuPipelineLayout = []
 GpuPipelineLayoutDescriptor = []
 GpuPowerPreference = []
@@ -652,8 +680,7 @@ GpuRenderPassDepthStencilAttachment = []
 GpuRenderPassDescriptor = []
 GpuRenderPassEncoder = []
 GpuRenderPassLayout = []
-GpuRenderPassTimestampLocation = []
-GpuRenderPassTimestampWrite = []
+GpuRenderPassTimestampWrites = []
 GpuRenderPipeline = []
 GpuRenderPipelineDescriptor = []
 GpuRequestAdapterOptions = []
@@ -689,8 +716,6 @@ GpuVertexBufferLayout = []
 GpuVertexFormat = []
 GpuVertexState = []
 GpuVertexStepMode = []
-GridDeclaration = []
-GridTrackState = []
 GroupedHistoryEventInit = []
 HalfOpenInfoDict = []
 HardwareAcceleration = []
@@ -1194,7 +1219,6 @@ IirFilterNode = [
 ]
 IirFilterOptions = []
 ImageBitmap = []
-ImageBitmapFormat = []
 ImageBitmapOptions = []
 ImageBitmapRenderingContext = []
 ImageCapture = []
@@ -1206,6 +1230,7 @@ ImageDecodeOptions = []
 ImageDecodeResult = []
 ImageDecoder = []
 ImageDecoderInit = []
+ImageEncodeOptions = []
 ImageOrientation = []
 ImageTrack = ["EventTarget"]
 ImageTrackList = []
@@ -1214,12 +1239,12 @@ InputEvent = [
     "UiEvent",
 ]
 InputEventInit = []
-InstallTriggerData = []
 IntersectionObserver = []
 IntersectionObserverEntry = []
 IntersectionObserverEntryInit = []
 IntersectionObserverInit = []
 IntlUtils = []
+IsInputPendingOptions = []
 IterableKeyAndValueResult = []
 IterableKeyOrValueResult = []
 IterationCompositeOperation = []
@@ -1232,6 +1257,7 @@ KeyboardEvent = [
     "UiEvent",
 ]
 KeyboardEventInit = []
+KeyframeAnimationOptions = []
 KeyframeEffect = ["AnimationEffect"]
 KeyframeEffectOptions = []
 L10nElement = []
@@ -1246,6 +1272,12 @@ LocalMediaStream = [
 ]
 LocaleInfo = []
 Location = []
+Lock = []
+LockInfo = []
+LockManager = []
+LockManagerSnapshot = []
+LockMode = []
+LockOptions = []
 MediaCapabilities = []
 MediaCapabilitiesInfo = []
 MediaConfiguration = []
@@ -1328,6 +1360,10 @@ MediaTrackConstraintSet = []
 MediaTrackConstraints = []
 MediaTrackSettings = []
 MediaTrackSupportedConstraints = []
+MemoryAttribution = []
+MemoryAttributionContainer = []
+MemoryBreakdownEntry = []
+MemoryMeasurement = []
 MessageChannel = []
 MessageEvent = ["Event"]
 MessageEventInit = []
@@ -1384,7 +1420,7 @@ NodeFilter = []
 NodeIterator = []
 NodeList = []
 Notification = ["EventTarget"]
-NotificationBehavior = []
+NotificationAction = []
 NotificationDirection = []
 NotificationEvent = [
     "Event",
@@ -1410,6 +1446,8 @@ OfflineAudioContext = [
 OfflineAudioContextOptions = []
 OfflineResourceList = ["EventTarget"]
 OffscreenCanvas = ["EventTarget"]
+OffscreenCanvasRenderingContext2d = []
+OpenFilePickerOptions = []
 OpenWindowEventDetail = []
 OptionalEffectTiming = []
 OrientationLockType = []
@@ -1549,6 +1587,7 @@ PushSubscriptionJson = []
 PushSubscriptionKeys = []
 PushSubscriptionOptions = []
 PushSubscriptionOptionsInit = []
+QueryOptions = []
 QueuingStrategy = []
 QueuingStrategyInit = []
 RadioNodeList = ["NodeList"]
@@ -1627,7 +1666,6 @@ RtcIdentityProviderOptions = []
 RtcIdentityProviderRegistrar = []
 RtcIdentityValidationResult = []
 RtcInboundRtpStreamStats = []
-RtcLifecycleEvent = []
 RtcMediaStreamStats = []
 RtcMediaStreamTrackStats = []
 RtcOfferAnswerOptions = []
@@ -1636,11 +1674,15 @@ RtcOutboundRtpStreamStats = []
 RtcPeerConnection = ["EventTarget"]
 RtcPeerConnectionIceEvent = ["Event"]
 RtcPeerConnectionIceEventInit = []
+RtcPeerConnectionState = []
 RtcPriorityType = []
 RtcRtcpParameters = []
+RtcRtpCapabilities = []
+RtcRtpCodecCapability = []
 RtcRtpCodecParameters = []
 RtcRtpContributingSource = []
 RtcRtpEncodingParameters = []
+RtcRtpHeaderExtensionCapability = []
 RtcRtpHeaderExtensionParameters = []
 RtcRtpParameters = []
 RtcRtpReceiver = []
@@ -1670,6 +1712,10 @@ RtcdtmfToneChangeEvent = ["Event"]
 RtcdtmfToneChangeEventInit = []
 RtcrtpContributingSourceStats = []
 RtcrtpStreamStats = []
+SaveFilePickerOptions = []
+Scheduler = []
+SchedulerPostTaskOptions = []
+Scheduling = []
 Screen = ["EventTarget"]
 ScreenColorGamut = []
 ScreenLuminance = []
@@ -1696,6 +1742,7 @@ SecurityPolicyViolationEvent = ["Event"]
 SecurityPolicyViolationEventDisposition = []
 SecurityPolicyViolationEventInit = []
 Selection = []
+SelectionMode = []
 Serial = ["EventTarget"]
 SerialInputSignals = []
 SerialOptions = []
@@ -2297,6 +2344,16 @@ SvgtSpanElement = [
     "SvgTextContentElement",
     "SvgTextPositioningElement",
 ]
+TaskController = ["AbortController"]
+TaskControllerInit = []
+TaskPriority = []
+TaskPriorityChangeEvent = ["Event"]
+TaskPriorityChangeEventInit = []
+TaskSignal = [
+    "AbortSignal",
+    "EventTarget",
+]
+TaskSignalAnyInit = []
 TcpReadyState = []
 TcpServerSocket = ["EventTarget"]
 TcpServerSocketEvent = ["Event"]
@@ -2383,6 +2440,7 @@ UsbPermissionStorage = []
 UsbRecipient = []
 UsbRequestType = []
 UsbTransferStatus = []
+UserActivation = []
 UserProximityEvent = ["Event"]
 UserProximityEventInit = []
 UserVerificationRequirement = []
@@ -2417,6 +2475,7 @@ VideoStreamTrack = [
 VideoTrack = []
 VideoTrackList = ["EventTarget"]
 VideoTransferCharacteristics = []
+ViewTransition = []
 VisibilityState = []
 VoidCallback = []
 VrDisplay = ["EventTarget"]
@@ -2473,6 +2532,24 @@ WebKitCssMatrix = [
 WebSocket = ["EventTarget"]
 WebSocketDict = []
 WebSocketElement = []
+WebTransport = []
+WebTransportBidirectionalStream = []
+WebTransportCloseInfo = []
+WebTransportCongestionControl = []
+WebTransportDatagramDuplexStream = []
+WebTransportDatagramStats = []
+WebTransportError = ["DomException"]
+WebTransportErrorOptions = []
+WebTransportErrorSource = []
+WebTransportHash = []
+WebTransportOptions = []
+WebTransportReceiveStream = ["ReadableStream"]
+WebTransportReceiveStreamStats = []
+WebTransportReliabilityMode = []
+WebTransportSendStream = ["WritableStream"]
+WebTransportSendStreamOptions = []
+WebTransportSendStreamStats = []
+WebTransportStats = []
 WebglColorBufferFloat = []
 WebglCompressedTextureAstc = []
 WebglCompressedTextureAtc = []
@@ -2487,7 +2564,8 @@ WebglDepthTexture = []
 WebglDrawBuffers = []
 WebglLoseContext = []
 WebglMultiDraw = []
-WebrtcGlobalStatisticsReport = []
+WellKnownDirectory = []
+WgslLanguageFeatures = []
 WheelEvent = [
     "Event",
     "MouseEvent",
@@ -2510,6 +2588,8 @@ WorkletOptions = []
 WritableStream = []
 WritableStreamDefaultController = []
 WritableStreamDefaultWriter = []
+WriteCommandType = []
+WriteParams = []
 XPathExpression = []
 XPathNsResolver = []
 XPathResult = []
@@ -2536,7 +2616,7 @@ XrBoundedReferenceSpace = [
 ]
 XrEye = []
 XrFrame = []
-XrHand = ["XrHandJoint"]
+XrHand = []
 XrHandJoint = []
 XrHandedness = []
 XrInputSource = []
@@ -2545,8 +2625,11 @@ XrInputSourceEvent = ["Event"]
 XrInputSourceEventInit = []
 XrInputSourcesChangeEvent = ["Event"]
 XrInputSourcesChangeEventInit = []
-XrJointPose = []
-XrJointSpace = []
+XrJointPose = ["XrPose"]
+XrJointSpace = [
+    "EventTarget",
+    "XrSpace",
+]
 XrLayer = ["EventTarget"]
 XrPermissionDescriptor = []
 XrPermissionStatus = [
@@ -2592,7 +2675,7 @@ gpu_shader_stage = []
 gpu_texture_usage = []
 
 [target."cfg(target_arch = \"wasm32\")".dev-dependencies.wasm-bindgen-futures]
-version = "0.4.34"
+version = "0.4.41"
 
 [target."cfg(target_arch = \"wasm32\")".dev-dependencies.wasm-bindgen-test]
-version = "0.3.34"
+version = "0.3.41"

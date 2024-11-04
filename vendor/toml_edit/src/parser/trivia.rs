@@ -15,11 +15,13 @@ pub(crate) unsafe fn from_utf8_unchecked<'b>(
     bytes: &'b [u8],
     safety_justification: &'static str,
 ) -> &'b str {
-    if cfg!(debug_assertions) {
-        // Catch problems more quickly when testing
-        std::str::from_utf8(bytes).expect(safety_justification)
-    } else {
-        std::str::from_utf8_unchecked(bytes)
+    unsafe {
+        if cfg!(debug_assertions) {
+            // Catch problems more quickly when testing
+            std::str::from_utf8(bytes).expect(safety_justification)
+        } else {
+            std::str::from_utf8_unchecked(bytes)
+        }
     }
 }
 
@@ -99,7 +101,7 @@ pub(crate) fn ws_comment_newline<'i>(input: &mut Input<'i>) -> PResult<&'i [u8]>
                 alt((take_while(1.., WSCHAR), newline.value(&b"\n"[..]))),
             )
             .map(|()| ()),
-            comment.value(()),
+            comment.void(),
         )),
     )
     .map(|()| ())
@@ -120,6 +122,8 @@ pub(crate) fn line_trailing(input: &mut Input<'_>) -> PResult<std::ops::Range<us
 }
 
 #[cfg(test)]
+#[cfg(feature = "parse")]
+#[cfg(feature = "display")]
 mod test {
     use super::*;
 

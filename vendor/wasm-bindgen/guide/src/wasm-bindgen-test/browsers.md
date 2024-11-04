@@ -10,6 +10,21 @@ use wasm_bindgen_test::wasm_bindgen_test_configure;
 wasm_bindgen_test_configure!(run_in_browser);
 ```
 
+Or if you need to run your tests inside a web worker, you can also
+configured it using the `wasm_bindgen_test_configure` macro as following
+snippet.
+
+```rust
+use wasm_bindgen_test::wasm_bindgen_test_configure;
+
+// Run in dedicated worker.
+wasm_bindgen_test_configure!(run_in_dedicated_worker);
+// Or run in shared worker.
+wasm_bindgen_test_configure!(run_in_shared_worker);
+// Or run in service worker.
+wasm_bindgen_test_configure!(run_in_service_worker);
+```
+
 Note that although a particular test crate must target either headless browsers
 or Node.js, you can have test suites for both Node.js and browsers for your
 project by using multiple test crates. For example:
@@ -17,8 +32,11 @@ project by using multiple test crates. For example:
 ```
 $MY_CRATE/
 `-- tests
-    |-- node.rs    # The tests in this suite use the default Node.js.
-    `-- web.rs     # The tests in this suite are configured for browsers.
+    |-- node.rs              # The tests in this suite use the default Node.js.
+    |-- dedicated_worker.rs  # The tests in this suite are configured for dedicated workers.
+    |-- shared_worker.rs     # The tests in this suite are configured for shared workers.
+    |-- service_worker.rs    # The tests in this suite are configured for service workers.
+    `-- web.rs               # The tests in this suite are configured for browsers.
 ```
 
 ## Configuring Which Browser is Used

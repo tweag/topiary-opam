@@ -1,10 +1,9 @@
 use std::iter::FromIterator;
 use std::str::FromStr;
 
-use toml_datetime::*;
+use toml_datetime::{Date, Datetime, Time};
 
 use crate::key::Key;
-use crate::parser;
 use crate::repr::{Decor, Formatted};
 use crate::{Array, InlineTable, InternalString, RawString};
 
@@ -50,7 +49,7 @@ impl Value {
         }
     }
 
-    /// Returns true iff `self` is a string.
+    /// Returns true if `self` is a string.
     pub fn is_str(&self) -> bool {
         self.as_str().is_some()
     }
@@ -63,7 +62,7 @@ impl Value {
         }
     }
 
-    /// Returns true iff `self` is an integer.
+    /// Returns true if `self` is an integer.
     pub fn is_integer(&self) -> bool {
         self.as_integer().is_some()
     }
@@ -76,7 +75,7 @@ impl Value {
         }
     }
 
-    /// Returns true iff `self` is a float.
+    /// Returns true if `self` is a float.
     pub fn is_float(&self) -> bool {
         self.as_float().is_some()
     }
@@ -89,7 +88,7 @@ impl Value {
         }
     }
 
-    /// Returns true iff `self` is a boolean.
+    /// Returns true if `self` is a boolean.
     pub fn is_bool(&self) -> bool {
         self.as_bool().is_some()
     }
@@ -102,7 +101,7 @@ impl Value {
         }
     }
 
-    /// Returns true iff `self` is a date-time.
+    /// Returns true if `self` is a date-time.
     pub fn is_datetime(&self) -> bool {
         self.as_datetime().is_some()
     }
@@ -123,7 +122,7 @@ impl Value {
         }
     }
 
-    /// Returns true iff `self` is an array.
+    /// Returns true if `self` is an array.
     pub fn is_array(&self) -> bool {
         self.as_array().is_some()
     }
@@ -144,7 +143,7 @@ impl Value {
         }
     }
 
-    /// Returns true iff `self` is an inline table.
+    /// Returns true if `self` is an inline table.
     pub fn is_inline_table(&self) -> bool {
         self.as_inline_table().is_some()
     }
@@ -190,10 +189,12 @@ impl Value {
     /// Sets the prefix and the suffix for value.
     /// # Example
     /// ```rust
+    /// # #[cfg(feature = "display")] {
     /// let mut v = toml_edit::Value::from(42);
     /// assert_eq!(&v.to_string(), "42");
     /// let d = v.decorated(" ", " ");
     /// assert_eq!(&d.to_string(), " 42 ");
+    /// # }
     /// ```
     pub fn decorated(mut self, prefix: impl Into<RawString>, suffix: impl Into<RawString>) -> Self {
         self.decorate(prefix, suffix);
@@ -205,8 +206,10 @@ impl Value {
         *decor = Decor::new(prefix, suffix);
     }
 
-    /// Returns the location within the original document
-    pub(crate) fn span(&self) -> Option<std::ops::Range<usize>> {
+    /// The location within the original document
+    ///
+    /// This generally requires an [`ImDocument`][crate::ImDocument].
+    pub fn span(&self) -> Option<std::ops::Range<usize>> {
         match self {
             Value::String(f) => f.span(),
             Value::Integer(f) => f.span(),
@@ -231,12 +234,13 @@ impl Value {
     }
 }
 
+#[cfg(feature = "parse")]
 impl FromStr for Value {
     type Err = crate::TomlError;
 
     /// Parses a value from a &str
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parser::parse_value(s)
+        crate::parser::parse_value(s)
     }
 }
 
@@ -284,6 +288,7 @@ impl From<i64> for Value {
 
 impl From<f64> for Value {
     fn from(f: f64) -> Self {
+        // Preserve sign of NaN. It may get written to TOML as `-nan`.
         Value::Float(Formatted::new(f))
     }
 }
@@ -346,9 +351,10 @@ impl<K: Into<Key>, V: Into<Value>> FromIterator<(K, V)> for Value {
     }
 }
 
+#[cfg(feature = "display")]
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        crate::encode::Encode::encode(self, f, None, ("", ""))
+        crate::encode::encode_value(self, f, None, ("", ""))
     }
 }
 
@@ -360,13 +366,22 @@ pub(crate) const DEFAULT_TRAILING_VALUE_DECOR: (&str, &str) = (" ", " ");
 pub(crate) const DEFAULT_LEADING_VALUE_DECOR: (&str, &str) = ("", "");
 
 #[cfg(test)]
+#[cfg(feature = "parse")]
+#[cfg(feature = "display")]
 mod tests {
     use super::*;
 
     #[test]
     fn from_iter_formatting() {
-        let features = vec!["node".to_owned(), "mouth".to_owned()];
+        let features = ["node".to_owned(), "mouth".to_owned()];
         let features: Value = features.iter().cloned().collect();
         assert_eq!(features.to_string(), r#"["node", "mouth"]"#);
     }
+}
+
+#[test]
+#[cfg(feature = "parse")]
+#[cfg(feature = "display")]
+fn string_roundtrip() {
+    Value::from("hello").to_string().parse::<Value>().unwrap();
 }

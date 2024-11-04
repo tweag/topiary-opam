@@ -8,14 +8,14 @@ use winnow::{
     combinator::alt,
     combinator::cut_err,
     combinator::{delimited, preceded, separated_pair, terminated},
-    combinator::{fold_repeat, separated0},
+    combinator::{repeat, separated},
     error::{AddContext, ParserError},
     stream::Partial,
     token::{any, none_of, take, take_while},
 };
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum JsonValue {
+pub(crate) enum JsonValue {
     Null,
     Boolean(bool),
     Str(String),
@@ -25,9 +25,9 @@ pub enum JsonValue {
 }
 
 /// Use `Partial` to cause `ErrMode::Incomplete` while parsing
-pub type Stream<'i> = Partial<&'i str>;
+pub(crate) type Stream<'i> = Partial<&'i str>;
 
-pub fn ndjson<'i, E: ParserError<Stream<'i>> + AddContext<Stream<'i>, &'static str>>(
+pub(crate) fn ndjson<'i, E: ParserError<Stream<'i>> + AddContext<Stream<'i>, &'static str>>(
     input: &mut Stream<'i>,
 ) -> PResult<Option<JsonValue>, E> {
     alt((
@@ -57,7 +57,7 @@ fn json_value<'i, E: ParserError<Stream<'i>> + AddContext<Stream<'i>, &'static s
     .parse_next(input)
 }
 
-/// `tag(string)` generates a parser that recognizes the argument string.
+/// `literal(string)` generates a parser that recognizes the argument string.
 ///
 /// This also shows returning a sub-slice of the original input
 fn null<'i, E: ParserError<Stream<'i>>>(input: &mut Stream<'i>) -> PResult<&'i str, E> {
@@ -92,7 +92,7 @@ fn string<'i, E: ParserError<Stream<'i>> + AddContext<Stream<'i>, &'static str>>
         // right branch (since we found the `"` character) but encountered an error when
         // parsing the string
         cut_err(terminated(
-            fold_repeat(0.., character, String::new, |mut string, c| {
+            repeat(0.., character).fold(String::new, |mut string, c| {
                 string.push(c);
                 string
             }),
@@ -158,7 +158,7 @@ fn u16_hex<'i, E: ParserError<Stream<'i>>>(input: &mut Stream<'i>) -> PResult<u1
         .parse_next(input)
 }
 
-/// Some combinators, like `separated0` or `many0`, will call a parser repeatedly,
+/// Some combinators, like `separated` or `repeat`, will call a parser repeatedly,
 /// accumulating results in a `Vec`, until it encounters an error.
 /// If you want more control on the parser application, check out the `iterator`
 /// combinator (cf `examples/iterator.rs`)
@@ -167,7 +167,10 @@ fn array<'i, E: ParserError<Stream<'i>> + AddContext<Stream<'i>, &'static str>>(
 ) -> PResult<Vec<JsonValue>, E> {
     preceded(
         ('[', ws),
-        cut_err(terminated(separated0(json_value, (ws, ',', ws)), (ws, ']'))),
+        cut_err(terminated(
+            separated(0.., json_value, (ws, ',', ws)),
+            (ws, ']'),
+        )),
     )
     .context("array")
     .parse_next(input)
@@ -178,7 +181,10 @@ fn object<'i, E: ParserError<Stream<'i>> + AddContext<Stream<'i>, &'static str>>
 ) -> PResult<HashMap<String, JsonValue>, E> {
     preceded(
         ('{', ws),
-        cut_err(terminated(separated0(key_value, (ws, ',', ws)), (ws, '}'))),
+        cut_err(terminated(
+            separated(0.., key_value, (ws, ',', ws)),
+            (ws, '}'),
+        )),
     )
     .context("object")
     .parse_next(input)
@@ -215,11 +221,11 @@ mod test {
     fn json_string() {
         assert_eq!(
             string::<Error<'_>>.parse_peek(Partial::new("\"\"")),
-            Ok((Partial::new(""), "".to_string()))
+            Ok((Partial::new(""), "".to_owned()))
         );
         assert_eq!(
             string::<Error<'_>>.parse_peek(Partial::new("\"abc\"")),
-            Ok((Partial::new(""), "abc".to_string()))
+            Ok((Partial::new(""), "abc".to_owned()))
         );
         assert_eq!(
             string::<Error<'_>>.parse_peek(Partial::new(
@@ -227,12 +233,12 @@ mod test {
             )),
             Ok((
                 Partial::new(""),
-                "abc\"\\/\x08\x0C\n\r\t\x01——def".to_string()
+                "abc\"\\/\x08\x0C\n\r\t\x01——def".to_owned()
             )),
         );
         assert_eq!(
             string::<Error<'_>>.parse_peek(Partial::new("\"\\uD83D\\uDE10\"")),
-            Ok((Partial::new(""), "😐".to_string()))
+            Ok((Partial::new(""), "😐".to_owned()))
         );
 
         assert!(string::<Error<'_>>.parse_peek(Partial::new("\"")).is_err());
@@ -265,8 +271,8 @@ mod test {
 
         let expected = Object(
             vec![
-                ("a".to_string(), Num(42.0)),
-                ("b".to_string(), Str("x".to_string())),
+                ("a".to_owned(), Num(42.0)),
+                ("b".to_owned(), Str("x".to_owned())),
             ]
             .into_iter()
             .collect(),
@@ -285,7 +291,7 @@ mod test {
         let input = r#"[42,"x"]
 "#;
 
-        let expected = Array(vec![Num(42.0), Str("x".to_string())]);
+        let expected = Array(vec![Num(42.0), Str("x".to_owned())]);
 
         assert_eq!(
             ndjson::<Error<'_>>.parse_peek(Partial::new(input)),
@@ -306,28 +312,28 @@ mod test {
                 Partial::new(""),
                 Some(Object(
                     vec![
-                        ("null".to_string(), Null),
-                        ("true".to_string(), Boolean(true)),
-                        ("false".to_string(), Boolean(false)),
-                        ("number".to_string(), Num(123e4)),
-                        ("string".to_string(), Str(" abc 123 ".to_string())),
+                        ("null".to_owned(), Null),
+                        ("true".to_owned(), Boolean(true)),
+                        ("false".to_owned(), Boolean(false)),
+                        ("number".to_owned(), Num(123e4)),
+                        ("string".to_owned(), Str(" abc 123 ".to_owned())),
                         (
-                            "array".to_string(),
-                            Array(vec![Boolean(false), Num(1.0), Str("two".to_string())])
+                            "array".to_owned(),
+                            Array(vec![Boolean(false), Num(1.0), Str("two".to_owned())])
                         ),
                         (
-                            "object".to_string(),
+                            "object".to_owned(),
                             Object(
                                 vec![
-                                    ("a".to_string(), Num(1.0)),
-                                    ("b".to_string(), Str("c".to_string())),
+                                    ("a".to_owned(), Num(1.0)),
+                                    ("b".to_owned(), Str("c".to_owned())),
                                 ]
                                 .into_iter()
                                 .collect()
                             )
                         ),
-                        ("empty_array".to_string(), Array(vec![]),),
-                        ("empty_object".to_string(), Object(HashMap::new()),),
+                        ("empty_array".to_owned(), Array(vec![]),),
+                        ("empty_object".to_owned(), Object(HashMap::new()),),
                     ]
                     .into_iter()
                     .collect()

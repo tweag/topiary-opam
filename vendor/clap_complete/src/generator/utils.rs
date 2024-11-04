@@ -47,8 +47,15 @@ pub fn subcommands(p: &Command) -> Vec<(String, String)> {
             sc.get_name(),
             sc_bin_name
         );
-
         subcmds.push((sc.get_name().to_string(), sc_bin_name.to_string()));
+
+        for alias in sc.get_visible_aliases() {
+            debug!(
+                "subcommands:iter: alias={}, bin_name={}",
+                alias, sc_bin_name
+            );
+            subcmds.push((alias.to_string(), sc_bin_name.to_string()));
+        }
     }
 
     subcmds
@@ -109,7 +116,7 @@ pub fn longs_and_visible_aliases(p: &Command) -> Vec<String> {
         .collect()
 }
 
-/// Gets all the flags of a [`clap::Command`](Command).
+/// Gets all the flags of a [`clap::Command`].
 /// Includes `help` and `version` depending on the [`clap::Command`] settings.
 pub fn flags(p: &Command) -> Vec<Arg> {
     debug!("flags: name={}", p.get_name());

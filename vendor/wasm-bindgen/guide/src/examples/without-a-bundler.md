@@ -35,9 +35,25 @@ Otherwise the rest of the deployment magic happens in `index.html`:
 {{#include ../../../examples/without-a-bundler/index.html}}
 ```
 
+> **Note**: You cannot directly open `index.html` in your web browser due to [CORS][cors]
+> limitations. Instead, you can set up a quick development environment using
+> Python's built-in HTTP server:
+> ```sh
+> wasm-pack build --target web
+> python3 -m http.server 8080
+> ```
+> If you don't have Python installed, you can also use [miniserve][miniserve] which
+> is installable via Cargo:
+> ```sh
+> cargo install miniserve
+> miniserve . --index "index.html" -p 8080
+> ```
+
 And that's it! Be sure to read up on the [deployment options][deployment] to see
 what it means to deploy without a bundler.
 
+[cors]: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+[miniserve]: https://crates.io/crates/miniserve
 [deployment]: ../reference/deployment.html
 
 ## Using the older `--target no-modules`
@@ -54,6 +70,8 @@ few caveats:
 
 * It does not support [local JS snippets][snippets]
 * It does not generate an ES module
+* It does not support `--split-linked-modules` outside of a document, e.g.
+  inside a worker
 
 With that in mind the main difference is how the wasm/JS code is loaded, and
 here's an example of loading the output of `wasm-pack` for the same module as

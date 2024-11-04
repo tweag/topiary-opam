@@ -29,6 +29,8 @@ impl Serialize for Value {
                 }
                 map.end()
             }
+            #[cfg(not(any(feature = "std", feature = "alloc")))]
+            Value::Object(_) => unreachable!(),
         }
     }
 }
@@ -483,8 +485,8 @@ impl serde::Serializer for MapKeySerializer {
         value.serialize(self)
     }
 
-    fn serialize_bool(self, _value: bool) -> Result<String> {
-        Err(key_must_be_a_string())
+    fn serialize_bool(self, value: bool) -> Result<String> {
+        Ok(value.to_string())
     }
 
     fn serialize_i8(self, value: i8) -> Result<String> {

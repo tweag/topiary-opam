@@ -1,18 +1,16 @@
 use crate::backend::c;
 use crate::backend::conv::borrowed_fd;
 use crate::backend::fd::{AsFd, AsRawFd, BorrowedFd, LibcFd};
-use bitflags::bitflags;
-use core::marker::PhantomData;
 #[cfg(windows)]
-use {
-    crate::backend::fd::{AsSocket, RawFd},
-    core::fmt,
-};
+use crate::backend::fd::{AsSocket, RawFd};
+use bitflags::bitflags;
+use core::fmt;
+use core::marker::PhantomData;
 
 bitflags! {
     /// `POLL*` flags for use with [`poll`].
     ///
-    /// [`poll`]: crate::io::poll
+    /// [`poll`]: crate::event::poll
     #[repr(transparent)]
     #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
     pub struct PollFlags: c::c_short {
@@ -47,6 +45,9 @@ bitflags! {
             not(any(target_arch = "sparc", target_arch = "sparc64"))),
         )]
         const RDHUP = c::POLLRDHUP;
+
+        /// <https://docs.rs/bitflags/*/bitflags/#externally-defined-flags>
+        const _ = !0;
     }
 }
 
@@ -55,17 +56,15 @@ bitflags! {
 /// [`poll`]: crate::event::poll
 #[doc(alias = "pollfd")]
 #[derive(Clone)]
-#[cfg_attr(not(windows), derive(Debug))]
 #[repr(transparent)]
 pub struct PollFd<'fd> {
     pollfd: c::pollfd,
     _phantom: PhantomData<BorrowedFd<'fd>>,
 }
 
-#[cfg(windows)]
 impl<'fd> fmt::Debug for PollFd<'fd> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("pollfd")
+        fmt.debug_struct("PollFd")
             .field("fd", &self.pollfd.fd)
             .field("events", &self.pollfd.events)
             .field("revents", &self.pollfd.revents)
@@ -112,7 +111,7 @@ impl<'fd> PollFd<'fd> {
     /// Returns the ready events.
     #[inline]
     pub fn revents(&self) -> PollFlags {
-        // Use `unwrap()` here because in theory we know we know all the bits
+        // Use `.unwrap()` here because in theory we know we know all the bits
         // the OS might set here, but OS's have added extensions in the past.
         PollFlags::from_bits(self.pollfd.revents).unwrap()
     }
@@ -123,7 +122,7 @@ impl<'fd> AsFd for PollFd<'fd> {
     #[inline]
     fn as_fd(&self) -> BorrowedFd<'_> {
         // SAFETY: Our constructors and `set_fd` require `pollfd.fd` to be
-        // valid for the `fd lifetime.
+        // valid for the `'fd` lifetime.
         unsafe { BorrowedFd::borrow_raw(self.pollfd.fd) }
     }
 }
@@ -133,7 +132,7 @@ impl<'fd> AsSocket for PollFd<'fd> {
     #[inline]
     fn as_socket(&self) -> BorrowedFd<'_> {
         // SAFETY: Our constructors and `set_fd` require `pollfd.fd` to be
-        // valid for the `fd lifetime.
+        // valid for the `'fd` lifetime.
         unsafe { BorrowedFd::borrow_raw(self.pollfd.fd as RawFd) }
     }
 }

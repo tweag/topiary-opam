@@ -11,13 +11,14 @@
 
 [package]
 edition = "2021"
-rust-version = "1.64.0"
+rust-version = "1.65.0"
 name = "winnow"
-version = "0.5.0"
+version = "0.6.13"
 include = [
     "build.rs",
     "src/**/*",
     "Cargo.toml",
+    "Cargo.lock",
     "LICENSE*",
     "README.md",
     "benches/**/*",
@@ -83,6 +84,12 @@ replace = """
 [Unreleased]: https://github.com/winnow-rs/winnow/compare/{{tag_name}}...HEAD"""
 search = "<!-- next-url -->"
 
+[[package.metadata.release.pre-release-replacements]]
+exactly = 1
+file = "src/lib.rs"
+replace = "blob/v{{version}}/CHANGELOG.md"
+search = 'blob/v.+\..+\..+/CHANGELOG.md'
+
 [profile.bench]
 lto = true
 codegen-units = 1
@@ -141,9 +148,22 @@ required-features = ["alloc"]
 name = "arithmetic"
 path = "examples/arithmetic/bench.rs"
 harness = false
+required-features = ["alloc"]
 
 [[bench]]
 name = "contains_token"
+harness = false
+
+[[bench]]
+name = "find_slice"
+harness = false
+
+[[bench]]
+name = "iter"
+harness = false
+
+[[bench]]
+name = "next_slice"
 harness = false
 
 [[bench]]
@@ -168,16 +188,16 @@ path = "examples/json/bench.rs"
 harness = false
 required-features = ["std"]
 
-[dependencies.anstyle]
-version = "0.3.5"
+[dependencies.anstream]
+version = "0.3.2"
 optional = true
 
-[dependencies.anstyle-stream]
-version = "0.2.2"
+[dependencies.anstyle]
+version = "1.0.1"
 optional = true
 
 [dependencies.is-terminal]
-version = "0.4.7"
+version = "0.4.9"
 optional = true
 
 [dependencies.memchr]
@@ -189,17 +209,20 @@ default-features = false
 version = "0.2.6"
 optional = true
 
+[dev-dependencies.annotate-snippets]
+version = "0.11.3"
+
+[dev-dependencies.automod]
+version = "1.0.14"
+
 [dev-dependencies.circular]
 version = "0.3.0"
 
 [dev-dependencies.criterion]
-version = "0.3.6"
+version = "0.5.1"
 
 [dev-dependencies.doc-comment]
 version = "0.3"
-
-[dev-dependencies.escargot]
-version = "0.5.7"
 
 [dev-dependencies.lexopt]
 version = "0.3.0"
@@ -207,8 +230,11 @@ version = "0.3.0"
 [dev-dependencies.proptest]
 version = "1.2.0"
 
+[dev-dependencies.rustc-hash]
+version = "1.1.0"
+
 [dev-dependencies.snapbox]
-version = "0.4.11"
+version = "0.6.0"
 features = ["examples"]
 
 [dev-dependencies.term-transcript]
@@ -217,10 +243,11 @@ version = "0.2.0"
 [features]
 alloc = []
 debug = [
+    "std",
+    "dep:anstream",
     "dep:anstyle",
     "dep:is-terminal",
     "dep:terminal_size",
-    "dep:anstyle-stream",
 ]
 default = ["std"]
 simd = ["dep:memchr"]
@@ -232,4 +259,73 @@ unstable-doc = [
     "alloc",
     "std",
     "simd",
+    "unstable-recover",
 ]
+unstable-recover = []
+
+[lints.clippy]
+bool_assert_comparison = "allow"
+branches_sharing_code = "allow"
+checked_conversions = "warn"
+collapsible_else_if = "allow"
+create_dir = "warn"
+dbg_macro = "warn"
+debug_assert_with_mut_call = "warn"
+doc_markdown = "warn"
+empty_enum = "warn"
+enum_glob_use = "warn"
+expl_impl_clone_on_copy = "warn"
+explicit_deref_methods = "warn"
+explicit_into_iter_loop = "warn"
+fallible_impl_from = "warn"
+filter_map_next = "warn"
+flat_map_option = "warn"
+float_cmp_const = "warn"
+fn_params_excessive_bools = "warn"
+from_iter_instead_of_collect = "warn"
+if_same_then_else = "allow"
+implicit_clone = "warn"
+imprecise_flops = "warn"
+inconsistent_struct_constructor = "warn"
+inefficient_to_string = "warn"
+infinite_loop = "warn"
+invalid_upcast_comparisons = "warn"
+large_digit_groups = "warn"
+large_stack_arrays = "warn"
+large_types_passed_by_value = "warn"
+let_and_return = "allow"
+linkedlist = "warn"
+lossy_float_literal = "warn"
+macro_use_imports = "warn"
+match_wildcard_for_single_variants = "warn"
+mem_forget = "warn"
+mutex_integer = "warn"
+needless_continue = "warn"
+needless_for_each = "warn"
+negative_feature_names = "warn"
+path_buf_push_overwrite = "warn"
+ptr_as_ptr = "warn"
+rc_mutex = "warn"
+redundant_feature_names = "warn"
+ref_option_ref = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+same_functions_in_if_condition = "warn"
+semicolon_if_nothing_returned = "warn"
+single_match_else = "allow"
+str_to_string = "warn"
+string_add = "warn"
+string_add_assign = "warn"
+string_lit_as_bytes = "warn"
+string_to_string = "warn"
+todo = "warn"
+trait_duplication_in_bounds = "warn"
+verbose_file_reads = "warn"
+wildcard_imports = "allow"
+zero_sized_map_values = "warn"
+
+[lints.rust]
+rust_2018_idioms = "warn"
+unreachable_pub = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"

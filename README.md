@@ -208,8 +208,15 @@ How to update
   “failed to get `<whatever>` as a dependency of package `topiary`”.
 
 - Update the `Cargo.toml` file. This usually consists in copying the content of
-  `topiary/Cargo.toml` file, except for the `workspace.members` attribute. This
-  step should include bumping the version number.
+  `topiary/Cargo.toml` file and prefixing all the local paths by `topiary/`. In
+  particular, `workspace.members` and `workspace.default-members` need to be
+  updated. Sometimes, locally vendored dependencies might need the same
+  treatment, as in for instance:
+  ```toml
+  topiary-web-tree-sitter-sys = { version = "0.5.1", path = "./topiary/topiary-web-tree-sitter-sys" }
+  ```
+  Make sure that the version number in `Cargo.toml` is correct; this is trivial
+  if it was copied from the `topiary/` submodule.
 
 - Update the `Cargo.lock` file. Again, this usually consists in copying the one
   from `topiary/Cargo.lock`.
@@ -258,8 +265,11 @@ How to update
 
 - Adapt the OPAM package or the other files if necessary and commit the changes.
 
-- Open a [new pull request] and check that the continuous integration is happy
-  with the current status of things. Merge the pull request in question.
+- Test that it looks like it works (see [How to develop](#how-to-develop)).
+
+- Open a [new pull request] on this repository and check that the continuous
+  integration is happy with the current status of things. Merge the pull request
+  in question.
 
 - Add a tag mimmicking that of Topiary (eg. `v0.1.0` for Topiary's `v0.1.0`).
 

@@ -10,9 +10,10 @@
 # See Cargo.toml.orig for the original contents.
 
 [package]
-edition = "2018"
+edition = "2021"
+rust-version = "1.71"
 name = "test-log"
-version = "0.2.12"
+version = "0.2.16"
 authors = ["Daniel Mueller <deso@posteo.net>"]
 include = [
     "src/lib.rs",
@@ -42,32 +43,37 @@ categories = [
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/d-e-s-o/test-log.git"
 
-[lib]
-proc-macro = true
-
-[dependencies.proc-macro2]
-version = "1.0"
-
-[dependencies.quote]
-version = "1.0"
-
-[dependencies.syn]
-version = "1.0"
-features = [
-    "extra-traits",
-    "full",
+[[test]]
+name = "default_log_filter"
+path = "tests/default_log_filter.rs"
+required-features = [
+    "log",
+    "unstable",
 ]
+
+[dependencies.env_logger]
+version = "0.11"
+optional = true
+default-features = false
+
+[dependencies.test-log-macros]
+version = "0.2.15"
+
+[dependencies.tracing-subscriber]
+version = "0.3.17"
+features = [
+    "env-filter",
+    "fmt",
+]
+optional = true
+default-features = false
 
 [dev-dependencies._lazy_static_unused]
 version = "1.0.2"
 package = "lazy_static"
 
-[dev-dependencies.env_logger]
-version = "0.9"
-default-features = false
-
 [dev-dependencies.logging]
-version = "0.4"
+version = "0.4.8"
 package = "log"
 
 [dev-dependencies.test-case]
@@ -82,22 +88,24 @@ features = [
 default-features = false
 
 [dev-dependencies.tracing]
-version = "0.1"
-
-[dev-dependencies.tracing-futures]
-version = "0.2"
-features = ["std-future"]
-default-features = false
-
-[dev-dependencies.tracing-subscriber]
-version = "0.3"
-features = [
-    "env-filter",
-    "fmt",
-]
-default-features = false
+version = "0.1.20"
 
 [features]
-default = ["log"]
-log = []
-trace = []
+color = [
+    "env_logger?/auto-color",
+    "tracing-subscriber?/ansi",
+]
+default = [
+    "log",
+    "color",
+]
+log = [
+    "dep:env_logger",
+    "test-log-macros/log",
+    "tracing-subscriber?/tracing-log",
+]
+trace = [
+    "dep:tracing-subscriber",
+    "test-log-macros/trace",
+]
+unstable = ["test-log-macros/unstable"]

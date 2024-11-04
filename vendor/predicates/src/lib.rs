@@ -24,7 +24,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! predicates = "3.0.3"
+//! predicates = "3.1.0"
 //! ```
 //!
 //! A [prelude] is available to bring in all extension traits as well as providing
@@ -199,6 +199,7 @@
 //! [`str_pred.trim`]: prelude::PredicateStrExt::trim()
 
 #![warn(missing_docs, missing_debug_implementations)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub mod prelude;
 

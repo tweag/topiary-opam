@@ -3,8 +3,7 @@
 use crate::fd::AsFd;
 use crate::fs::AtFlags;
 use crate::{backend, io, path};
-
-pub use backend::fs::types::{Statx, StatxFlags, StatxTimestamp};
+use backend::fs::types::{Statx, StatxFlags};
 
 #[cfg(feature = "linux_4_11")]
 use backend::fs::syscalls::statx as _statx;
@@ -20,6 +19,36 @@ use compat::statx as _statx;
 ///
 /// # References
 ///  - [Linux]
+///
+/// # Examples
+///
+/// ```
+/// # use std::path::Path;
+/// # use std::io;
+/// # use rustix::fs::{AtFlags, StatxFlags};
+/// # use rustix::fd::BorrowedFd;
+/// /// Try to determine if the provided path is a mount root. Will return
+/// /// `Ok(None)` if the kernel is not new enough to support `statx` or
+/// /// [`libc::STATX_ATTR_MOUNT_ROOT`].
+/// fn is_mountpoint(root: BorrowedFd<'_>, path: &Path) -> io::Result<Option<bool>> {
+///     use rustix::fs::{AtFlags, StatxFlags};
+///
+///     let mountroot_flag = libc::STATX_ATTR_MOUNT_ROOT as u64;
+///     match rustix::fs::statx(
+///         root,
+///         path,
+///         AtFlags::NO_AUTOMOUNT | AtFlags::SYMLINK_NOFOLLOW,
+///         StatxFlags::empty(),
+///     ) {
+///         Ok(r) => {
+///             let present = (r.stx_attributes_mask & mountroot_flag) > 0;
+///             Ok(present.then(|| r.stx_attributes & mountroot_flag > 0))
+///         }
+///         Err(e) if e == rustix::io::Errno::NOSYS => Ok(None),
+///         Err(e) => Err(e.into()),
+///     }
+/// }
+/// ```
 ///
 /// [Linux]: https://man7.org/linux/man-pages/man2/statx.2.html
 #[inline]
@@ -42,8 +71,9 @@ mod compat {
 
     use backend::fs::types::{Statx, StatxFlags};
 
-    // Linux kernel prior to 4.11 old versions of Docker don't support `statx`.
-    // We store the availability in a global to avoid unnecessary syscalls.
+    // Linux kernel prior to 4.11 and old versions of Docker don't support
+    // `statx`. We store the availability in a global to avoid unnecessary
+    // syscalls.
     //
     // 0: Unknown
     // 1: Not available
@@ -72,8 +102,7 @@ mod compat {
         mask: StatxFlags,
     ) -> io::Result<Statx> {
         match backend::fs::syscalls::statx(dirfd, path, flags, mask) {
-            Err(io::Errno::NOSYS) => statx_error_nosys(),
-            Err(io::Errno::PERM) => statx_error_perm(),
+            Err(err) => statx_error(err),
             result => {
                 STATX_STATE.store(2, Ordering::Relaxed);
                 result
@@ -81,25 +110,20 @@ mod compat {
         }
     }
 
-    /// The first `statx` call failed with `NOSYS` (or something we're treating
-    /// like `NOSYS`).
+    /// The first `statx` call failed. We can get a variety of error codes
+    /// from seccomp configs or faulty FUSE drivers, so we don't trust
+    /// `ENOSYS` or `EPERM` to tell us whether statx is available.
     #[cold]
-    fn statx_error_nosys() -> io::Result<Statx> {
-        STATX_STATE.store(1, Ordering::Relaxed);
-        Err(io::Errno::NOSYS)
-    }
-
-    /// The first `statx` call failed with `PERM`.
-    #[cold]
-    fn statx_error_perm() -> io::Result<Statx> {
-        // Some old versions of Docker have `statx` fail with `PERM` when it
-        // isn't recognized. Check whether `statx` really is available, and if
-        // so, fail with `PERM`, and if not, treat it like `NOSYS`.
+    fn statx_error(err: io::Errno) -> io::Result<Statx> {
         if backend::fs::syscalls::is_statx_available() {
+            // Statx is available. Record this, and fail with the error
+            // code of the initial `statx` call.
             STATX_STATE.store(2, Ordering::Relaxed);
-            Err(io::Errno::PERM)
+            Err(err)
         } else {
-            statx_error_nosys()
+            // Statx is not available. Record this, and fail with `NOSYS`.
+            STATX_STATE.store(1, Ordering::Relaxed);
+            Err(io::Errno::NOSYS)
         }
     }
 }

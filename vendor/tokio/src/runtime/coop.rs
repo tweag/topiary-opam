@@ -62,7 +62,7 @@ impl Budget {
     }
 
     fn has_remaining(self) -> bool {
-        self.0.map(|budget| budget > 0).unwrap_or(true)
+        self.0.map_or(true, |budget| budget > 0)
     }
 }
 
@@ -197,7 +197,7 @@ cfg_coop! {
     }
 
     cfg_rt! {
-        cfg_metrics! {
+        cfg_unstable_metrics! {
             #[inline(always)]
             fn inc_budget_forced_yield_count() {
                 let _ = context::with_current(|handle| {
@@ -206,7 +206,7 @@ cfg_coop! {
             }
         }
 
-        cfg_not_metrics! {
+        cfg_not_unstable_metrics! {
             #[inline(always)]
             fn inc_budget_forced_yield_count() {}
         }

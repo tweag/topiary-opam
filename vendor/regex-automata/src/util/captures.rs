@@ -444,6 +444,8 @@ impl Captures {
     /// assert_eq!(Some(Span::from(6..17)), caps.get_group(2));
     /// // Looking for a non-existent capturing group will return None:
     /// assert_eq!(None, caps.get_group(3));
+    /// # // literals are too big for 32-bit usize: #1039
+    /// # #[cfg(target_pointer_width = "64")]
     /// assert_eq!(None, caps.get_group(9944060567225171988));
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -1641,7 +1643,7 @@ impl GroupInfo {
     ///
     /// This also returns `None` for all inputs if these captures are empty
     /// (e.g., built from an empty [`GroupInfo`]). To check whether captures
-    /// are are present for a specific pattern, use [`GroupInfo::group_len`].
+    /// are present for a specific pattern, use [`GroupInfo::group_len`].
     ///
     /// # Example
     ///
@@ -1693,7 +1695,7 @@ impl GroupInfo {
     ///
     /// This also returns `None` for all inputs if these captures are empty
     /// (e.g., built from an empty [`GroupInfo`]). To check whether captures
-    /// are are present for a specific pattern, use [`GroupInfo::group_len`].
+    /// are present for a specific pattern, use [`GroupInfo::group_len`].
     ///
     /// # Example
     ///
@@ -1809,10 +1811,10 @@ impl GroupInfo {
     /// panic even if captures aren't enabled on this NFA:
     ///
     /// ```
-    /// use regex_automata::nfa::thompson::NFA;
+    /// use regex_automata::nfa::thompson::{NFA, WhichCaptures};
     ///
     /// let nfa = NFA::compiler()
-    ///     .configure(NFA::config().captures(false))
+    ///     .configure(NFA::config().which_captures(WhichCaptures::None))
     ///     .build_many(&[
     ///         r"(?P<foo>a)",
     ///         r"a",
@@ -1957,7 +1959,7 @@ impl GroupInfo {
     /// for different patterns and NFA configurations.
     ///
     /// ```
-    /// use regex_automata::{nfa::thompson::NFA, PatternID};
+    /// use regex_automata::{nfa::thompson::{NFA, WhichCaptures}, PatternID};
     ///
     /// let nfa = NFA::new(r"(a)(b)(c)")?;
     /// // There are 3 explicit groups in the pattern's concrete syntax and
@@ -1969,13 +1971,13 @@ impl GroupInfo {
     /// assert_eq!(1, nfa.group_info().group_len(PatternID::ZERO));
     ///
     /// let nfa = NFA::compiler()
-    ///     .configure(NFA::config().captures(false))
+    ///     .configure(NFA::config().which_captures(WhichCaptures::None))
     ///     .build(r"abc")?;
     /// // We disabled capturing groups, so there are none.
     /// assert_eq!(0, nfa.group_info().group_len(PatternID::ZERO));
     ///
     /// let nfa = NFA::compiler()
-    ///     .configure(NFA::config().captures(false))
+    ///     .configure(NFA::config().which_captures(WhichCaptures::None))
     ///     .build(r"(a)(b)(c)")?;
     /// // We disabled capturing groups, so there are none, even if there are
     /// // explicit groups in the concrete syntax.
@@ -1999,7 +2001,7 @@ impl GroupInfo {
     /// for different patterns and NFA configurations.
     ///
     /// ```
-    /// use regex_automata::{nfa::thompson::NFA, PatternID};
+    /// use regex_automata::{nfa::thompson::{NFA, WhichCaptures}, PatternID};
     ///
     /// let nfa = NFA::new(r"(a)(b)(c)")?;
     /// // There are 3 explicit groups in the pattern's concrete syntax and
@@ -2016,13 +2018,13 @@ impl GroupInfo {
     /// assert_eq!(5, nfa.group_info().all_group_len());
     ///
     /// let nfa = NFA::compiler()
-    ///     .configure(NFA::config().captures(false))
+    ///     .configure(NFA::config().which_captures(WhichCaptures::None))
     ///     .build(r"abc")?;
     /// // We disabled capturing groups, so there are none.
     /// assert_eq!(0, nfa.group_info().all_group_len());
     ///
     /// let nfa = NFA::compiler()
-    ///     .configure(NFA::config().captures(false))
+    ///     .configure(NFA::config().which_captures(WhichCaptures::None))
     ///     .build(r"(a)(b)(c)")?;
     /// // We disabled capturing groups, so there are none, even if there are
     /// // explicit groups in the concrete syntax.

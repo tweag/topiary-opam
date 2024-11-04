@@ -25,7 +25,7 @@
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)]
 
-use core::fmt;
+use core::{fmt, ops};
 
 // The `dw!` macro turns this:
 //
@@ -56,7 +56,10 @@ use core::fmt;
 //         }
 //     }
 macro_rules! dw {
-    ($(#[$meta:meta])* $struct_name:ident($struct_type:ty) { $($name:ident = $val:expr),+ $(,)? }) => {
+    ($(#[$meta:meta])* $struct_name:ident($struct_type:ty)
+        { $($name:ident = $val:expr),+ $(,)? }
+        $(, aliases { $($alias_name:ident = $alias_val:expr),+ $(,)? })?
+    ) => {
         $(#[$meta])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
         pub struct $struct_name(pub $struct_type);
@@ -64,6 +67,9 @@ macro_rules! dw {
         $(
             pub const $name: $struct_name = $struct_name($val);
         )+
+        $($(
+            pub const $alias_name: $struct_name = $struct_name($alias_val);
+        )+)*
 
         impl $struct_name {
             pub fn static_string(&self) -> Option<&'static str> {
@@ -182,6 +188,9 @@ DwCfa(u8) {
     DW_CFA_GNU_window_save = 0x2d,
     DW_CFA_GNU_args_size = 0x2e,
     DW_CFA_GNU_negative_offset_extended = 0x2f,
+},
+aliases {
+    DW_CFA_AARCH64_negate_ra_state = 0x2d,
 });
 
 dw!(
@@ -1333,6 +1342,14 @@ const DW_EH_PE_FORMAT_MASK: u8 = 0b0000_1111;
 // Ignores indirection bit.
 const DW_EH_PE_APPLICATION_MASK: u8 = 0b0111_0000;
 
+impl ops::BitOr for DwEhPe {
+    type Output = DwEhPe;
+
+    fn bitor(self, rhs: DwEhPe) -> DwEhPe {
+        DwEhPe(self.0 | rhs.0)
+    }
+}
+
 impl DwEhPe {
     /// Get the pointer encoding's format.
     #[inline]
@@ -1388,25 +1405,25 @@ mod tests {
 
     #[test]
     fn test_dw_eh_pe_format() {
-        let encoding = DwEhPe(DW_EH_PE_pcrel.0 | DW_EH_PE_uleb128.0);
+        let encoding = DW_EH_PE_pcrel | DW_EH_PE_uleb128;
         assert_eq!(encoding.format(), DW_EH_PE_uleb128);
     }
 
     #[test]
     fn test_dw_eh_pe_application() {
-        let encoding = DwEhPe(DW_EH_PE_pcrel.0 | DW_EH_PE_uleb128.0);
+        let encoding = DW_EH_PE_pcrel | DW_EH_PE_uleb128;
         assert_eq!(encoding.application(), DW_EH_PE_pcrel);
     }
 
     #[test]
     fn test_dw_eh_pe_is_absent() {
-        assert_eq!(DW_EH_PE_absptr.is_absent(), false);
-        assert_eq!(DW_EH_PE_omit.is_absent(), true);
+        assert!(!DW_EH_PE_absptr.is_absent());
+        assert!(DW_EH_PE_omit.is_absent());
     }
 
     #[test]
     fn test_dw_eh_pe_is_valid_encoding_ok() {
-        let encoding = DwEhPe(DW_EH_PE_uleb128.0 | DW_EH_PE_pcrel.0);
+        let encoding = DW_EH_PE_uleb128 | DW_EH_PE_pcrel;
         assert!(encoding.is_valid_encoding());
         assert!(DW_EH_PE_absptr.is_valid_encoding());
         assert!(DW_EH_PE_omit.is_valid_encoding());
@@ -1415,12 +1432,12 @@ mod tests {
     #[test]
     fn test_dw_eh_pe_is_valid_encoding_bad_format() {
         let encoding = DwEhPe((DW_EH_PE_sdata8.0 + 1) | DW_EH_PE_pcrel.0);
-        assert_eq!(encoding.is_valid_encoding(), false);
+        assert!(!encoding.is_valid_encoding());
     }
 
     #[test]
     fn test_dw_eh_pe_is_valid_encoding_bad_application() {
         let encoding = DwEhPe(DW_EH_PE_sdata8.0 | (DW_EH_PE_aligned.0 + 1));
-        assert_eq!(encoding.is_valid_encoding(), false);
+        assert!(!encoding.is_valid_encoding());
     }
 }

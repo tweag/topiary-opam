@@ -36,7 +36,7 @@ pub trait Generator {
     /// ```
     fn file_name(&self, name: &str) -> String;
 
-    /// Generates output out of [`clap::Command`](Command).
+    /// Generates output out of [`clap::Command`].
     ///
     /// # Panics
     ///
@@ -44,7 +44,7 @@ pub trait Generator {
     ///
     /// # Examples
     ///
-    /// The following example generator displays the [`clap::Command`](Command)
+    /// The following example generator displays the [`clap::Command`]
     /// as if it is printed using [`std::println`].
     ///
     /// ```
@@ -252,10 +252,10 @@ where
     S: Into<String>,
 {
     cmd.set_bin_name(bin_name);
-    _generate::<G>(gen, cmd, buf)
+    _generate::<G>(gen, cmd, buf);
 }
 
 fn _generate<G: Generator>(gen: G, cmd: &mut Command, buf: &mut dyn Write) {
     cmd.build();
-    gen.generate(cmd, buf)
+    gen.generate(cmd, buf);
 }

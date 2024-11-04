@@ -1,15 +1,16 @@
 use crate::{backend, io};
+use core::fmt;
 
 pub use crate::timespec::Timespec;
 
 #[cfg(not(any(
     apple,
     target_os = "dragonfly",
-    target_os = "emscripten",
     target_os = "espidf",
     target_os = "freebsd", // FreeBSD 12 has clock_nanosleep, but libc targets FreeBSD 11.
     target_os = "openbsd",
     target_os = "redox",
+    target_os = "vita",
     target_os = "wasi",
 )))]
 pub use crate::clockid::ClockId;
@@ -35,6 +36,7 @@ pub use crate::clockid::ClockId;
     target_os = "haiku",
     target_os = "openbsd",
     target_os = "redox",
+    target_os = "vita",
     target_os = "wasi",
 )))]
 #[inline]
@@ -63,6 +65,7 @@ pub fn clock_nanosleep_relative(id: ClockId, request: &Timespec) -> NanosleepRel
     target_os = "haiku",
     target_os = "openbsd",
     target_os = "redox",
+    target_os = "vita",
     target_os = "wasi",
 )))]
 #[inline]
@@ -86,7 +89,7 @@ pub fn nanosleep(request: &Timespec) -> NanosleepRelativeResult {
 }
 
 /// A return type for `nanosleep` and `clock_nanosleep_relative`.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 #[must_use]
 pub enum NanosleepRelativeResult {
     /// The sleep completed normally.
@@ -95,4 +98,18 @@ pub enum NanosleepRelativeResult {
     Interrupted(Timespec),
     /// An invalid time value was provided.
     Err(io::Errno),
+}
+
+impl fmt::Debug for NanosleepRelativeResult {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NanosleepRelativeResult::Ok => fmt.write_str("Ok"),
+            NanosleepRelativeResult::Interrupted(remaining) => write!(
+                fmt,
+                "Interrupted(Timespec {{ tv_sec: {:?}, tv_nsec: {:?} }})",
+                remaining.tv_sec, remaining.tv_nsec
+            ),
+            NanosleepRelativeResult::Err(err) => write!(fmt, "Err({:?})", err),
+        }
+    }
 }

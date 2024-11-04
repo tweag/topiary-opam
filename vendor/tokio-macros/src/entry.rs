@@ -126,22 +126,22 @@ impl Configuration {
     }
 
     fn build(&self) -> Result<FinalConfig, syn::Error> {
-        let flavor = self.flavor.unwrap_or(self.default_flavor);
-        use RuntimeFlavor::*;
+        use RuntimeFlavor as F;
 
+        let flavor = self.flavor.unwrap_or(self.default_flavor);
         let worker_threads = match (flavor, self.worker_threads) {
-            (CurrentThread, Some((_, worker_threads_span))) => {
+            (F::CurrentThread, Some((_, worker_threads_span))) => {
                 let msg = format!(
                     "The `worker_threads` option requires the `multi_thread` runtime flavor. Use `#[{}(flavor = \"multi_thread\")]`",
                     self.macro_name(),
                 );
                 return Err(syn::Error::new(worker_threads_span, msg));
             }
-            (CurrentThread, None) => None,
-            (Threaded, worker_threads) if self.rt_multi_thread_available => {
+            (F::CurrentThread, None) => None,
+            (F::Threaded, worker_threads) if self.rt_multi_thread_available => {
                 worker_threads.map(|(val, _span)| val)
             }
-            (Threaded, _) => {
+            (F::Threaded, _) => {
                 let msg = if self.flavor.is_none() {
                     "The default runtime flavor is `multi_thread`, but the `rt-multi-thread` feature is disabled."
                 } else {
@@ -152,14 +152,14 @@ impl Configuration {
         };
 
         let start_paused = match (flavor, self.start_paused) {
-            (Threaded, Some((_, start_paused_span))) => {
+            (F::Threaded, Some((_, start_paused_span))) => {
                 let msg = format!(
                     "The `start_paused` option requires the `current_thread` runtime flavor. Use `#[{}(flavor = \"current_thread\")]`",
                     self.macro_name(),
                 );
                 return Err(syn::Error::new(start_paused_span, msg));
             }
-            (CurrentThread, Some((start_paused, _))) => Some(start_paused),
+            (F::CurrentThread, Some((start_paused, _))) => Some(start_paused),
             (_, None) => None,
         };
 
@@ -354,13 +354,13 @@ fn parse_knobs(mut input: ItemFn, is_test: bool, config: FinalConfig) -> TokenSt
         },
     };
     if let Some(v) = config.worker_threads {
-        rt = quote! { #rt.worker_threads(#v) };
+        rt = quote_spanned! {last_stmt_start_span=> #rt.worker_threads(#v) };
     }
     if let Some(v) = config.start_paused {
-        rt = quote! { #rt.start_paused(#v) };
+        rt = quote_spanned! {last_stmt_start_span=> #rt.start_paused(#v) };
     }
 
-    let header = if is_test {
+    let generated_attrs = if is_test {
         quote! {
             #[::core::prelude::v1::test]
         }
@@ -402,7 +402,7 @@ fn parse_knobs(mut input: ItemFn, is_test: bool, config: FinalConfig) -> TokenSt
         quote! {
             let body = async #body;
             #crate_path::pin!(body);
-            let body: ::std::pin::Pin<&mut dyn ::std::future::Future<Output = #output_type>> = body;
+            let body: ::core::pin::Pin<&mut dyn ::core::future::Future<Output = #output_type>> = body;
         }
     } else {
         quote! {
@@ -410,7 +410,7 @@ fn parse_knobs(mut input: ItemFn, is_test: bool, config: FinalConfig) -> TokenSt
         }
     };
 
-    input.into_tokens(header, body, last_block)
+    input.into_tokens(generated_attrs, body, last_block)
 }
 
 fn token_stream_with_error(mut tokens: TokenStream, error: syn::Error) -> TokenStream {
@@ -418,7 +418,6 @@ fn token_stream_with_error(mut tokens: TokenStream, error: syn::Error) -> TokenS
     tokens
 }
 
-#[cfg(not(test))] // Work around for rust-lang/rust#62127
 pub(crate) fn main(args: TokenStream, item: TokenStream, rt_multi_thread: bool) -> TokenStream {
     // If any of the steps for this macro fail, we still want to expand to an item that is as close
     // to the expected output as possible. This helps out IDEs such that completions and other
@@ -443,6 +442,35 @@ pub(crate) fn main(args: TokenStream, item: TokenStream, rt_multi_thread: bool) 
     }
 }
 
+// Check whether given attribute is a test attribute of forms:
+// * `#[test]`
+// * `#[core::prelude::*::test]` or `#[::core::prelude::*::test]`
+// * `#[std::prelude::*::test]` or `#[::std::prelude::*::test]`
+fn is_test_attribute(attr: &Attribute) -> bool {
+    let path = match &attr.meta {
+        syn::Meta::Path(path) => path,
+        _ => return false,
+    };
+    let candidates = [
+        ["core", "prelude", "*", "test"],
+        ["std", "prelude", "*", "test"],
+    ];
+    if path.leading_colon.is_none()
+        && path.segments.len() == 1
+        && path.segments[0].arguments.is_none()
+        && path.segments[0].ident == "test"
+    {
+        return true;
+    } else if path.segments.len() != candidates[0].len() {
+        return false;
+    }
+    candidates.into_iter().any(|segments| {
+        path.segments.iter().zip(segments).all(|(segment, path)| {
+            segment.arguments.is_none() && (path == "*" || segment.ident == path)
+        })
+    })
+}
+
 pub(crate) fn test(args: TokenStream, item: TokenStream, rt_multi_thread: bool) -> TokenStream {
     // If any of the steps for this macro fail, we still want to expand to an item that is as close
     // to the expected output as possible. This helps out IDEs such that completions and other
@@ -451,8 +479,8 @@ pub(crate) fn test(args: TokenStream, item: TokenStream, rt_multi_thread: bool) 
         Ok(it) => it,
         Err(e) => return token_stream_with_error(item, e),
     };
-    let config = if let Some(attr) = input.attrs().find(|attr| attr.meta.path().is_ident("test")) {
-        let msg = "second test attribute is supplied";
+    let config = if let Some(attr) = input.attrs().find(|attr| is_test_attribute(attr)) {
+        let msg = "second test attribute is supplied, consider removing or changing the order of your test attributes";
         Err(syn::Error::new_spanned(attr, msg))
     } else {
         AttributeArgs::parse_terminated
@@ -493,13 +521,11 @@ impl ItemFn {
     /// Convert our local function item into a token stream.
     fn into_tokens(
         self,
-        header: proc_macro2::TokenStream,
+        generated_attrs: proc_macro2::TokenStream,
         body: proc_macro2::TokenStream,
         last_block: proc_macro2::TokenStream,
     ) -> TokenStream {
         let mut tokens = proc_macro2::TokenStream::new();
-        header.to_tokens(&mut tokens);
-
         // Outer attributes are simply streamed as-is.
         for attr in self.outer_attrs {
             attr.to_tokens(&mut tokens);
@@ -507,11 +533,14 @@ impl ItemFn {
 
         // Inner attributes require extra care, since they're not supported on
         // blocks (which is what we're expanded into) we instead lift them
-        // outside of the function. This matches the behaviour of `syn`.
+        // outside of the function. This matches the behavior of `syn`.
         for mut attr in self.inner_attrs {
             attr.style = syn::AttrStyle::Outer;
             attr.to_tokens(&mut tokens);
         }
+
+        // Add generated macros at the end, so macros processed later are aware of them.
+        generated_attrs.to_tokens(&mut tokens);
 
         self.vis.to_tokens(&mut tokens);
         self.sig.to_tokens(&mut tokens);
@@ -586,6 +615,6 @@ impl ToTokens for Body<'_> {
             for stmt in self.stmts {
                 stmt.to_tokens(tokens);
             }
-        })
+        });
     }
 }

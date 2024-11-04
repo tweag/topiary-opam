@@ -13,7 +13,7 @@
 edition = "2021"
 rust-version = "1.56"
 name = "indoc"
-version = "2.0.3"
+version = "2.0.5"
 authors = ["David Tolnay <dtolnay@gmail.com>"]
 description = "Indented document literals"
 documentation = "https://docs.rs/indoc"
@@ -50,4 +50,4 @@ version = "1.0.49"
 features = ["diff"]
 
 [dev-dependencies.unindent]
-version = "0.2"
+version = "0.2.3"

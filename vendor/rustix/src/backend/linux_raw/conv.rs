@@ -2,8 +2,8 @@
 //!
 //! System call arguments and return values are all communicated with inline
 //! asm and FFI as `*mut Opaque`. To protect these raw pointers from escaping
-//! or being accidentally misused as they travel through the code, we wrap
-//! them in [`ArgReg`] and [`RetReg`] structs. This file provides `From`
+//! or being accidentally misused as they travel through the code, we wrap them
+//! in [`ArgReg`] and [`RetReg`] structs. This file provides `From`
 //! implementations and explicit conversion functions for converting values
 //! into and out of these wrapper structs.
 //!
@@ -15,7 +15,7 @@
 
 use super::c;
 use super::fd::{AsRawFd, BorrowedFd, FromRawFd, RawFd};
-#[cfg(feature = "runtime")]
+#[cfg(any(feature = "event", feature = "runtime", feature = "system"))]
 use super::io::errno::try_decode_error;
 #[cfg(target_pointer_width = "64")]
 use super::io::errno::try_decode_u64;
@@ -186,45 +186,45 @@ pub(super) fn no_fd<'a, Num: ArgNumber>() -> ArgReg<'a, Num> {
 }
 
 #[inline]
-pub(super) fn slice_just_addr<T: Sized, Num: ArgNumber>(v: &[T]) -> ArgReg<Num> {
+pub(super) fn slice_just_addr<T: Sized, Num: ArgNumber>(v: &[T]) -> ArgReg<'_, Num> {
     let mut_ptr = v.as_ptr() as *mut T;
     raw_arg(mut_ptr.cast())
 }
 
 #[inline]
-pub(super) fn slice_just_addr_mut<T: Sized, Num: ArgNumber>(v: &mut [T]) -> ArgReg<Num> {
+pub(super) fn slice_just_addr_mut<T: Sized, Num: ArgNumber>(v: &mut [T]) -> ArgReg<'_, Num> {
     raw_arg(v.as_mut_ptr().cast())
 }
 
 #[inline]
 pub(super) fn slice<T: Sized, Num0: ArgNumber, Num1: ArgNumber>(
     v: &[T],
-) -> (ArgReg<Num0>, ArgReg<Num1>) {
+) -> (ArgReg<'_, Num0>, ArgReg<'_, Num1>) {
     (slice_just_addr(v), pass_usize(v.len()))
 }
 
 #[inline]
 pub(super) fn slice_mut<T: Sized, Num0: ArgNumber, Num1: ArgNumber>(
     v: &mut [T],
-) -> (ArgReg<Num0>, ArgReg<Num1>) {
+) -> (ArgReg<'_, Num0>, ArgReg<'_, Num1>) {
     (raw_arg(v.as_mut_ptr().cast()), pass_usize(v.len()))
 }
 
 #[inline]
-pub(super) fn by_ref<T: Sized, Num: ArgNumber>(t: &T) -> ArgReg<Num> {
+pub(super) fn by_ref<T: Sized, Num: ArgNumber>(t: &T) -> ArgReg<'_, Num> {
     let mut_ptr = as_ptr(t) as *mut T;
     raw_arg(mut_ptr.cast())
 }
 
 #[inline]
-pub(super) fn by_mut<T: Sized, Num: ArgNumber>(t: &mut T) -> ArgReg<Num> {
+pub(super) fn by_mut<T: Sized, Num: ArgNumber>(t: &mut T) -> ArgReg<'_, Num> {
     raw_arg(as_mut_ptr(t).cast())
 }
 
 /// Convert an optional mutable reference into a `usize` for passing to a
 /// syscall.
 #[inline]
-pub(super) fn opt_mut<T: Sized, Num: ArgNumber>(t: Option<&mut T>) -> ArgReg<Num> {
+pub(super) fn opt_mut<T: Sized, Num: ArgNumber>(t: Option<&mut T>) -> ArgReg<'_, Num> {
     // This optimizes into the equivalent of `transmute(t)`, and has the
     // advantage of not requiring `unsafe`.
     match t {
@@ -237,7 +237,7 @@ pub(super) fn opt_mut<T: Sized, Num: ArgNumber>(t: Option<&mut T>) -> ArgReg<Num
 /// syscall.
 #[cfg(any(target_arch = "aarch64", target_arch = "riscv64"))]
 #[inline]
-pub(super) fn opt_ref<T: Sized, Num: ArgNumber>(t: Option<&T>) -> ArgReg<Num> {
+pub(super) fn opt_ref<T: Sized, Num: ArgNumber>(t: Option<&T>) -> ArgReg<'_, Num> {
     // This optimizes into the equivalent of `transmute(t)`, and has the
     // advantage of not requiring `unsafe`.
     match t {
@@ -300,9 +300,10 @@ pub(super) fn socklen_t<'a, Num: ArgNumber>(i: socklen_t) -> ArgReg<'a, Num> {
     feature = "fs",
     all(
         not(feature = "use-libc-auxv"),
-        not(target_vendor = "mustang"),
+        not(feature = "use-explicitly-provided-auxv"),
         any(
             feature = "param",
+            feature = "process",
             feature = "runtime",
             feature = "time",
             target_arch = "x86",
@@ -436,19 +437,79 @@ pub(crate) mod fs {
             c_uint(access.bits())
         }
     }
+}
 
-    impl<'a, Num: ArgNumber> From<crate::backend::fs::types::MountFlagsArg> for ArgReg<'a, Num> {
-        #[inline]
-        fn from(flags: crate::backend::fs::types::MountFlagsArg) -> Self {
-            c_uint(flags.0)
-        }
+#[cfg(any(feature = "fs", feature = "mount"))]
+impl<'a, Num: ArgNumber> From<crate::backend::mount::types::MountFlagsArg> for ArgReg<'a, Num> {
+    #[inline]
+    fn from(flags: crate::backend::mount::types::MountFlagsArg) -> Self {
+        c_uint(flags.0)
     }
+}
 
-    impl<'a, Num: ArgNumber> From<crate::backend::fs::types::UnmountFlags> for ArgReg<'a, Num> {
-        #[inline]
-        fn from(flags: crate::backend::fs::types::UnmountFlags) -> Self {
-            c_uint(flags.bits())
-        }
+// When the deprecated "fs" aliases are removed, we can remove the "fs"
+// here too.
+#[cfg(any(feature = "fs", feature = "mount"))]
+impl<'a, Num: ArgNumber> From<crate::backend::mount::types::UnmountFlags> for ArgReg<'a, Num> {
+    #[inline]
+    fn from(flags: crate::backend::mount::types::UnmountFlags) -> Self {
+        c_uint(flags.bits())
+    }
+}
+
+#[cfg(feature = "mount")]
+impl<'a, Num: ArgNumber> From<crate::mount::FsConfigCmd> for ArgReg<'a, Num> {
+    #[inline]
+    fn from(cmd: crate::mount::FsConfigCmd) -> Self {
+        c_uint(cmd as c::c_uint)
+    }
+}
+
+#[cfg(feature = "mount")]
+impl<'a, Num: ArgNumber> From<crate::backend::mount::types::FsOpenFlags> for ArgReg<'a, Num> {
+    #[inline]
+    fn from(flags: crate::backend::mount::types::FsOpenFlags) -> Self {
+        c_uint(flags.bits())
+    }
+}
+
+#[cfg(feature = "mount")]
+impl<'a, Num: ArgNumber> From<crate::backend::mount::types::FsMountFlags> for ArgReg<'a, Num> {
+    #[inline]
+    fn from(flags: crate::backend::mount::types::FsMountFlags) -> Self {
+        c_uint(flags.bits())
+    }
+}
+
+#[cfg(feature = "mount")]
+impl<'a, Num: ArgNumber> From<crate::backend::mount::types::MountAttrFlags> for ArgReg<'a, Num> {
+    #[inline]
+    fn from(flags: crate::backend::mount::types::MountAttrFlags) -> Self {
+        c_uint(flags.bits())
+    }
+}
+
+#[cfg(feature = "mount")]
+impl<'a, Num: ArgNumber> From<crate::backend::mount::types::OpenTreeFlags> for ArgReg<'a, Num> {
+    #[inline]
+    fn from(flags: crate::backend::mount::types::OpenTreeFlags) -> Self {
+        c_uint(flags.bits())
+    }
+}
+
+#[cfg(feature = "mount")]
+impl<'a, Num: ArgNumber> From<crate::backend::mount::types::FsPickFlags> for ArgReg<'a, Num> {
+    #[inline]
+    fn from(flags: crate::backend::mount::types::FsPickFlags) -> Self {
+        c_uint(flags.bits())
+    }
+}
+
+#[cfg(feature = "mount")]
+impl<'a, Num: ArgNumber> From<crate::backend::mount::types::MoveMountFlags> for ArgReg<'a, Num> {
+    #[inline]
+    fn from(flags: crate::backend::mount::types::MoveMountFlags) -> Self {
+        c_uint(flags.bits())
     }
 }
 
@@ -557,6 +618,14 @@ impl<'a, Num: ArgNumber> From<crate::backend::mm::types::MremapFlags> for ArgReg
 impl<'a, Num: ArgNumber> From<crate::backend::mm::types::MlockFlags> for ArgReg<'a, Num> {
     #[inline]
     fn from(flags: crate::backend::mm::types::MlockFlags) -> Self {
+        c_uint(flags.bits())
+    }
+}
+
+#[cfg(feature = "mm")]
+impl<'a, Num: ArgNumber> From<crate::backend::mm::types::MlockAllFlags> for ArgReg<'a, Num> {
+    #[inline]
+    fn from(flags: crate::backend::mm::types::MlockAllFlags) -> Self {
         c_uint(flags.bits())
     }
 }
@@ -805,7 +874,7 @@ pub(super) unsafe fn ret(raw: RetReg<R0>) -> io::Result<()> {
 ///
 /// The caller must ensure that this is the return value of a syscall which
 /// doesn't return on success.
-#[cfg(feature = "runtime")]
+#[cfg(any(feature = "event", feature = "runtime", feature = "system"))]
 #[inline]
 pub(super) unsafe fn ret_error(raw: RetReg<R0>) -> io::Errno {
     try_decode_error(raw)

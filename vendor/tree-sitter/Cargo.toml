@@ -13,18 +13,21 @@
 edition = "2021"
 rust-version = "1.65"
 name = "tree-sitter"
-version = "0.20.10"
+version = "0.22.6"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 build = "binding_rust/build.rs"
+links = "tree-sitter"
 include = [
     "/binding_rust/*",
     "/Cargo.toml",
-    "/include/*",
     "/src/*.h",
     "/src/*.c",
     "/src/unicode/*",
+    "/src/wasm/*",
+    "/include/tree_sitter/api.h",
 ]
 description = "Rust bindings to the Tree-sitter parsing library"
+homepage = "https://tree-sitter.github.io/tree-sitter"
 readme = "binding_rust/README.md"
 keywords = [
     "incremental",
@@ -41,12 +44,21 @@ repository = "https://github.com/tree-sitter/tree-sitter"
 [lib]
 path = "binding_rust/lib.rs"
 
-[dependencies.lazy_static]
-version = "1.2.0"
+[dependencies.regex]
+version = "1.10.4"
+
+[dependencies.wasmtime-c-api]
+version = "19"
+optional = true
+default-features = false
+package = "wasmtime-c-api-impl"
+
+[build-dependencies.bindgen]
+version = "0.69.4"
 optional = true
 
-[dependencies.regex]
-version = "1"
-
 [build-dependencies.cc]
-version = "^1.0.58"
+version = "1.0.95"
+
+[features]
+wasm = ["wasmtime-c-api"]

@@ -21,7 +21,7 @@ pub(crate) use write_guard::RwLockWriteGuard;
 pub(crate) use write_guard_mapped::RwLockMappedWriteGuard;
 
 #[cfg(not(loom))]
-const MAX_READS: u32 = std::u32::MAX >> 3;
+const MAX_READS: u32 = u32::MAX >> 3;
 
 #[cfg(loom)]
 const MAX_READS: u32 = 10;
@@ -209,6 +209,7 @@ impl<T: ?Sized> RwLock<T> {
         let resource_span = {
             let location = std::panic::Location::caller();
             let resource_span = tracing::trace_span!(
+                parent: None,
                 "runtime.resource",
                 concrete_type = "RwLock",
                 kind = "Sync",
@@ -282,6 +283,7 @@ impl<T: ?Sized> RwLock<T> {
             let location = std::panic::Location::caller();
 
             let resource_span = tracing::trace_span!(
+                parent: None,
                 "runtime.resource",
                 concrete_type = "RwLock",
                 kind = "Sync",
@@ -327,6 +329,11 @@ impl<T: ?Sized> RwLock<T> {
 
     /// Creates a new instance of an `RwLock<T>` which is unlocked.
     ///
+    /// When using the `tracing` [unstable feature], a `RwLock` created with
+    /// `const_new` will not be instrumented. As such, it will not be visible
+    /// in [`tokio-console`]. Instead, [`RwLock::new`] should be used to create
+    /// an instrumented object if that is needed.
+    ///
     /// # Examples
     ///
     /// ```
@@ -334,6 +341,9 @@ impl<T: ?Sized> RwLock<T> {
     ///
     /// static LOCK: RwLock<i32> = RwLock::const_new(5);
     /// ```
+    ///
+    /// [`tokio-console`]: https://github.com/tokio-rs/console
+    /// [unstable feature]: crate#unstable-features
     #[cfg(not(all(loom, test)))]
     pub const fn const_new(value: T) -> RwLock<T>
     where
@@ -762,7 +772,7 @@ impl<T: ?Sized> RwLock<T> {
     /// ```
     pub async fn write(&self) -> RwLockWriteGuard<'_, T> {
         let acquire_fut = async {
-            self.s.acquire(self.mr).await.unwrap_or_else(|_| {
+            self.s.acquire(self.mr as usize).await.unwrap_or_else(|_| {
                 // The semaphore was closed. but, we never explicitly close it, and we have a
                 // handle to it through the Arc, which means that this can never happen.
                 unreachable!()
@@ -897,7 +907,7 @@ impl<T: ?Sized> RwLock<T> {
         let resource_span = self.resource_span.clone();
 
         let acquire_fut = async {
-            self.s.acquire(self.mr).await.unwrap_or_else(|_| {
+            self.s.acquire(self.mr as usize).await.unwrap_or_else(|_| {
                 // The semaphore was closed. but, we never explicitly close it, and we have a
                 // handle to it through the Arc, which means that this can never happen.
                 unreachable!()
@@ -961,7 +971,7 @@ impl<T: ?Sized> RwLock<T> {
     /// }
     /// ```
     pub fn try_write(&self) -> Result<RwLockWriteGuard<'_, T>, TryLockError> {
-        match self.s.try_acquire(self.mr) {
+        match self.s.try_acquire(self.mr as usize) {
             Ok(permit) => permit,
             Err(TryAcquireError::NoPermits) => return Err(TryLockError(())),
             Err(TryAcquireError::Closed) => unreachable!(),
@@ -1019,7 +1029,7 @@ impl<T: ?Sized> RwLock<T> {
     /// }
     /// ```
     pub fn try_write_owned(self: Arc<Self>) -> Result<OwnedRwLockWriteGuard<T>, TryLockError> {
-        match self.s.try_acquire(self.mr) {
+        match self.s.try_acquire(self.mr as usize) {
             Ok(permit) => permit,
             Err(TryAcquireError::NoPermits) => return Err(TryLockError(())),
             Err(TryAcquireError::Closed) => unreachable!(),

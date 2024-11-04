@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use clap::builder::StyledStr;
-use clap::*;
+use clap::Command;
 
 use crate::generator::{utils, Generator};
 use crate::INTERNAL_ERROR_MSG;
@@ -57,9 +57,9 @@ fn escape_string(string: &str) -> String {
     string.replace('\'', "''")
 }
 
-fn get_tooltip<T: ToString>(help: Option<&StyledStr>, data: T) -> String {
+fn escape_help<T: ToString>(help: Option<&StyledStr>, data: T) -> String {
     match help {
-        Some(help) => escape_string(&help.to_string()),
+        Some(help) => escape_string(&help.to_string().replace('\n', " ")),
         _ => data.to_string(),
     }
 }
@@ -67,10 +67,13 @@ fn get_tooltip<T: ToString>(help: Option<&StyledStr>, data: T) -> String {
 fn generate_inner(p: &Command, previous_command_name: &str) -> String {
     debug!("generate_inner");
 
-    let command_name = if previous_command_name.is_empty() {
-        p.get_bin_name().expect(INTERNAL_ERROR_MSG).to_string()
+    let command_names = if previous_command_name.is_empty() {
+        vec![p.get_bin_name().expect(INTERNAL_ERROR_MSG).to_string()]
     } else {
-        format!("{};{}", previous_command_name, &p.get_name())
+        p.get_name_and_visible_aliases()
+            .into_iter()
+            .map(|name| format!("{};{}", previous_command_name, name))
+            .collect()
     };
 
     let mut completions = String::new();
@@ -78,7 +81,7 @@ fn generate_inner(p: &Command, previous_command_name: &str) -> String {
 
     for option in p.get_opts() {
         if let Some(shorts) = option.get_short_and_visible_aliases() {
-            let tooltip = get_tooltip(option.get_help(), shorts[0]);
+            let tooltip = escape_help(option.get_help(), shorts[0]);
             for short in shorts {
                 completions.push_str(&preamble);
                 completions.push_str(format!("-{short} '{tooltip}'").as_str());
@@ -86,7 +89,7 @@ fn generate_inner(p: &Command, previous_command_name: &str) -> String {
         }
 
         if let Some(longs) = option.get_long_and_visible_aliases() {
-            let tooltip = get_tooltip(option.get_help(), longs[0]);
+            let tooltip = escape_help(option.get_help(), longs[0]);
             for long in longs {
                 completions.push_str(&preamble);
                 completions.push_str(format!("--{long} '{tooltip}'").as_str());
@@ -96,7 +99,7 @@ fn generate_inner(p: &Command, previous_command_name: &str) -> String {
 
     for flag in utils::flags(p) {
         if let Some(shorts) = flag.get_short_and_visible_aliases() {
-            let tooltip = get_tooltip(flag.get_help(), shorts[0]);
+            let tooltip = escape_help(flag.get_help(), shorts[0]);
             for short in shorts {
                 completions.push_str(&preamble);
                 completions.push_str(format!("-{short} '{tooltip}'").as_str());
@@ -104,7 +107,7 @@ fn generate_inner(p: &Command, previous_command_name: &str) -> String {
         }
 
         if let Some(longs) = flag.get_long_and_visible_aliases() {
-            let tooltip = get_tooltip(flag.get_help(), longs[0]);
+            let tooltip = escape_help(flag.get_help(), longs[0]);
             for long in longs {
                 completions.push_str(&preamble);
                 completions.push_str(format!("--{long} '{tooltip}'").as_str());
@@ -113,23 +116,29 @@ fn generate_inner(p: &Command, previous_command_name: &str) -> String {
     }
 
     for subcommand in p.get_subcommands() {
-        let data = &subcommand.get_name();
-        let tooltip = get_tooltip(subcommand.get_about(), data);
+        for name in subcommand.get_name_and_visible_aliases() {
+            let tooltip = escape_help(subcommand.get_about(), name);
 
-        completions.push_str(&preamble);
-        completions.push_str(format!("{data} '{tooltip}'").as_str());
+            completions.push_str(&preamble);
+            completions.push_str(format!("{name} '{tooltip}'").as_str());
+        }
     }
 
-    let mut subcommands_cases = format!(
-        r"
+    let mut subcommands_cases = String::new();
+    for command_name in &command_names {
+        subcommands_cases.push_str(&format!(
+            r"
         &'{}'= {{{}
         }}",
-        &command_name, completions
-    );
+            &command_name, completions
+        ));
+    }
 
     for subcommand in p.get_subcommands() {
-        let subcommand_subcommands_cases = generate_inner(subcommand, &command_name);
-        subcommands_cases.push_str(&subcommand_subcommands_cases);
+        for command_name in &command_names {
+            let subcommand_subcommands_cases = generate_inner(subcommand, command_name);
+            subcommands_cases.push_str(&subcommand_subcommands_cases);
+        }
     }
 
     subcommands_cases
