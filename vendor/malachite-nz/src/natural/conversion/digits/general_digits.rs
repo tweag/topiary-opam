@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // Uses code adopted from the GNU MP Library.
 //
@@ -899,7 +899,6 @@ pub_test! {to_digits_asc_naive(digits: &mut Vec<Natural>, x: &Natural, base: &Na
 
 // TODO tune
 const TO_DIGITS_DIVIDE_AND_CONQUER_THRESHOLD: u64 = 50;
-
 const SQRT_MAX_LIMB: Limb = (1 << (Limb::WIDTH >> 1)) - 1;
 
 // # Worst-case complexity

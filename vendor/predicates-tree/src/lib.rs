@@ -8,6 +8,8 @@
 
 //! Render `Case` as a tree.
 
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 use std::fmt;
 
 use predicates_core::reflection;
@@ -18,7 +20,7 @@ pub trait CaseTreeExt {
     fn tree(&self) -> CaseTree;
 }
 
-impl<'a> CaseTreeExt for reflection::Case<'a> {
+impl CaseTreeExt for reflection::Case<'_> {
     fn tree(&self) -> CaseTree {
         CaseTree(convert(self))
     }

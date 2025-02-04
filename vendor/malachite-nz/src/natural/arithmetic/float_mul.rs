@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // Uses code adopted from the GNU MPFR Library.
 //
@@ -634,7 +634,7 @@ fn limbs_float_mul_high_same_length_basecase(out: &mut [Limb], xs: &[Limb], ys: 
     }
 }
 
-fn limbs_float_mul_high_same_length_scratch_len(len: usize) -> usize {
+pub(crate) fn limbs_float_mul_high_same_length_scratch_len(len: usize) -> usize {
     if len > MUL_FFT_THRESHOLD {
         limbs_mul_same_length_to_out_scratch_len(len)
     } else {

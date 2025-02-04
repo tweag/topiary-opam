@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -10,6 +10,10 @@ use malachite_base::num::conversion::traits::{ConvertibleFrom, ExactFrom};
 use malachite_base::test_util::bench::{run_benchmark, BenchmarkType};
 use malachite_base::test_util::generators::common::{GenConfig, GenMode};
 use malachite_base::test_util::runner::Runner;
+use malachite_float::conversion::from_rational::{
+    from_rational_prec_round_direct, from_rational_prec_round_ref_direct,
+    from_rational_prec_round_ref_using_div, from_rational_prec_round_using_div,
+};
 use malachite_float::test_util::common::rug_round_try_from_rounding_mode;
 use malachite_float::test_util::generators::{
     rational_unsigned_rounding_mode_triple_gen_var_1,
@@ -17,7 +21,8 @@ use malachite_float::test_util::generators::{
 };
 use malachite_float::{ComparableFloat, Float};
 use malachite_q::test_util::bench::bucketers::{
-    pair_rational_bit_u64_max_bucketer, triple_1_2_rational_bit_u64_max_bucketer,
+    pair_rational_bit_u64_max_bucketer, rational_bit_bucketer,
+    triple_1_2_rational_bit_u64_max_bucketer,
 };
 use malachite_q::test_util::generators::{rational_gen, rational_unsigned_pair_gen_var_3};
 
@@ -48,10 +53,20 @@ pub(crate) fn register(runner: &mut Runner) {
         runner,
         benchmark_float_from_rational_prec_round_evaluation_strategy
     );
+    register_bench!(runner, benchmark_float_from_rational_prec_round_algorithms);
+    register_bench!(
+        runner,
+        benchmark_float_from_rational_prec_round_ref_algorithms
+    );
     register_bench!(
         runner,
         benchmark_float_from_rational_prec_round_library_comparison
     );
+    register_bench!(
+        runner,
+        benchmark_float_try_from_rational_evaluation_strategy
+    );
+    register_bench!(runner, benchmark_float_convertible_from_rational);
 }
 
 fn demo_float_from_rational_prec(gm: GenMode, config: &GenConfig, limit: usize) {
@@ -303,6 +318,62 @@ fn benchmark_float_from_rational_prec_round_evaluation_strategy(
     );
 }
 
+fn benchmark_float_from_rational_prec_round_algorithms(
+    gm: GenMode,
+    config: &GenConfig,
+    limit: usize,
+    file_name: &str,
+) {
+    run_benchmark(
+        "Float::from_rational_prec_round(Rational, u64, RoundingMode)",
+        BenchmarkType::EvaluationStrategy,
+        rational_unsigned_rounding_mode_triple_gen_var_1().get(gm, config),
+        gm.name(),
+        limit,
+        file_name,
+        &triple_1_2_rational_bit_u64_max_bucketer("n", "prec"),
+        &mut [
+            ("default", &mut |(n, prec, rm)| {
+                no_out!(Float::from_rational_prec_round(n, prec, rm))
+            }),
+            ("direct", &mut |(n, prec, rm)| {
+                no_out!(from_rational_prec_round_direct(n, prec, rm))
+            }),
+            ("using div", &mut |(n, prec, rm)| {
+                no_out!(from_rational_prec_round_using_div(n, prec, rm))
+            }),
+        ],
+    );
+}
+
+fn benchmark_float_from_rational_prec_round_ref_algorithms(
+    gm: GenMode,
+    config: &GenConfig,
+    limit: usize,
+    file_name: &str,
+) {
+    run_benchmark(
+        "Float::from_rational_prec_round_ref(&Rational, u64, RoundingMode)",
+        BenchmarkType::EvaluationStrategy,
+        rational_unsigned_rounding_mode_triple_gen_var_1().get(gm, config),
+        gm.name(),
+        limit,
+        file_name,
+        &triple_1_2_rational_bit_u64_max_bucketer("n", "prec"),
+        &mut [
+            ("default", &mut |(n, prec, rm)| {
+                no_out!(Float::from_rational_prec_round_ref(&n, prec, rm))
+            }),
+            ("direct", &mut |(n, prec, rm)| {
+                no_out!(from_rational_prec_round_ref_direct(&n, prec, rm))
+            }),
+            ("using div", &mut |(n, prec, rm)| {
+                no_out!(from_rational_prec_round_ref_using_div(&n, prec, rm))
+            }),
+        ],
+    );
+}
+
 fn benchmark_float_from_rational_prec_round_library_comparison(
     gm: GenMode,
     config: &GenConfig,
@@ -329,5 +400,49 @@ fn benchmark_float_from_rational_prec_round_library_comparison(
                 ))
             }),
         ],
+    );
+}
+
+#[allow(unused_must_use)]
+fn benchmark_float_try_from_rational_evaluation_strategy(
+    gm: GenMode,
+    config: &GenConfig,
+    limit: usize,
+    file_name: &str,
+) {
+    run_benchmark(
+        "Float::try_from(Rational)",
+        BenchmarkType::EvaluationStrategy,
+        rational_gen().get(gm, config),
+        gm.name(),
+        limit,
+        file_name,
+        &rational_bit_bucketer("x"),
+        &mut [
+            ("Float::try_from(Rational)", &mut |x| {
+                no_out!(Float::try_from(x))
+            }),
+            ("Float::try_from(&Rational)", &mut |x| {
+                no_out!(Float::try_from(&x))
+            }),
+        ],
+    );
+}
+
+fn benchmark_float_convertible_from_rational(
+    gm: GenMode,
+    config: &GenConfig,
+    limit: usize,
+    file_name: &str,
+) {
+    run_benchmark(
+        "Float::convertible_from(Rational)",
+        BenchmarkType::Single,
+        rational_gen().get(gm, config),
+        gm.name(),
+        limit,
+        file_name,
+        &rational_bit_bucketer("x"),
+        &mut [("Malachite", &mut |x| no_out!(Float::convertible_from(&x)))],
     );
 }

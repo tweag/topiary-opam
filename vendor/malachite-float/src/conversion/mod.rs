@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -6,6 +6,8 @@
 // Lesser General Public License (LGPL) as published by the Free Software Foundation; either version
 // 3 of the License, or (at your option) any later version. See <https://www.gnu.org/licenses/>.
 
+/// Functions for creating a [`Float`](crate::Float) from an infinite iterator of bits.
+pub mod from_bits;
 /// Implementations of the [`From`] trait for converting an
 /// [`Integer`](malachite_nz::integer::Integer) to a [`Float`](crate::Float).
 pub mod from_integer;
@@ -231,7 +233,7 @@ pub mod is_integer;
 /// ```
 /// use malachite_base::num::arithmetic::traits::Pow;
 /// use malachite_base::num::basic::traits::One;
-/// use malachite_base::num::conversion::traits::SciMantissaAndExponent;
+/// use malachite_base::num::conversion::traits::{ExactFrom, SciMantissaAndExponent};
 /// use malachite_base::num::float::NiceFloat;
 /// use malachite_float::Float;
 /// use malachite_nz::natural::Natural;
@@ -246,7 +248,7 @@ pub mod is_integer;
 /// assert_eq!(e, 1);
 ///
 /// let (m, e): (f64, i32) =
-///     (&Float::from(Natural::from(3u32).pow(50u64))).sci_mantissa_and_exponent();
+///     (&Float::exact_from(Natural::from(3u32).pow(50u64))).sci_mantissa_and_exponent();
 /// assert_eq!(NiceFloat(m), NiceFloat(1.187662594419065));
 /// assert_eq!(e, 79);
 ///

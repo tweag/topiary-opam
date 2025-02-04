@@ -22,14 +22,19 @@ use crate::env;
 
 /// Create a new temporary directory.
 ///
-/// The `tempdir` function creates a directory in the file system
-/// and returns a [`TempDir`].
-/// The directory will be automatically deleted when the `TempDir`s
+/// The `tempdir` function creates a directory in the file system and returns a
+/// [`TempDir`]. The directory will be automatically deleted when the `TempDir`'s
 /// destructor is run.
 ///
 /// # Resource Leaking
 ///
 /// See [the resource leaking][resource-leaking] docs on `TempDir`.
+///
+/// # Security
+///
+/// Temporary directories are created with the default permissions unless otherwise
+/// specified via [`Builder::permissions`]. Depending on your platform, this may make
+/// them world-readable.
 ///
 /// # Errors
 ///
@@ -265,6 +270,58 @@ impl TempDir {
     /// ```
     pub fn with_prefix<S: AsRef<OsStr>>(prefix: S) -> io::Result<TempDir> {
         Builder::new().prefix(&prefix).tempdir()
+    }
+
+    /// Attempts to make a temporary directory with the specified suffix inside of
+    /// `env::temp_dir()`. The directory and everything inside it will be automatically
+    /// deleted once the returned `TempDir` is destroyed.
+    ///
+    /// # Errors
+    ///
+    /// If the directory can not be created, `Err` is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::fs::{self, File};
+    /// use std::io::Write;
+    /// use tempfile::TempDir;
+    ///
+    /// // Create a directory inside of the current directory
+    /// let tmp_dir = TempDir::with_suffix("-foo")?;
+    /// let tmp_name = tmp_dir.path().file_name().unwrap().to_str().unwrap();
+    /// assert!(tmp_name.ends_with("-foo"));
+    /// # Ok::<(), std::io::Error>(())
+    /// ```
+    pub fn with_suffix<S: AsRef<OsStr>>(suffix: S) -> io::Result<TempDir> {
+        Builder::new().suffix(&suffix).tempdir()
+    }
+    /// Attempts to make a temporary directory with the specified prefix inside
+    /// the specified directory. The directory and everything inside it will be
+    /// automatically deleted once the returned `TempDir` is destroyed.
+    ///
+    /// # Errors
+    ///
+    /// If the directory can not be created, `Err` is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::fs::{self, File};
+    /// use std::io::Write;
+    /// use tempfile::TempDir;
+    ///
+    /// // Create a directory inside of the current directory
+    /// let tmp_dir = TempDir::with_suffix_in("-foo", ".")?;
+    /// let tmp_name = tmp_dir.path().file_name().unwrap().to_str().unwrap();
+    /// assert!(tmp_name.ends_with("-foo"));
+    /// # Ok::<(), std::io::Error>(())
+    /// ```
+    pub fn with_suffix_in<S: AsRef<OsStr>, P: AsRef<Path>>(
+        suffix: S,
+        dir: P,
+    ) -> io::Result<TempDir> {
+        Builder::new().suffix(&suffix).tempdir_in(dir)
     }
 
     /// Attempts to make a temporary directory with the specified prefix inside

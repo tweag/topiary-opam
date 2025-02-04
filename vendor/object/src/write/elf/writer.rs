@@ -10,6 +10,12 @@ use crate::write::string::{StringId, StringTable};
 use crate::write::util;
 use crate::write::{Error, Result, WritableBuffer};
 
+const ALIGN_SYMTAB_SHNDX: usize = 4;
+const ALIGN_HASH: usize = 4;
+const ALIGN_GNU_VERSYM: usize = 2;
+const ALIGN_GNU_VERDEF: usize = 4;
+const ALIGN_GNU_VERNEED: usize = 4;
+
 /// The index of an ELF section.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SectionIndex(pub u32);
@@ -652,7 +658,7 @@ impl<'a> Writer<'a> {
     ///
     /// This range is used for a section named `.strtab`.
     ///
-    /// This function does nothing if no strings were defined.
+    /// This function does nothing if a string table is not required.
     /// This must be called after [`Self::add_string`].
     pub fn reserve_strtab(&mut self) {
         debug_assert_eq!(self.strtab_offset, 0);
@@ -678,12 +684,18 @@ impl<'a> Writer<'a> {
 
     /// Reserve the section index for the string table.
     ///
+    /// You should check [`Self::strtab_needed`] before calling this
+    /// unless you have other means of knowing if this section is needed.
+    ///
     /// This must be called before [`Self::reserve_section_headers`].
     pub fn reserve_strtab_section_index(&mut self) -> SectionIndex {
         self.reserve_strtab_section_index_with_name(&b".strtab"[..])
     }
 
     /// Reserve the section index for the string table.
+    ///
+    /// You should check [`Self::strtab_needed`] before calling this
+    /// unless you have other means of knowing if this section is needed.
     ///
     /// This must be called before [`Self::reserve_section_headers`].
     pub fn reserve_strtab_section_index_with_name(&mut self, name: &'a [u8]) -> SectionIndex {
@@ -726,6 +738,8 @@ impl<'a> Writer<'a> {
         debug_assert_eq!(self.symtab_offset, 0);
         debug_assert_eq!(self.symtab_num, 0);
         self.symtab_num = 1;
+        // The symtab must link to a strtab.
+        self.need_strtab = true;
         SymbolIndex(0)
     }
 
@@ -746,6 +760,8 @@ impl<'a> Writer<'a> {
         debug_assert_eq!(self.symtab_shndx_offset, 0);
         if self.symtab_num == 0 {
             self.symtab_num = 1;
+            // The symtab must link to a strtab.
+            self.need_strtab = true;
         }
         let index = self.symtab_num;
         self.symtab_num += 1;
@@ -914,7 +930,7 @@ impl<'a> Writer<'a> {
         if !self.need_symtab_shndx {
             return;
         }
-        self.symtab_shndx_offset = self.reserve(self.symtab_num as usize * 4, 4);
+        self.symtab_shndx_offset = self.reserve(self.symtab_num as usize * 4, ALIGN_SYMTAB_SHNDX);
         self.symtab_shndx_data.reserve(self.symtab_num as usize * 4);
     }
 
@@ -925,6 +941,7 @@ impl<'a> Writer<'a> {
         if self.symtab_shndx_offset == 0 {
             return;
         }
+        util::write_align(self.buffer, ALIGN_SYMTAB_SHNDX);
         debug_assert_eq!(self.symtab_shndx_offset, self.buffer.len());
         debug_assert_eq!(self.symtab_num as usize * 4, self.symtab_shndx_data.len());
         self.buffer.write_bytes(&self.symtab_shndx_data);
@@ -973,7 +990,7 @@ impl<'a> Writer<'a> {
             sh_size,
             sh_link: self.symtab_index.0,
             sh_info: 0,
-            sh_addralign: 4,
+            sh_addralign: ALIGN_SYMTAB_SHNDX as u64,
             sh_entsize: 4,
         });
     }
@@ -1045,12 +1062,18 @@ impl<'a> Writer<'a> {
 
     /// Reserve the section index for the dynamic string table.
     ///
+    /// You should check [`Self::dynstr_needed`] before calling this
+    /// unless you have other means of knowing if this section is needed.
+    ///
     /// This must be called before [`Self::reserve_section_headers`].
     pub fn reserve_dynstr_section_index(&mut self) -> SectionIndex {
         self.reserve_dynstr_section_index_with_name(&b".dynstr"[..])
     }
 
     /// Reserve the section index for the dynamic string table.
+    ///
+    /// You should check [`Self::dynstr_needed`] before calling this
+    /// unless you have other means of knowing if this section is needed.
     ///
     /// This must be called before [`Self::reserve_section_headers`].
     pub fn reserve_dynstr_section_index_with_name(&mut self, name: &'a [u8]) -> SectionIndex {
@@ -1337,7 +1360,7 @@ impl<'a> Writer<'a> {
     /// not the total number of symbols.
     pub fn reserve_hash(&mut self, bucket_count: u32, chain_count: u32) -> usize {
         self.hash_size = self.class().hash_size(bucket_count, chain_count);
-        self.hash_offset = self.reserve(self.hash_size, self.elf_align);
+        self.hash_offset = self.reserve(self.hash_size, ALIGN_HASH);
         self.hash_offset
     }
 
@@ -1359,7 +1382,7 @@ impl<'a> Writer<'a> {
             }
         }
 
-        util::write_align(self.buffer, self.elf_align);
+        util::write_align(self.buffer, ALIGN_HASH);
         debug_assert_eq!(self.hash_offset, self.buffer.len());
         self.buffer.write(&elf::HashHeader {
             bucket_count: U32::new(self.endian, bucket_count),
@@ -1397,7 +1420,7 @@ impl<'a> Writer<'a> {
             sh_size: self.hash_size as u64,
             sh_link: self.dynsym_index.0,
             sh_info: 0,
-            sh_addralign: self.elf_align as u64,
+            sh_addralign: ALIGN_HASH as u64,
             sh_entsize: 4,
         });
     }
@@ -1541,7 +1564,7 @@ impl<'a> Writer<'a> {
         if self.dynsym_num == 0 {
             return 0;
         }
-        self.gnu_versym_offset = self.reserve(self.dynsym_num as usize * 2, 2);
+        self.gnu_versym_offset = self.reserve(self.dynsym_num as usize * 2, ALIGN_GNU_VERSYM);
         self.gnu_versym_offset
     }
 
@@ -1553,7 +1576,7 @@ impl<'a> Writer<'a> {
         if self.dynsym_num == 0 {
             return;
         }
-        util::write_align(self.buffer, 2);
+        util::write_align(self.buffer, ALIGN_GNU_VERSYM);
         debug_assert_eq!(self.gnu_versym_offset, self.buffer.len());
         self.write_gnu_versym(0);
     }
@@ -1591,7 +1614,7 @@ impl<'a> Writer<'a> {
             sh_size: self.class().gnu_versym_size(self.dynsym_num as usize) as u64,
             sh_link: self.dynsym_index.0,
             sh_info: 0,
-            sh_addralign: 2,
+            sh_addralign: ALIGN_GNU_VERSYM as u64,
             sh_entsize: 2,
         });
     }
@@ -1603,7 +1626,7 @@ impl<'a> Writer<'a> {
             return 0;
         }
         self.gnu_verdef_size = self.class().gnu_verdef_size(verdef_count, verdaux_count);
-        self.gnu_verdef_offset = self.reserve(self.gnu_verdef_size, self.elf_align);
+        self.gnu_verdef_offset = self.reserve(self.gnu_verdef_size, ALIGN_GNU_VERDEF);
         self.gnu_verdef_count = verdef_count as u16;
         self.gnu_verdef_remaining = self.gnu_verdef_count;
         self.gnu_verdef_offset
@@ -1614,7 +1637,7 @@ impl<'a> Writer<'a> {
         if self.gnu_verdef_offset == 0 {
             return;
         }
-        util::write_align(self.buffer, self.elf_align);
+        util::write_align(self.buffer, ALIGN_GNU_VERDEF);
         debug_assert_eq!(self.gnu_verdef_offset, self.buffer.len());
     }
 
@@ -1629,12 +1652,9 @@ impl<'a> Writer<'a> {
                 + verdef.aux_count as u32 * mem::size_of::<elf::Verdaux<Endianness>>() as u32
         };
 
+        debug_assert_ne!(verdef.aux_count, 0);
         self.gnu_verdaux_remaining = verdef.aux_count;
-        let vd_aux = if verdef.aux_count == 0 {
-            0
-        } else {
-            mem::size_of::<elf::Verdef<Endianness>>() as u32
-        };
+        let vd_aux = mem::size_of::<elf::Verdef<Endianness>>() as u32;
 
         self.buffer.write(&elf::Verdef {
             vd_version: U16::new(self.endian, verdef.version),
@@ -1646,6 +1666,31 @@ impl<'a> Writer<'a> {
             vd_next: U32::new(self.endian, vd_next),
         });
         self.write_gnu_verdaux(verdef.name);
+    }
+
+    /// Write a version definition entry that shares the names of the next definition.
+    ///
+    /// This is typically useful when there are only two versions (including the base)
+    /// and they have the same name.
+    pub fn write_gnu_verdef_shared(&mut self, verdef: &Verdef) {
+        debug_assert_ne!(self.gnu_verdef_remaining, 0);
+        self.gnu_verdef_remaining -= 1;
+        debug_assert_ne!(self.gnu_verdef_remaining, 0);
+        let vd_next = mem::size_of::<elf::Verdef<Endianness>>() as u32;
+
+        debug_assert_ne!(verdef.aux_count, 0);
+        self.gnu_verdaux_remaining = 0;
+        let vd_aux = 2 * mem::size_of::<elf::Verdef<Endianness>>() as u32;
+
+        self.buffer.write(&elf::Verdef {
+            vd_version: U16::new(self.endian, verdef.version),
+            vd_flags: U16::new(self.endian, verdef.flags),
+            vd_ndx: U16::new(self.endian, verdef.index),
+            vd_cnt: U16::new(self.endian, verdef.aux_count),
+            vd_hash: U32::new(self.endian, elf::hash(self.dynstr.get_string(verdef.name))),
+            vd_aux: U32::new(self.endian, vd_aux),
+            vd_next: U32::new(self.endian, vd_next),
+        });
     }
 
     /// Write a version definition auxiliary entry.
@@ -1691,7 +1736,7 @@ impl<'a> Writer<'a> {
             sh_size: self.gnu_verdef_size as u64,
             sh_link: self.dynstr_index.0,
             sh_info: self.gnu_verdef_count.into(),
-            sh_addralign: self.elf_align as u64,
+            sh_addralign: ALIGN_GNU_VERDEF as u64,
             sh_entsize: 0,
         });
     }
@@ -1703,7 +1748,7 @@ impl<'a> Writer<'a> {
             return 0;
         }
         self.gnu_verneed_size = self.class().gnu_verneed_size(verneed_count, vernaux_count);
-        self.gnu_verneed_offset = self.reserve(self.gnu_verneed_size, self.elf_align);
+        self.gnu_verneed_offset = self.reserve(self.gnu_verneed_size, ALIGN_GNU_VERNEED);
         self.gnu_verneed_count = verneed_count as u16;
         self.gnu_verneed_remaining = self.gnu_verneed_count;
         self.gnu_verneed_offset
@@ -1714,7 +1759,7 @@ impl<'a> Writer<'a> {
         if self.gnu_verneed_offset == 0 {
             return;
         }
-        util::write_align(self.buffer, self.elf_align);
+        util::write_align(self.buffer, ALIGN_GNU_VERNEED);
         debug_assert_eq!(self.gnu_verneed_offset, self.buffer.len());
     }
 
@@ -1791,7 +1836,7 @@ impl<'a> Writer<'a> {
             sh_size: self.gnu_verneed_size as u64,
             sh_link: self.dynstr_index.0,
             sh_info: self.gnu_verneed_count.into(),
-            sh_addralign: self.elf_align as u64,
+            sh_addralign: ALIGN_GNU_VERNEED as u64,
             sh_entsize: 0,
         });
     }
@@ -1930,6 +1975,30 @@ impl<'a> Writer<'a> {
             sh_info: section.0,
             sh_addralign: self.elf_align as u64,
             sh_entsize: self.class().rel_size(is_rela) as u64,
+        });
+    }
+
+    /// Write the section header for a relative relocation section.
+    ///
+    /// `offset` is the file offset of the relocations.
+    /// `size` is the size of the section in bytes.
+    pub fn write_relative_relocation_section_header(
+        &mut self,
+        name: StringId,
+        offset: usize,
+        size: usize,
+    ) {
+        self.write_section_header(&SectionHeader {
+            name: Some(name),
+            sh_type: elf::SHT_RELA,
+            sh_flags: 0,
+            sh_addr: 0,
+            sh_offset: offset as u64,
+            sh_size: size as u64,
+            sh_link: 0,
+            sh_info: 0,
+            sh_addralign: self.elf_align as u64,
+            sh_entsize: self.class().relr_size() as u64,
         });
     }
 
@@ -2174,6 +2243,15 @@ impl Class {
             } else {
                 mem::size_of::<elf::Rel32<Endianness>>()
             }
+        }
+    }
+
+    /// Return the size of a relative relocation entry.
+    pub fn relr_size(self) -> usize {
+        if self.is_64 {
+            mem::size_of::<elf::Relr64<Endianness>>()
+        } else {
+            mem::size_of::<elf::Relr32<Endianness>>()
         }
     }
 

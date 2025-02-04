@@ -1,11 +1,8 @@
 {
-  "0": "o",
-  "1": "c",
-  "2": "a",
-  "3": "m",
-  "4": "l",
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/grammar.schema.json",
   "name": "ocaml_type",
-  "word": "_identifier",
+  "inherits": "ocaml",
+  "word": "_lowercase_identifier",
   "rules": {
     "type": {
       "type": "SYMBOL",
@@ -2555,8 +2552,16 @@
                 "type": "SEQ",
                 "members": [
                   {
-                    "type": "STRING",
-                    "value": "functor"
+                    "type": "CHOICE",
+                    "members": [
+                      {
+                        "type": "STRING",
+                        "value": "functor"
+                      },
+                      {
+                        "type": "BLANK"
+                      }
+                    ]
                   },
                   {
                     "type": "REPEAT",
@@ -2570,19 +2575,6 @@
               {
                 "type": "SYMBOL",
                 "name": "_module_type"
-              },
-              {
-                "type": "SEQ",
-                "members": [
-                  {
-                    "type": "STRING",
-                    "value": "("
-                  },
-                  {
-                    "type": "STRING",
-                    "value": ")"
-                  }
-                ]
               }
             ]
           },
@@ -7120,7 +7112,7 @@
         }
       ]
     },
-    "_pattern": {
+    "_effect_pattern": {
       "type": "CHOICE",
       "members": [
         {
@@ -7129,19 +7121,32 @@
         },
         {
           "type": "SYMBOL",
-          "name": "alias_pattern"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "or_pattern"
-        },
-        {
-          "type": "SYMBOL",
           "name": "constructor_pattern"
         },
         {
           "type": "SYMBOL",
           "name": "tag_pattern"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "lazy_pattern"
+        }
+      ]
+    },
+    "_pattern": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_effect_pattern"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "alias_pattern"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "or_pattern"
         },
         {
           "type": "SYMBOL",
@@ -7157,11 +7162,11 @@
         },
         {
           "type": "SYMBOL",
-          "name": "lazy_pattern"
+          "name": "exception_pattern"
         },
         {
           "type": "SYMBOL",
-          "name": "exception_pattern"
+          "name": "effect_pattern"
         }
       ]
     },
@@ -8484,6 +8489,35 @@
         {
           "type": "SYMBOL",
           "name": "_pattern"
+        }
+      ]
+    },
+    "effect_pattern": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "effect"
+        },
+        {
+          "type": "FIELD",
+          "name": "effect",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_effect_pattern"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": ","
+        },
+        {
+          "type": "FIELD",
+          "name": "continuation",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_simple_pattern"
+          }
         }
       ]
     },
@@ -9860,7 +9894,7 @@
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "_identifier"
+            "name": "_lowercase_identifier"
           },
           "named": true,
           "value": "value_name"
@@ -9875,7 +9909,7 @@
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_identifier"
+        "name": "_lowercase_identifier"
       },
       "named": true,
       "value": "value_pattern"
@@ -10340,7 +10374,7 @@
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_identifier"
+        "name": "_lowercase_identifier"
       },
       "named": true,
       "value": "label_name"
@@ -10349,7 +10383,7 @@
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_identifier"
+        "name": "_lowercase_identifier"
       },
       "named": true,
       "value": "field_name"
@@ -10358,7 +10392,7 @@
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_identifier"
+        "name": "_lowercase_identifier"
       },
       "named": true,
       "value": "class_name"
@@ -10367,7 +10401,7 @@
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_identifier"
+        "name": "_lowercase_identifier"
       },
       "named": true,
       "value": "class_type_name"
@@ -10376,7 +10410,7 @@
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_identifier"
+        "name": "_lowercase_identifier"
       },
       "named": true,
       "value": "method_name"
@@ -10385,7 +10419,7 @@
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_identifier"
+        "name": "_lowercase_identifier"
       },
       "named": true,
       "value": "type_constructor"
@@ -10394,7 +10428,7 @@
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_identifier"
+        "name": "_lowercase_identifier"
       },
       "named": true,
       "value": "instance_variable_name"
@@ -10403,7 +10437,7 @@
       "type": "ALIAS",
       "content": {
         "type": "SYMBOL",
-        "name": "_capitalized_identifier"
+        "name": "_uppercase_identifier"
       },
       "named": true,
       "value": "module_name"
@@ -10415,11 +10449,11 @@
         "members": [
           {
             "type": "SYMBOL",
-            "name": "_capitalized_identifier"
+            "name": "_uppercase_identifier"
           },
           {
             "type": "SYMBOL",
-            "name": "_identifier"
+            "name": "_lowercase_identifier"
           }
         ]
       },
@@ -10433,7 +10467,7 @@
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "_capitalized_identifier"
+            "name": "_uppercase_identifier"
           },
           "named": true,
           "value": "constructor_name"
@@ -10462,13 +10496,13 @@
         }
       ]
     },
-    "_identifier": {
+    "_lowercase_identifier": {
       "type": "PATTERN",
-      "value": "(\\\\#)?[a-z_][a-zA-Z0-9_']*"
+      "value": "(\\\\#)?[\\p{Ll}_][\\p{XID_Continue}']*"
     },
-    "_capitalized_identifier": {
+    "_uppercase_identifier": {
       "type": "PATTERN",
-      "value": "[A-Z][a-zA-Z0-9_']*"
+      "value": "[\\p{Lu}][\\p{XID_Continue}']*"
     },
     "_label": {
       "type": "SEQ",
@@ -10504,11 +10538,11 @@
           "members": [
             {
               "type": "SYMBOL",
-              "name": "_identifier"
+              "name": "_lowercase_identifier"
             },
             {
               "type": "SYMBOL",
-              "name": "_capitalized_identifier"
+              "name": "_uppercase_identifier"
             }
           ]
         }
@@ -10526,11 +10560,11 @@
           "members": [
             {
               "type": "SYMBOL",
-              "name": "_identifier"
+              "name": "_lowercase_identifier"
             },
             {
               "type": "SYMBOL",
-              "name": "_capitalized_identifier"
+              "name": "_uppercase_identifier"
             }
           ]
         }
@@ -10548,11 +10582,11 @@
           "members": [
             {
               "type": "SYMBOL",
-              "name": "_identifier"
+              "name": "_lowercase_identifier"
             },
             {
               "type": "SYMBOL",
-              "name": "_capitalized_identifier"
+              "name": "_uppercase_identifier"
             }
           ]
         }
@@ -10566,11 +10600,11 @@
           "members": [
             {
               "type": "SYMBOL",
-              "name": "_identifier"
+              "name": "_lowercase_identifier"
             },
             {
               "type": "SYMBOL",
-              "name": "_capitalized_identifier"
+              "name": "_uppercase_identifier"
             }
           ]
         },
@@ -10588,11 +10622,11 @@
                 "members": [
                   {
                     "type": "SYMBOL",
-                    "name": "_identifier"
+                    "name": "_lowercase_identifier"
                   },
                   {
                     "type": "SYMBOL",
-                    "name": "_capitalized_identifier"
+                    "name": "_uppercase_identifier"
                   }
                 ]
               }
@@ -10685,6 +10719,7 @@
     "_expression",
     "_sequence_expression",
     "_simple_pattern",
+    "_effect_pattern",
     "_pattern",
     "_binding_pattern",
     "_constant",

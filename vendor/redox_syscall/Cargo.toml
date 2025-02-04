@@ -10,9 +10,9 @@
 # See Cargo.toml.orig for the original contents.
 
 [package]
-edition = "2018"
+edition = "2021"
 name = "redox_syscall"
-version = "0.5.2"
+version = "0.5.8"
 authors = ["Jeremy Soller <jackpot51@gmail.com>"]
 build = false
 autobins = false
@@ -38,8 +38,13 @@ optional = true
 package = "rustc-std-workspace-core"
 
 [features]
+default = ["userspace"]
 rustc-dep-of-std = [
     "core",
     "bitflags/rustc-dep-of-std",
 ]
 std = []
+userspace = []
+
+[target."cfg(loom)".dev-dependencies.loom]
+version = "0.7"

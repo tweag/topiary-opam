@@ -65,26 +65,6 @@ fn eof_on_strs() {
     assert_parse!(res_over, Ok((is_over, is_over)));
 }
 
-#[test]
-fn rest_on_slices() {
-    let input: &[u8] = &b"Hello, world!"[..];
-    let empty: &[u8] = &b""[..];
-    assert_parse!(rest.parse_peek(input), Ok((empty, input)));
-}
-
-#[test]
-fn rest_on_strs() {
-    let input: &str = "Hello, world!";
-    let empty: &str = "";
-    assert_parse!(rest.parse_peek(input), Ok((empty, input)));
-}
-
-#[test]
-fn rest_len_on_slices() {
-    let input: &[u8] = &b"Hello, world!"[..];
-    assert_parse!(rest_len.parse_peek(input), Ok((input, input.len())));
-}
-
 use crate::lib::std::convert::From;
 impl From<u32> for CustomError {
     fn from(_: u32) -> Self {
@@ -530,27 +510,26 @@ fn alt_test() {
     #[cfg(feature = "alloc")]
     impl From<u32> for ErrorStr {
         fn from(i: u32) -> Self {
-            ErrorStr(format!("custom error code: {}", i))
+            ErrorStr(format!("custom error code: {i}"))
         }
     }
 
     #[cfg(feature = "alloc")]
     impl<'a> From<&'a str> for ErrorStr {
         fn from(i: &'a str) -> Self {
-            ErrorStr(format!("custom error message: {}", i))
+            ErrorStr(format!("custom error message: {i}"))
         }
     }
 
     #[cfg(feature = "alloc")]
     impl<I: Stream + Debug> ParserError<I> for ErrorStr {
         fn from_error_kind(input: &I, kind: ErrorKind) -> Self {
-            ErrorStr(format!("custom error message: ({:?}, {:?})", input, kind))
+            ErrorStr(format!("custom error message: ({input:?}, {kind:?})"))
         }
 
         fn append(self, input: &I, _: &<I as Stream>::Checkpoint, kind: ErrorKind) -> Self {
             ErrorStr(format!(
-                "custom error message: ({:?}, {:?}) - {:?}",
-                input, kind, self
+                "custom error message: ({input:?}, {kind:?}) - {self:?}"
             ))
         }
     }
@@ -1046,7 +1025,7 @@ fn repeat_till_range_test() {
 #[cfg(feature = "std")]
 fn infinite_many() {
     fn tst(input: &[u8]) -> IResult<&[u8], &[u8]> {
-        println!("input: {:?}", input);
+        println!("input: {input:?}");
         Err(ErrMode::Backtrack(error_position!(&input, ErrorKind::Tag)))
     }
 
@@ -1297,7 +1276,7 @@ fn fold_repeat1_test() {
         multi(Partial::new(c)),
         Err(ErrMode::Backtrack(error_position!(
             &Partial::new(c),
-            ErrorKind::Many
+            ErrorKind::Tag
         )))
     );
     assert_eq!(

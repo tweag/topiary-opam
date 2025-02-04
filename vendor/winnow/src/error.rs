@@ -30,20 +30,7 @@ use crate::stream::Stream;
 #[allow(unused_imports)] // Here for intra-doc links
 use crate::Parser;
 
-/// For use with [`Parser::parse_peek`] which allows the input stream to be threaded through a
-/// parser.
-///
-/// - `Ok((I, O))` is the remaining [input][crate::stream] and the parsed value
-/// - [`Err(ErrMode<E>)`][ErrMode] is the error along with how to respond to it
-///
-/// By default, the error type (`E`) is [`InputError`]
-///
-/// When integrating into the result of the application, see
-/// - [`Parser::parse`]
-/// - [`ErrMode::into_inner`]
-pub type IResult<I, O, E = InputError<I>> = PResult<(I, O), E>;
-
-/// For use with [`Parser::parse_next`]
+/// [Modal error reporting][ErrMode] for [`Parser::parse_next`]
 ///
 /// - `Ok(O)` is the parsed value
 /// - [`Err(ErrMode<E>)`][ErrMode] is the error along with how to respond to it
@@ -53,18 +40,31 @@ pub type IResult<I, O, E = InputError<I>> = PResult<(I, O), E>;
 /// When integrating into the result of the application, see
 /// - [`Parser::parse`]
 /// - [`ErrMode::into_inner`]
-pub type PResult<O, E = ContextError> = Result<O, ErrMode<E>>;
+pub type ModalResult<O, E = ContextError> = Result<O, ErrMode<E>>;
+
+/// Deprecated, replaced with [`ModalResult`]
+#[deprecated(since = "0.6.25", note = "Replaced with ModalResult")]
+pub type PResult<O, E = ContextError> = ModalResult<O, E>;
+
+/// Deprecated, replaced with [`PResult`]
+#[deprecated(since = "0.6.25", note = "Replaced with `ModalResult`")]
+pub type IResult<I, O, E = InputError<I>> = ModalResult<(I, O), E>;
 
 /// Contains information on needed data if a parser returned `Incomplete`
 ///
+/// <div class="warning">
+///
 /// **Note:** This is only possible for `Stream` that are [partial][`crate::stream::StreamIsPartial`],
 /// like [`Partial`][crate::Partial].
+///
+/// </div>
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-#[cfg_attr(nightly, warn(rustdoc::missing_doc_code_examples))]
 pub enum Needed {
     /// Needs more data, but we do not know how much
     Unknown,
-    /// Contains the required data size in bytes
+    /// Contains a lower bound on the buffer offset needed to finish parsing
+    ///
+    /// For byte/`&str` streams, this translates to bytes
     Size(NonZeroUsize),
 }
 
@@ -94,7 +94,6 @@ impl Needed {
 
 /// Add parse error state to [`ParserError`]s
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(nightly, warn(rustdoc::missing_doc_code_examples))]
 pub enum ErrMode<E> {
     /// There was not enough data to determine the appropriate action
     ///
@@ -168,7 +167,6 @@ impl<E> ErrMode<E> {
     /// Unwrap the mode, returning the underlying error
     ///
     /// Returns `None` for [`ErrMode::Incomplete`]
-    #[cfg_attr(debug_assertions, track_caller)]
     #[inline(always)]
     pub fn into_inner(self) -> Option<E> {
         match self {
@@ -184,7 +182,6 @@ impl<I: Stream, E: ParserError<I>> ParserError<I> for ErrMode<E> {
         ErrMode::Backtrack(E::from_error_kind(input, kind))
     }
 
-    #[cfg_attr(debug_assertions, track_caller)]
     #[inline(always)]
     fn assert(input: &I, message: &'static str) -> Self
     where
@@ -255,10 +252,10 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ErrMode::Incomplete(Needed::Size(u)) => write!(f, "Parsing requires {} bytes/chars", u),
+            ErrMode::Incomplete(Needed::Size(u)) => write!(f, "Parsing requires {u} more data"),
             ErrMode::Incomplete(Needed::Unknown) => write!(f, "Parsing requires more data"),
-            ErrMode::Cut(c) => write!(f, "Parsing Failure: {:?}", c),
-            ErrMode::Backtrack(c) => write!(f, "Parsing Error: {:?}", c),
+            ErrMode::Cut(c) => write!(f, "Parsing Failure: {c:?}"),
+            ErrMode::Backtrack(c) => write!(f, "Parsing Error: {c:?}"),
         }
     }
 }
@@ -272,13 +269,13 @@ pub trait ParserError<I: Stream>: Sized {
     fn from_error_kind(input: &I, kind: ErrorKind) -> Self;
 
     /// Process a parser assertion
-    #[cfg_attr(debug_assertions, track_caller)]
+    #[inline(always)]
     fn assert(input: &I, _message: &'static str) -> Self
     where
         I: crate::lib::std::fmt::Debug,
     {
         #[cfg(debug_assertions)]
-        panic!("assert `{}` failed at {:#?}", _message, input);
+        panic!("assert `{_message}` failed at {input:#?}");
         #[cfg(not(debug_assertions))]
         Self::from_error_kind(input, ErrorKind::Assert)
     }
@@ -350,8 +347,12 @@ pub trait ErrorConvert<E> {
 /// This is useful for testing of generic parsers to ensure the error happens at the right
 /// location.
 ///
+/// <div class="warning">
+///
 /// **Note:** [context][Parser::context] and inner errors (like from [`Parser::try_map`]) will be
 /// dropped.
+///
+/// </div>
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct InputError<I: Clone> {
     /// The input stream, pointing to the location where the error occurred
@@ -378,7 +379,7 @@ impl<I: Clone> InputError<I> {
 }
 
 #[cfg(feature = "alloc")]
-impl<'i, I: ToOwned> InputError<&'i I>
+impl<I: ToOwned> InputError<&I>
 where
     <I as ToOwned>::Owned: Clone,
 {
@@ -683,7 +684,7 @@ impl crate::lib::std::fmt::Display for ContextError<StrContext> {
             if let Some(expression) = expression {
                 newline = true;
 
-                write!(f, "invalid {}", expression)?;
+                write!(f, "invalid {expression}")?;
             }
 
             if !expected.is_empty() {
@@ -697,7 +698,7 @@ impl crate::lib::std::fmt::Display for ContextError<StrContext> {
                     if i != 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", expected)?;
+                    write!(f, "{expected}")?;
                 }
             }
             #[cfg(feature = "std")]
@@ -706,7 +707,7 @@ impl crate::lib::std::fmt::Display for ContextError<StrContext> {
                     if newline {
                         writeln!(f)?;
                     }
-                    write!(f, "{}", cause)?;
+                    write!(f, "{cause}")?;
                 }
             }
         }
@@ -775,9 +776,9 @@ impl crate::lib::std::fmt::Display for StrContextValue {
             Self::CharLiteral(c) if c.is_ascii_control() => {
                 write!(f, "`{}`", c.escape_debug())
             }
-            Self::CharLiteral(c) => write!(f, "`{}`", c),
-            Self::StringLiteral(c) => write!(f, "`{}`", c),
-            Self::Description(c) => write!(f, "{}", c),
+            Self::CharLiteral(c) => write!(f, "`{c}`"),
+            Self::StringLiteral(c) => write!(f, "`{c}`"),
+            Self::Description(c) => write!(f, "{c}"),
         }
     }
 }
@@ -1148,7 +1149,7 @@ impl<I, E> FromExternalError<I, E> for ErrorKind {
 /// The Display implementation allows the `std::error::Error` implementation
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "error {:?}", self)
+        write!(f, "error {self:?}")
     }
 }
 
@@ -1184,8 +1185,12 @@ impl<I, E> ParseError<I, E> {
 
     /// The location in [`ParseError::input`] where parsing failed
     ///
+    /// <div class="warning">
+    ///
     /// **Note:** This is an offset, not an index, and may point to the end of input
     /// (`input.len()`) on eof errors.
+    ///
+    /// </div>
     #[inline]
     pub fn offset(&self) -> usize {
         self.offset
@@ -1224,7 +1229,7 @@ where
                 .nth(line_idx)
                 .expect("valid line number");
 
-            writeln!(f, "parse error at line {}, column {}", line_num, col_num)?;
+            writeln!(f, "parse error at line {line_num}, column {col_num}")?;
             //   |
             for _ in 0..gutter {
                 write!(f, " ")?;
@@ -1232,7 +1237,7 @@ where
             writeln!(f, " |")?;
 
             // 1 | 00:32:00.a999999
-            write!(f, "{} | ", line_num)?;
+            write!(f, "{line_num} | ")?;
             writeln!(f, "{}", String::from_utf8_lossy(content))?;
 
             //   |          ^

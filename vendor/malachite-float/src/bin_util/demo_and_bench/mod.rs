@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -12,10 +12,12 @@ pub(crate) fn register(runner: &mut Runner) {
     arithmetic::register(runner);
     basic::register(runner);
     comparison::register(runner);
+    constants::register(runner);
     conversion::register(runner);
 }
 
 mod arithmetic;
 mod basic;
 mod comparison;
+mod constants;
 mod conversion;

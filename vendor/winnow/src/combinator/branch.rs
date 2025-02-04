@@ -37,7 +37,7 @@ pub trait Alt<I, O, E> {
 ///   alt((alpha1, digit1)).parse_peek(input)
 /// };
 ///
-/// // the first parser, alpha1, recognizes the input
+/// // the first parser, alpha1, takes the input
 /// assert_eq!(parser("abc"), Ok(("", "abc")));
 ///
 /// // the first parser returns an error, so alt tries the second one
@@ -48,6 +48,7 @@ pub trait Alt<I, O, E> {
 /// # }
 /// ```
 #[doc(alias = "choice")]
+#[inline(always)]
 pub fn alt<Input: Stream, Output, Error, Alternatives>(
     mut alternatives: Alternatives,
 ) -> impl Parser<Input, Output, Error>
@@ -87,7 +88,7 @@ pub trait Permutation<I, O, E> {
 ///   permutation((alpha1, digit1)).parse_peek(input)
 /// }
 ///
-/// // permutation recognizes alphabetic characters then digit
+/// // permutation takes alphabetic characters then digit
 /// assert_eq!(parser("abc123"), Ok(("", ("abc", "123"))));
 ///
 /// // but also in inverse order
@@ -118,6 +119,7 @@ pub trait Permutation<I, O, E> {
 /// assert_eq!(parser("ab"), Err(ErrMode::Backtrack(InputError::new("b", ErrorKind::Tag))));
 /// ```
 ///
+#[inline(always)]
 pub fn permutation<I: Stream, O, E: ParserError<I>, List: Permutation<I, O, E>>(
     mut l: List,
 ) -> impl Parser<I, O, E> {

@@ -1,3 +1,8 @@
+0.2.17
+------
+- Changed default log level to `INFO`
+
+
 0.2.16
 ------
 - Use `tracing-subscriber`'s `tracing-log` feature to unify log output

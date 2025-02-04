@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -11,17 +11,21 @@ use malachite_base::rounding_modes::RoundingMode::*;
 use malachite_base::test_util::bench::{run_benchmark, BenchmarkType};
 use malachite_base::test_util::generators::common::{GenConfig, GenMode};
 use malachite_base::test_util::runner::Runner;
-use malachite_float::test_util::arithmetic::add::{
-    add_prec_round_naive, add_rational_prec_round_naive,
-};
+use malachite_float::test_util::arithmetic::add::add_prec_round_naive;
+use malachite_float::test_util::arithmetic::sub::sub_rational_prec_round_naive;
 use malachite_float::test_util::arithmetic::sub::{
-    rug_sub, rug_sub_rational, rug_sub_rational_round, rug_sub_round,
+    rug_sub, rug_sub_prec, rug_sub_prec_round, rug_sub_rational, rug_sub_rational_prec,
+    rug_sub_rational_prec_round, rug_sub_rational_round, rug_sub_round,
 };
 use malachite_float::test_util::bench::bucketers::{
     pair_2_pair_float_max_complexity_bucketer, pair_2_pair_float_rational_max_complexity_bucketer,
+    pair_2_quadruple_1_2_3_float_float_primitive_int_max_complexity_bucketer,
+    pair_2_quadruple_1_2_3_float_rational_primitive_int_max_complexity_bucketer,
     pair_2_triple_1_2_float_max_complexity_bucketer,
-    pair_2_triple_1_2_float_rational_max_complexity_bucketer, pair_float_max_complexity_bucketer,
-    pair_float_rational_max_complexity_bucketer,
+    pair_2_triple_1_2_float_rational_max_complexity_bucketer,
+    pair_2_triple_float_float_primitive_int_max_complexity_bucketer,
+    pair_2_triple_float_rational_primitive_int_max_complexity_bucketer,
+    pair_float_max_complexity_bucketer, pair_float_rational_max_complexity_bucketer,
     quadruple_1_2_3_float_float_primitive_int_max_complexity_bucketer,
     quadruple_1_2_3_float_rational_primitive_int_max_complexity_bucketer,
     triple_1_2_float_max_complexity_bucketer, triple_1_2_float_rational_max_complexity_bucketer,
@@ -30,12 +34,21 @@ use malachite_float::test_util::bench::bucketers::{
 };
 use malachite_float::test_util::generators::{
     float_float_rounding_mode_triple_gen_var_1_rm, float_float_rounding_mode_triple_gen_var_2,
-    float_float_unsigned_rounding_mode_quadruple_gen_var_2, float_float_unsigned_triple_gen_var_1,
-    float_pair_gen, float_pair_gen_rm, float_rational_pair_gen, float_rational_pair_gen_rm,
+    float_float_rounding_mode_triple_gen_var_30,
+    float_float_unsigned_rounding_mode_quadruple_gen_var_2,
+    float_float_unsigned_rounding_mode_quadruple_gen_var_2_rm,
+    float_float_unsigned_rounding_mode_quadruple_gen_var_6, float_float_unsigned_triple_gen_var_1,
+    float_float_unsigned_triple_gen_var_1_rm, float_float_unsigned_triple_gen_var_2,
+    float_pair_gen, float_pair_gen_rm, float_pair_gen_var_10, float_rational_pair_gen,
+    float_rational_pair_gen_rm, float_rational_pair_gen_var_2,
     float_rational_rounding_mode_triple_gen_var_2,
     float_rational_rounding_mode_triple_gen_var_3_rm,
+    float_rational_rounding_mode_triple_gen_var_8,
     float_rational_unsigned_rounding_mode_quadruple_gen_var_2,
-    float_rational_unsigned_triple_gen_var_1,
+    float_rational_unsigned_rounding_mode_quadruple_gen_var_2_rm,
+    float_rational_unsigned_rounding_mode_quadruple_gen_var_7,
+    float_rational_unsigned_triple_gen_var_1, float_rational_unsigned_triple_gen_var_1_rm,
+    float_rational_unsigned_triple_gen_var_2,
 };
 use malachite_float::{ComparableFloat, ComparableFloatRef};
 use std::cmp::max;
@@ -43,6 +56,8 @@ use std::cmp::max;
 pub(crate) fn register(runner: &mut Runner) {
     register_demo!(runner, demo_float_sub);
     register_demo!(runner, demo_float_sub_debug);
+    register_demo!(runner, demo_float_sub_extreme);
+    register_demo!(runner, demo_float_sub_extreme_debug);
     register_demo!(runner, demo_float_sub_val_ref);
     register_demo!(runner, demo_float_sub_val_ref_debug);
     register_demo!(runner, demo_float_sub_ref_val);
@@ -55,6 +70,8 @@ pub(crate) fn register(runner: &mut Runner) {
     register_demo!(runner, demo_float_sub_assign_ref_debug);
     register_demo!(runner, demo_float_sub_prec);
     register_demo!(runner, demo_float_sub_prec_debug);
+    register_demo!(runner, demo_float_sub_prec_extreme);
+    register_demo!(runner, demo_float_sub_prec_extreme_debug);
     register_demo!(runner, demo_float_sub_prec_val_ref);
     register_demo!(runner, demo_float_sub_prec_val_ref_debug);
     register_demo!(runner, demo_float_sub_prec_ref_val);
@@ -67,6 +84,8 @@ pub(crate) fn register(runner: &mut Runner) {
     register_demo!(runner, demo_float_sub_prec_assign_ref_debug);
     register_demo!(runner, demo_float_sub_round);
     register_demo!(runner, demo_float_sub_round_debug);
+    register_demo!(runner, demo_float_sub_round_extreme);
+    register_demo!(runner, demo_float_sub_round_extreme_debug);
     register_demo!(runner, demo_float_sub_round_val_ref);
     register_demo!(runner, demo_float_sub_round_val_ref_debug);
     register_demo!(runner, demo_float_sub_round_ref_val);
@@ -79,6 +98,8 @@ pub(crate) fn register(runner: &mut Runner) {
     register_demo!(runner, demo_float_sub_round_assign_ref_debug);
     register_demo!(runner, demo_float_sub_prec_round);
     register_demo!(runner, demo_float_sub_prec_round_debug);
+    register_demo!(runner, demo_float_sub_prec_round_extreme);
+    register_demo!(runner, demo_float_sub_prec_round_extreme_debug);
     register_demo!(runner, demo_float_sub_prec_round_val_ref);
     register_demo!(runner, demo_float_sub_prec_round_val_ref_debug);
     register_demo!(runner, demo_float_sub_prec_round_ref_val);
@@ -91,6 +112,8 @@ pub(crate) fn register(runner: &mut Runner) {
     register_demo!(runner, demo_float_sub_prec_round_assign_ref_debug);
     register_demo!(runner, demo_float_sub_rational);
     register_demo!(runner, demo_float_sub_rational_debug);
+    register_demo!(runner, demo_float_sub_rational_extreme);
+    register_demo!(runner, demo_float_sub_rational_extreme_debug);
     register_demo!(runner, demo_float_sub_rational_val_ref);
     register_demo!(runner, demo_float_sub_rational_val_ref_debug);
     register_demo!(runner, demo_float_sub_rational_ref_val);
@@ -103,6 +126,8 @@ pub(crate) fn register(runner: &mut Runner) {
     register_demo!(runner, demo_float_sub_rational_assign_ref_debug);
     register_demo!(runner, demo_rational_sub_float);
     register_demo!(runner, demo_rational_sub_float_debug);
+    register_demo!(runner, demo_rational_sub_float_extreme);
+    register_demo!(runner, demo_rational_sub_float_extreme_debug);
     register_demo!(runner, demo_rational_sub_float_val_ref);
     register_demo!(runner, demo_rational_sub_float_val_ref_debug);
     register_demo!(runner, demo_rational_sub_float_ref_val);
@@ -111,6 +136,8 @@ pub(crate) fn register(runner: &mut Runner) {
     register_demo!(runner, demo_rational_sub_float_ref_ref_debug);
     register_demo!(runner, demo_float_sub_rational_prec);
     register_demo!(runner, demo_float_sub_rational_prec_debug);
+    register_demo!(runner, demo_float_sub_rational_prec_extreme);
+    register_demo!(runner, demo_float_sub_rational_prec_extreme_debug);
     register_demo!(runner, demo_float_sub_rational_prec_val_ref);
     register_demo!(runner, demo_float_sub_rational_prec_val_ref_debug);
     register_demo!(runner, demo_float_sub_rational_prec_ref_val);
@@ -123,6 +150,8 @@ pub(crate) fn register(runner: &mut Runner) {
     register_demo!(runner, demo_float_sub_rational_prec_assign_ref_debug);
     register_demo!(runner, demo_float_sub_rational_round);
     register_demo!(runner, demo_float_sub_rational_round_debug);
+    register_demo!(runner, demo_float_sub_rational_round_extreme);
+    register_demo!(runner, demo_float_sub_rational_round_extreme_debug);
     register_demo!(runner, demo_float_sub_rational_round_val_ref);
     register_demo!(runner, demo_float_sub_rational_round_val_ref_debug);
     register_demo!(runner, demo_float_sub_rational_round_ref_val);
@@ -135,6 +164,8 @@ pub(crate) fn register(runner: &mut Runner) {
     register_demo!(runner, demo_float_sub_rational_round_assign_ref_debug);
     register_demo!(runner, demo_float_sub_rational_prec_round);
     register_demo!(runner, demo_float_sub_rational_prec_round_debug);
+    register_demo!(runner, demo_float_sub_rational_prec_round_extreme);
+    register_demo!(runner, demo_float_sub_rational_prec_round_extreme_debug);
     register_demo!(runner, demo_float_sub_rational_prec_round_val_ref);
     register_demo!(runner, demo_float_sub_rational_prec_round_val_ref_debug);
     register_demo!(runner, demo_float_sub_rational_prec_round_ref_val);
@@ -151,6 +182,7 @@ pub(crate) fn register(runner: &mut Runner) {
     register_bench!(runner, benchmark_float_sub_algorithms);
     register_bench!(runner, benchmark_float_sub_assign_evaluation_strategy);
     register_bench!(runner, benchmark_float_sub_prec_evaluation_strategy);
+    register_bench!(runner, benchmark_float_sub_prec_library_comparison);
     register_bench!(runner, benchmark_float_sub_prec_algorithms);
     register_bench!(runner, benchmark_float_sub_prec_assign_evaluation_strategy);
     register_bench!(runner, benchmark_float_sub_round_evaluation_strategy);
@@ -158,6 +190,7 @@ pub(crate) fn register(runner: &mut Runner) {
     register_bench!(runner, benchmark_float_sub_round_algorithms);
     register_bench!(runner, benchmark_float_sub_round_assign_evaluation_strategy);
     register_bench!(runner, benchmark_float_sub_prec_round_evaluation_strategy);
+    register_bench!(runner, benchmark_float_sub_prec_round_library_comparison);
     register_bench!(runner, benchmark_float_sub_prec_round_algorithms);
     register_bench!(
         runner,
@@ -176,6 +209,7 @@ pub(crate) fn register(runner: &mut Runner) {
         runner,
         benchmark_float_sub_rational_prec_evaluation_strategy
     );
+    register_bench!(runner, benchmark_float_sub_rational_prec_library_comparison);
     register_bench!(runner, benchmark_float_sub_rational_prec_algorithms);
     register_bench!(
         runner,
@@ -198,6 +232,10 @@ pub(crate) fn register(runner: &mut Runner) {
         runner,
         benchmark_float_sub_rational_prec_round_evaluation_strategy
     );
+    register_bench!(
+        runner,
+        benchmark_float_sub_rational_prec_round_library_comparison
+    );
     register_bench!(runner, benchmark_float_sub_rational_prec_round_algorithms);
     register_bench!(
         runner,
@@ -215,6 +253,27 @@ fn demo_float_sub(gm: GenMode, config: &GenConfig, limit: usize) {
 
 fn demo_float_sub_debug(gm: GenMode, config: &GenConfig, limit: usize) {
     for (x, y) in float_pair_gen().get(gm, config).take(limit) {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        println!(
+            "{:#x} - {:#x} = {:#x}",
+            ComparableFloat(x_old),
+            ComparableFloat(y_old),
+            ComparableFloat(x - y)
+        );
+    }
+}
+
+fn demo_float_sub_extreme(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y) in float_pair_gen_var_10().get(gm, config).take(limit) {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        println!("{} - {} = {}", x_old, y_old, x - y);
+    }
+}
+
+fn demo_float_sub_extreme_debug(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y) in float_pair_gen_var_10().get(gm, config).take(limit) {
         let x_old = x.clone();
         let y_old = y.clone();
         println!(
@@ -342,6 +401,42 @@ fn demo_float_sub_prec(gm: GenMode, config: &GenConfig, limit: usize) {
 
 fn demo_float_sub_prec_debug(gm: GenMode, config: &GenConfig, limit: usize) {
     for (x, y, prec) in float_float_unsigned_triple_gen_var_1()
+        .get(gm, config)
+        .take(limit)
+    {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        let (diff, o) = x.sub_prec(y, prec);
+        println!(
+            "({:#x}).sub_prec({:#x}, {}) = ({:#x}, {:?})",
+            ComparableFloat(x_old),
+            ComparableFloat(y_old),
+            prec,
+            ComparableFloat(diff),
+            o
+        );
+    }
+}
+
+fn demo_float_sub_prec_extreme(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y, prec) in float_float_unsigned_triple_gen_var_2()
+        .get(gm, config)
+        .take(limit)
+    {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        println!(
+            "({}).sub_prec({}, {}) = {:?}",
+            x_old,
+            y_old,
+            prec,
+            x.sub_prec(y, prec)
+        );
+    }
+}
+
+fn demo_float_sub_prec_extreme_debug(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y, prec) in float_float_unsigned_triple_gen_var_2()
         .get(gm, config)
         .take(limit)
     {
@@ -538,6 +633,42 @@ fn demo_float_sub_round(gm: GenMode, config: &GenConfig, limit: usize) {
 
 fn demo_float_sub_round_debug(gm: GenMode, config: &GenConfig, limit: usize) {
     for (x, y, rm) in float_float_rounding_mode_triple_gen_var_2()
+        .get(gm, config)
+        .take(limit)
+    {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        let (diff, o) = x.sub_round(y, rm);
+        println!(
+            "({:#x}).sub_round({:#x}, {}) = ({:#x}, {:?})",
+            ComparableFloat(x_old),
+            ComparableFloat(y_old),
+            rm,
+            ComparableFloat(diff),
+            o
+        );
+    }
+}
+
+fn demo_float_sub_round_extreme(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y, rm) in float_float_rounding_mode_triple_gen_var_30()
+        .get(gm, config)
+        .take(limit)
+    {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        println!(
+            "({}).sub_round({}, {}) = {:?}",
+            x_old,
+            y_old,
+            rm,
+            x.sub_round(y, rm)
+        );
+    }
+}
+
+fn demo_float_sub_round_extreme_debug(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y, rm) in float_float_rounding_mode_triple_gen_var_30()
         .get(gm, config)
         .take(limit)
     {
@@ -753,6 +884,44 @@ fn demo_float_sub_prec_round_debug(gm: GenMode, config: &GenConfig, limit: usize
     }
 }
 
+fn demo_float_sub_prec_round_extreme(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y, prec, rm) in float_float_unsigned_rounding_mode_quadruple_gen_var_6()
+        .get(gm, config)
+        .take(limit)
+    {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        println!(
+            "({}).sub_prec_round({}, {}, {}) = {:?}",
+            x_old,
+            y_old,
+            prec,
+            rm,
+            x.sub_prec_round(y, prec, rm)
+        );
+    }
+}
+
+fn demo_float_sub_prec_round_extreme_debug(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y, prec, rm) in float_float_unsigned_rounding_mode_quadruple_gen_var_6()
+        .get(gm, config)
+        .take(limit)
+    {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        let (diff, o) = x.sub_prec_round(y, prec, rm);
+        println!(
+            "({:#x}).sub_prec_round({:#x}, {}, {}) = ({:#x}, {:?})",
+            ComparableFloat(x_old),
+            ComparableFloat(y_old),
+            prec,
+            rm,
+            ComparableFloat(diff),
+            o
+        );
+    }
+}
+
 fn demo_float_sub_prec_round_val_ref(gm: GenMode, config: &GenConfig, limit: usize) {
     for (x, y, prec, rm) in float_float_unsigned_rounding_mode_quadruple_gen_var_2()
         .get(gm, config)
@@ -942,6 +1111,27 @@ fn demo_float_sub_rational_debug(gm: GenMode, config: &GenConfig, limit: usize) 
     }
 }
 
+fn demo_float_sub_rational_extreme(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y) in float_rational_pair_gen_var_2().get(gm, config).take(limit) {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        println!("{} - {} = {}", x_old, y_old, x - y);
+    }
+}
+
+fn demo_float_sub_rational_extreme_debug(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y) in float_rational_pair_gen_var_2().get(gm, config).take(limit) {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        println!(
+            "{:#x} - {} = {:#x}",
+            ComparableFloat(x_old),
+            y_old,
+            ComparableFloat(x - y)
+        );
+    }
+}
+
 fn demo_float_sub_rational_val_ref(gm: GenMode, config: &GenConfig, limit: usize) {
     for (x, y) in float_rational_pair_gen().get(gm, config).take(limit) {
         let x_old = x.clone();
@@ -1060,6 +1250,27 @@ fn demo_rational_sub_float_debug(gm: GenMode, config: &GenConfig, limit: usize) 
     }
 }
 
+fn demo_rational_sub_float_extreme(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (y, x) in float_rational_pair_gen_var_2().get(gm, config).take(limit) {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        println!("{} - {} = {}", x_old, y_old, x - y);
+    }
+}
+
+fn demo_rational_sub_float_extreme_debug(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (y, x) in float_rational_pair_gen_var_2().get(gm, config).take(limit) {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        println!(
+            "{} - {:#x} = {:#x}",
+            x_old,
+            ComparableFloat(y_old),
+            ComparableFloat(x - y)
+        );
+    }
+}
+
 fn demo_rational_sub_float_val_ref(gm: GenMode, config: &GenConfig, limit: usize) {
     for (y, x) in float_rational_pair_gen().get(gm, config).take(limit) {
         let x_old = x.clone();
@@ -1134,6 +1345,42 @@ fn demo_float_sub_rational_prec(gm: GenMode, config: &GenConfig, limit: usize) {
 
 fn demo_float_sub_rational_prec_debug(gm: GenMode, config: &GenConfig, limit: usize) {
     for (x, y, prec) in float_rational_unsigned_triple_gen_var_1()
+        .get(gm, config)
+        .take(limit)
+    {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        let (diff, o) = x.sub_rational_prec(y, prec);
+        println!(
+            "({:#x}).sub_rational_prec({}, {}) = ({:#x}, {:?})",
+            ComparableFloat(x_old),
+            y_old,
+            prec,
+            ComparableFloat(diff),
+            o
+        );
+    }
+}
+
+fn demo_float_sub_rational_prec_extreme(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y, prec) in float_rational_unsigned_triple_gen_var_2()
+        .get(gm, config)
+        .take(limit)
+    {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        println!(
+            "({}).sub_rational_prec({}, {}) = {:?}",
+            x_old,
+            y_old,
+            prec,
+            x.sub_rational_prec(y, prec)
+        );
+    }
+}
+
+fn demo_float_sub_rational_prec_extreme_debug(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y, prec) in float_rational_unsigned_triple_gen_var_2()
         .get(gm, config)
         .take(limit)
     {
@@ -1347,6 +1594,42 @@ fn demo_float_sub_rational_round_debug(gm: GenMode, config: &GenConfig, limit: u
     }
 }
 
+fn demo_float_sub_rational_round_extreme(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y, rm) in float_rational_rounding_mode_triple_gen_var_8()
+        .get(gm, config)
+        .take(limit)
+    {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        println!(
+            "({}).sub_rational_round({}, {}) = {:?}",
+            x_old,
+            y_old,
+            rm,
+            x.sub_rational_round(y, rm)
+        );
+    }
+}
+
+fn demo_float_sub_rational_round_extreme_debug(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y, rm) in float_rational_rounding_mode_triple_gen_var_8()
+        .get(gm, config)
+        .take(limit)
+    {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        let (diff, o) = x.sub_rational_round(y, rm);
+        println!(
+            "({:#x}).sub_rational_round({}, {}) = ({:#x}, {:?})",
+            ComparableFloat(x_old),
+            y_old,
+            rm,
+            ComparableFloat(diff),
+            o
+        );
+    }
+}
+
 fn demo_float_sub_rational_round_val_ref(gm: GenMode, config: &GenConfig, limit: usize) {
     for (x, y, rm) in float_rational_rounding_mode_triple_gen_var_2()
         .get(gm, config)
@@ -1528,6 +1811,44 @@ fn demo_float_sub_rational_prec_round(gm: GenMode, config: &GenConfig, limit: us
 
 fn demo_float_sub_rational_prec_round_debug(gm: GenMode, config: &GenConfig, limit: usize) {
     for (x, y, prec, rm) in float_rational_unsigned_rounding_mode_quadruple_gen_var_2()
+        .get(gm, config)
+        .take(limit)
+    {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        let (diff, o) = x.sub_rational_prec_round(y, prec, rm);
+        println!(
+            "({:#x}).sub_rational_prec_round({}, {}, {}) = ({:#x}, {:?})",
+            ComparableFloat(x_old),
+            y_old,
+            prec,
+            rm,
+            ComparableFloat(diff),
+            o
+        );
+    }
+}
+
+fn demo_float_sub_rational_prec_round_extreme(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y, prec, rm) in float_rational_unsigned_rounding_mode_quadruple_gen_var_7()
+        .get(gm, config)
+        .take(limit)
+    {
+        let x_old = x.clone();
+        let y_old = y.clone();
+        println!(
+            "({}).sub_rational_prec_round({}, {}, {}) = {:?}",
+            x_old,
+            y_old,
+            prec,
+            rm,
+            x.sub_rational_prec_round(y, prec, rm)
+        );
+    }
+}
+
+fn demo_float_sub_rational_prec_round_extreme_debug(gm: GenMode, config: &GenConfig, limit: usize) {
+    for (x, y, prec, rm) in float_rational_unsigned_rounding_mode_quadruple_gen_var_7()
         .get(gm, config)
         .take(limit)
     {
@@ -1764,8 +2085,8 @@ fn benchmark_float_sub_library_comparison(
         file_name,
         &pair_2_pair_float_max_complexity_bucketer("x", "y"),
         &mut [
-            ("Malachite", &mut |(_, (x, y))| no_out!(x - y)),
-            ("rug", &mut |((x, y), _)| no_out!(rug_sub(x, y))),
+            ("Malachite", &mut |(_, (x, y))| no_out!(&x - &y)),
+            ("rug", &mut |((x, y), _)| no_out!(rug_sub(&x, &y))),
         ],
     );
 }
@@ -1845,6 +2166,31 @@ fn benchmark_float_sub_prec_evaluation_strategy(
                 "(&Float).sub_prec_ref_ref(&Float, u64)",
                 &mut |(x, y, prec)| no_out!(x.sub_prec_ref_ref(&y, prec)),
             ),
+        ],
+    );
+}
+
+fn benchmark_float_sub_prec_library_comparison(
+    gm: GenMode,
+    config: &GenConfig,
+    limit: usize,
+    file_name: &str,
+) {
+    run_benchmark(
+        "Float.sub_prec(Float, u64)",
+        BenchmarkType::LibraryComparison,
+        float_float_unsigned_triple_gen_var_1_rm().get(gm, config),
+        gm.name(),
+        limit,
+        file_name,
+        &pair_2_triple_float_float_primitive_int_max_complexity_bucketer("x", "y", "prec"),
+        &mut [
+            ("Malachite", &mut |(_, (x, y, prec))| {
+                no_out!(x.sub_prec_ref_ref(&y, prec))
+            }),
+            ("rug", &mut |((x, y, prec), _)| {
+                no_out!(rug_sub_prec(&x, &y, prec))
+            }),
         ],
     );
 }
@@ -1952,10 +2298,10 @@ fn benchmark_float_sub_round_library_comparison(
         &pair_2_triple_1_2_float_max_complexity_bucketer("x", "y"),
         &mut [
             ("Malachite", &mut |(_, (x, y, rm))| {
-                no_out!(x.sub_round(y, rm))
+                no_out!(x.sub_round_ref_ref(&y, rm))
             }),
             ("rug", &mut |((x, y, rm), _)| {
-                no_out!(rug_sub_round(x, y, rm))
+                no_out!(rug_sub_round(&x, &y, rm))
             }),
         ],
     );
@@ -2044,6 +2390,31 @@ fn benchmark_float_sub_prec_round_evaluation_strategy(
                 "(&Float).sub_prec_round_ref_ref(&Float, u64, RoundingMode)",
                 &mut |(x, y, prec, rm)| no_out!(x.sub_prec_round_ref_ref(&y, prec, rm)),
             ),
+        ],
+    );
+}
+
+fn benchmark_float_sub_prec_round_library_comparison(
+    gm: GenMode,
+    config: &GenConfig,
+    limit: usize,
+    file_name: &str,
+) {
+    run_benchmark(
+        "Float.sub_prec_round(Float, u64, RoundingMode)",
+        BenchmarkType::LibraryComparison,
+        float_float_unsigned_rounding_mode_quadruple_gen_var_2_rm().get(gm, config),
+        gm.name(),
+        limit,
+        file_name,
+        &pair_2_quadruple_1_2_3_float_float_primitive_int_max_complexity_bucketer("x", "y", "prec"),
+        &mut [
+            ("Malachite", &mut |(_, (x, y, prec, rm))| {
+                no_out!(x.sub_prec_round_ref_ref(&y, prec, rm))
+            }),
+            ("rug", &mut |((x, y, prec, rm), _)| {
+                no_out!(rug_sub_prec_round(&x, &y, prec, rm))
+            }),
         ],
     );
 }
@@ -2140,8 +2511,8 @@ fn benchmark_float_sub_rational_library_comparison(
         file_name,
         &pair_2_pair_float_rational_max_complexity_bucketer("x", "y"),
         &mut [
-            ("Malachite", &mut |(_, (x, y))| no_out!(x - y)),
-            ("rug", &mut |((x, y), _)| no_out!(rug_sub_rational(x, y))),
+            ("Malachite", &mut |(_, (x, y))| no_out!(&x - &y)),
+            ("rug", &mut |((x, y), _)| no_out!(rug_sub_rational(&x, &y))),
         ],
     );
 }
@@ -2166,7 +2537,7 @@ fn benchmark_float_sub_rational_algorithms(
             ("naive", &mut |(x, y)| {
                 let xsb = x.significant_bits();
                 let ysb = y.significant_bits();
-                no_out!(add_rational_prec_round_naive(x, -y, max(xsb, ysb), Nearest).0)
+                no_out!(sub_rational_prec_round_naive(x, y, max(xsb, ysb), Nearest).0)
             }),
         ],
     );
@@ -2233,8 +2604,8 @@ fn benchmark_rational_sub_float_library_comparison(
         file_name,
         &pair_2_pair_float_rational_max_complexity_bucketer("x", "y"),
         &mut [
-            ("Malachite", &mut |(_, (y, x))| no_out!(x - y)),
-            ("rug", &mut |((y, x), _)| no_out!(-rug_sub_rational(y, x))),
+            ("Malachite", &mut |(_, (y, x))| no_out!(&x - &y)),
+            ("rug", &mut |((y, x), _)| no_out!(-rug_sub_rational(&y, &x))),
         ],
     );
 }
@@ -2274,6 +2645,31 @@ fn benchmark_float_sub_rational_prec_evaluation_strategy(
     );
 }
 
+fn benchmark_float_sub_rational_prec_library_comparison(
+    gm: GenMode,
+    config: &GenConfig,
+    limit: usize,
+    file_name: &str,
+) {
+    run_benchmark(
+        "Float.sub_rational_prec(Rational, u64)",
+        BenchmarkType::LibraryComparison,
+        float_rational_unsigned_triple_gen_var_1_rm().get(gm, config),
+        gm.name(),
+        limit,
+        file_name,
+        &pair_2_triple_float_rational_primitive_int_max_complexity_bucketer("x", "y", "prec"),
+        &mut [
+            ("Malachite", &mut |(_, (x, y, prec))| {
+                no_out!(x.sub_rational_prec_ref_ref(&y, prec))
+            }),
+            ("rug", &mut |((x, y, prec), _)| {
+                no_out!(rug_sub_rational_prec(&x, &y, prec))
+            }),
+        ],
+    );
+}
+
 fn benchmark_float_sub_rational_prec_algorithms(
     gm: GenMode,
     config: &GenConfig,
@@ -2293,7 +2689,7 @@ fn benchmark_float_sub_rational_prec_algorithms(
                 no_out!(x.sub_rational_prec(y, prec))
             }),
             ("naive", &mut |(x, y, prec)| {
-                no_out!(add_rational_prec_round_naive(x, -y, prec, Nearest))
+                no_out!(sub_rational_prec_round_naive(x, y, prec, Nearest))
             }),
         ],
     );
@@ -2377,10 +2773,10 @@ fn benchmark_float_sub_rational_round_library_comparison(
         &pair_2_triple_1_2_float_rational_max_complexity_bucketer("x", "y"),
         &mut [
             ("Malachite", &mut |(_, (x, y, rm))| {
-                no_out!(x.sub_rational_round(y, rm))
+                no_out!(x.sub_rational_round_ref_ref(&y, rm))
             }),
             ("rug", &mut |((x, y, rm), _)| {
-                no_out!(rug_sub_rational_round(x, y, rm))
+                no_out!(rug_sub_rational_round(&x, &y, rm))
             }),
         ],
     );
@@ -2406,7 +2802,7 @@ fn benchmark_float_sub_rational_round_algorithms(
             }),
             ("naive", &mut |(x, y, rm)| {
                 let ysb = y.significant_bits();
-                add_rational_prec_round_naive(x, -y, ysb, rm);
+                sub_rational_prec_round_naive(x, y, ysb, rm);
             }),
         ],
     );
@@ -2474,6 +2870,33 @@ fn benchmark_float_sub_rational_prec_round_evaluation_strategy(
     );
 }
 
+fn benchmark_float_sub_rational_prec_round_library_comparison(
+    gm: GenMode,
+    config: &GenConfig,
+    limit: usize,
+    file_name: &str,
+) {
+    run_benchmark(
+        "Float.sub_rational_prec_round(Rational, u64, RoundingMode)",
+        BenchmarkType::LibraryComparison,
+        float_rational_unsigned_rounding_mode_quadruple_gen_var_2_rm().get(gm, config),
+        gm.name(),
+        limit,
+        file_name,
+        &pair_2_quadruple_1_2_3_float_rational_primitive_int_max_complexity_bucketer(
+            "x", "y", "prec",
+        ),
+        &mut [
+            ("Malachite", &mut |(_, (x, y, prec, rm))| {
+                no_out!(x.sub_rational_prec_round_ref_ref(&y, prec, rm))
+            }),
+            ("rug", &mut |((x, y, prec, rm), _)| {
+                no_out!(rug_sub_rational_prec_round(&x, &y, prec, rm))
+            }),
+        ],
+    );
+}
+
 fn benchmark_float_sub_rational_prec_round_algorithms(
     gm: GenMode,
     config: &GenConfig,
@@ -2493,7 +2916,7 @@ fn benchmark_float_sub_rational_prec_round_algorithms(
                 no_out!(x.sub_rational_prec_round(y, prec, rm))
             }),
             ("naive", &mut |(x, y, prec, rm)| {
-                no_out!(add_rational_prec_round_naive(x, -y, prec, rm))
+                no_out!(sub_rational_prec_round_naive(x, y, prec, rm))
             }),
         ],
     );

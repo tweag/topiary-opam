@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // Uses code adopted from the GNU MP Library.
 //
@@ -606,7 +606,7 @@ pub_test! {limbs_ceiling_sqrt(xs: &[Limb]) -> Vec<Limb> {
 //
 // $$
 // s = \\begin{cases}
-//     \operatorname{Some}(sqrt{x}) & \sqrt{x} \in \Z \\\\
+//     \operatorname{Some}(\sqrt{x}) & \sqrt{x} \in \Z \\\\
 //     \operatorname{None} & \textrm{otherwise}.
 // \\end{cases}
 // $$
@@ -686,7 +686,7 @@ impl FloorSqrt for Natural {
     }
 }
 
-impl<'a> FloorSqrt for &'a Natural {
+impl FloorSqrt for &Natural {
     type Output = Natural;
 
     /// Returns the floor of the square root of a [`Natural`], taking it by value.
@@ -793,7 +793,7 @@ impl CeilingSqrt for Natural {
     }
 }
 
-impl<'a> CeilingSqrt for &'a Natural {
+impl CeilingSqrt for &Natural {
     type Output = Natural;
 
     /// Returns the ceiling of the square root of a [`Natural`], taking it by value.
@@ -877,7 +877,7 @@ impl CheckedSqrt for Natural {
     ///
     /// $$
     /// f(x) = \\begin{cases}
-    ///     \operatorname{Some}(sqrt{x}) & \text{if} \\quad \sqrt{x} \in \Z, \\\\
+    ///     \operatorname{Some}(\sqrt{x}) & \text{if} \\quad \sqrt{x} \in \Z, \\\\
     ///     \operatorname{None} & \textrm{otherwise}.
     /// \\end{cases}
     /// $$
@@ -923,7 +923,7 @@ impl CheckedSqrt for Natural {
     }
 }
 
-impl<'a> CheckedSqrt for &'a Natural {
+impl CheckedSqrt for &Natural {
     type Output = Natural;
 
     /// Returns the the square root of a [`Natural`], or `None` if it is not a perfect square. The
@@ -931,7 +931,7 @@ impl<'a> CheckedSqrt for &'a Natural {
     ///
     /// $$
     /// f(x) = \\begin{cases}
-    ///     \operatorname{Some}(sqrt{x}) & \text{if} \\quad \sqrt{x} \in \Z, \\\\
+    ///     \operatorname{Some}(\sqrt{x}) & \text{if} \\quad \sqrt{x} \in \Z, \\\\
     ///     \operatorname{None} & \textrm{otherwise}.
     /// \\end{cases}
     /// $$
@@ -1024,7 +1024,7 @@ impl SqrtRem for Natural {
     }
 }
 
-impl<'a> SqrtRem for &'a Natural {
+impl SqrtRem for &Natural {
     type SqrtOutput = Natural;
     type RemOutput = Natural;
 

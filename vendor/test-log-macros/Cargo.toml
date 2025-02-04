@@ -13,15 +13,24 @@
 edition = "2021"
 rust-version = "1.71"
 name = "test-log-macros"
-version = "0.2.16"
+version = "0.2.17"
 authors = ["Daniel Mueller <deso@posteo.net>"]
+build = false
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
 description = """
 Supporting procedural macro crate for test-log.
 """
+readme = false
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/d-e-s-o/test-log.git"
 
 [lib]
+name = "test_log_macros"
+path = "src/lib.rs"
 proc-macro = true
 
 [dependencies.proc-macro2]

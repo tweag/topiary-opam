@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -157,11 +157,11 @@ pub fn weighted_random_bools(
 /// # Examples
 /// ```
 /// use malachite_base::bools::random::get_weighted_random_bool;
-/// use malachite_base::num::random::variable_range_generator;
+/// use malachite_base::num::random::VariableRangeGenerator;
 /// use malachite_base::random::EXAMPLE_SEED;
 ///
 /// assert_eq!(
-///     get_weighted_random_bool(&mut variable_range_generator(EXAMPLE_SEED), 1, 10),
+///     get_weighted_random_bool(&mut VariableRangeGenerator::new(EXAMPLE_SEED), 1, 10),
 ///     false
 /// );
 /// ```

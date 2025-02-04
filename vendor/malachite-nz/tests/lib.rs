@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -67,6 +67,7 @@ extern crate rug;
 pub mod integer {
     pub mod arithmetic {
         pub mod abs;
+        pub mod abs_diff;
         pub mod add;
         pub mod add_mul;
         pub mod binomial_coefficient;
@@ -189,8 +190,12 @@ pub mod integer {
     pub mod random {
         pub mod get_random_integer_from_range_to_infinity;
         pub mod get_random_integer_from_range_to_negative_infinity;
-        pub mod get_uniform_random_integer_in_inclusive_range;
-        pub mod get_uniform_random_integer_in_range;
+        pub mod get_striped_random_integer_from_inclusive_range;
+        pub mod get_striped_random_integer_from_range;
+        pub mod get_striped_random_integer_from_range_to_infinity;
+        pub mod get_striped_random_integer_from_range_to_negative_infinity;
+        pub mod get_uniform_random_integer_from_inclusive_range;
+        pub mod get_uniform_random_integer_from_range;
         pub mod random_integer_inclusive_range;
         pub mod random_integer_range;
         pub mod random_integer_range_to_infinity;
@@ -370,6 +375,8 @@ pub mod natural {
         pub mod get_random_natural_less_than;
         pub mod get_random_natural_with_bits;
         pub mod get_random_natural_with_up_to_bits;
+        pub mod get_striped_random_natural_from_inclusive_range;
+        pub mod get_striped_random_natural_from_range;
         pub mod get_striped_random_natural_with_bits;
         pub mod get_striped_random_natural_with_up_to_bits;
         pub mod random_natural_inclusive_range;

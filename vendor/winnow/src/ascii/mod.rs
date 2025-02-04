@@ -178,12 +178,12 @@ where
     I: FindSlice<(char, char)>,
     <I as Stream>::Token: AsChar + Clone,
 {
-    let res = match take_until::<_, _, ()>(0.., ('\r', '\n')).parse_next(input) {
+    let res = match take_until(0.., ('\r', '\n')).parse_next(input) {
         Ok(slice) => slice,
-        Err(ErrMode::Incomplete(err)) => {
-            return Err(ErrMode::Incomplete(err));
+        Err(ErrMode::Backtrack(_)) => input.finish(),
+        Err(err) => {
+            return Err(err);
         }
-        Err(_) => input.finish(),
     };
     if matches!(input.compare("\r"), CompareResult::Ok(_)) {
         let comp = input.compare("\r\n");
@@ -1132,7 +1132,7 @@ where
 {
     trace("dec_uint", move |input: &mut Input| {
         alt(((one_of('1'..='9'), digit0).void(), one_of('0').void()))
-            .recognize()
+            .take()
             .verify_map(|s: <Input as Stream>::Slice| {
                 let s = s.as_bstr();
                 // SAFETY: Only 7-bit ASCII characters are parsed
@@ -1222,7 +1222,7 @@ where
             _ => fail,
         });
         alt(((sign, one_of('1'..='9'), digit0).void(), one_of('0').void()))
-            .recognize()
+            .take()
             .verify_map(|s: <Input as Stream>::Slice| {
                 let s = s.as_bstr();
                 // SAFETY: Only 7-bit ASCII characters are parsed
@@ -1491,7 +1491,7 @@ where
     Error: ParserError<Input>,
 {
     trace("float", move |input: &mut Input| {
-        let s = recognize_float_or_exceptions(input)?;
+        let s = take_float_or_exceptions(input)?;
         s.parse_slice()
             .ok_or_else(|| ErrMode::from_error_kind(input, ErrorKind::Verify))
     })
@@ -1499,9 +1499,7 @@ where
 }
 
 #[allow(clippy::trait_duplication_in_bounds)] // HACK: clippy 1.64.0 bug
-fn recognize_float_or_exceptions<I, E: ParserError<I>>(
-    input: &mut I,
-) -> PResult<<I as Stream>::Slice, E>
+fn take_float_or_exceptions<I, E: ParserError<I>>(input: &mut I) -> PResult<<I as Stream>::Slice, E>
 where
     I: StreamIsPartial,
     I: Stream,
@@ -1512,24 +1510,24 @@ where
     I: AsBStr,
 {
     alt((
-        recognize_float,
+        take_float,
         crate::token::literal(Caseless("nan")),
         (
             opt(one_of(['+', '-'])),
             crate::token::literal(Caseless("infinity")),
         )
-            .recognize(),
+            .take(),
         (
             opt(one_of(['+', '-'])),
             crate::token::literal(Caseless("inf")),
         )
-            .recognize(),
+            .take(),
     ))
     .parse_next(input)
 }
 
 #[allow(clippy::trait_duplication_in_bounds)] // HACK: clippy 1.64.0 bug
-fn recognize_float<I, E: ParserError<I>>(input: &mut I) -> PResult<<I as Stream>::Slice, E>
+fn take_float<I, E: ParserError<I>>(input: &mut I) -> PResult<<I as Stream>::Slice, E>
 where
     I: StreamIsPartial,
     I: Stream,
@@ -1546,11 +1544,22 @@ where
         )),
         opt((one_of(['e', 'E']), opt(one_of(['+', '-'])), cut_err(digit1))),
     )
-        .recognize()
+        .take()
         .parse_next(input)
 }
 
 /// Recognize the input slice with escaped characters.
+///
+/// Arguments:
+/// - `normal`: unescapeable characters
+///   - Must not include `control`
+/// - `control_char`: e.g. `\` for strings in most languages
+/// - `escape`: parse and transform the escaped character
+///
+/// Parsing ends when:
+/// - `alt(normal, control._char)` [`Backtrack`s][crate::error::ErrMode::Backtrack]
+/// - `normal` doesn't advance the input stream
+/// - *(complete)* input stream is exhausted
 ///
 /// See also [`escaped_transform`]
 ///
@@ -1714,7 +1723,16 @@ where
 
 /// Parse escaped characters, unescaping them
 ///
-/// As an example, the chain `abc\tdef` could be `abc    def` (it also consumes the control character)
+/// Arguments:
+/// - `normal`: unescapeable characters
+///   - Must not include `control`
+/// - `control_char`: e.g. `\` for strings in most languages
+/// - `escape`: parse and transform the escaped character
+///
+/// Parsing ends when:
+/// - `alt(normal, control._char)` [`Backtrack`s][crate::error::ErrMode::Backtrack]
+/// - `normal` doesn't advance the input stream
+/// - *(complete)* input stream is exhausted
 ///
 /// # Example
 ///

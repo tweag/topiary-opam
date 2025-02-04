@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -74,7 +74,7 @@ impl<'a> Lcm<&'a Natural> for Natural {
     }
 }
 
-impl<'a> Lcm<Natural> for &'a Natural {
+impl Lcm<Natural> for &Natural {
     type Output = Natural;
 
     /// Computes the LCM (least common multiple) of two [`Natural`]s, taking the first by reference
@@ -107,7 +107,7 @@ impl<'a> Lcm<Natural> for &'a Natural {
     }
 }
 
-impl<'a, 'b> Lcm<&'a Natural> for &'b Natural {
+impl Lcm<&Natural> for &Natural {
     type Output = Natural;
 
     /// Computes the LCM (least common multiple) of two [`Natural`]s, taking both by reference.
@@ -133,14 +133,14 @@ impl<'a, 'b> Lcm<&'a Natural> for &'b Natural {
     /// assert_eq!((&Natural::from(12u32)).lcm(&Natural::from(90u32)), 180);
     /// ```
     #[inline]
-    fn lcm(self, other: &'a Natural) -> Natural {
+    fn lcm(self, other: &Natural) -> Natural {
         if *self == 0 || *other == 0 {
             return Natural::ZERO;
         }
         let gcd = self.gcd(other);
         // Division is slower than multiplication, so we choose the arguments to div_exact to be as
-        // small as possible. This also allows the special case of lcm(x, y) when gcd(x, y) = y to
-        // be quickly reduced to x.
+        // small as possible. This also allows the special case of lcm(x, y) when x is a multiple of
+        // y to be quickly reduced to x.
         if self >= other {
             self * other.div_exact(gcd)
         } else {

@@ -325,11 +325,7 @@ impl<'data, R: ReadRef<'data>> WasmFile<'data, R> {
                     range.start = range.end - size;
                     file.add_section(SectionId::Custom, range, name);
                     if name == "name" {
-                        let reader = wp::BinaryReader::new(
-                            section.data(),
-                            section.data_offset(),
-                            wp::WasmFeatures::all(),
-                        );
+                        let reader = wp::BinaryReader::new(section.data(), section.data_offset());
                         for name in wp::NameSectionReader::new(reader) {
                             // TODO: Right now, ill-formed name subsections
                             // are silently ignored in order to maintain
@@ -376,16 +372,56 @@ impl<'data, R: ReadRef<'data>> WasmFile<'data, R> {
 impl<'data, R> read::private::Sealed for WasmFile<'data, R> {}
 
 impl<'data, R: ReadRef<'data>> Object<'data> for WasmFile<'data, R> {
-    type Segment<'file> = WasmSegment<'data, 'file, R> where Self: 'file, 'data: 'file;
-    type SegmentIterator<'file> = WasmSegmentIterator<'data, 'file, R> where Self: 'file, 'data: 'file;
-    type Section<'file> = WasmSection<'data, 'file, R> where Self: 'file, 'data: 'file;
-    type SectionIterator<'file> = WasmSectionIterator<'data, 'file, R> where Self: 'file, 'data: 'file;
-    type Comdat<'file> = WasmComdat<'data, 'file, R> where Self: 'file, 'data: 'file;
-    type ComdatIterator<'file> = WasmComdatIterator<'data, 'file, R> where Self: 'file, 'data: 'file;
-    type Symbol<'file> = WasmSymbol<'data, 'file> where Self: 'file, 'data: 'file;
-    type SymbolIterator<'file> = WasmSymbolIterator<'data, 'file> where Self: 'file, 'data: 'file;
-    type SymbolTable<'file> = WasmSymbolTable<'data, 'file> where Self: 'file, 'data: 'file;
-    type DynamicRelocationIterator<'file> = NoDynamicRelocationIterator where Self: 'file, 'data: 'file;
+    type Segment<'file>
+        = WasmSegment<'data, 'file, R>
+    where
+        Self: 'file,
+        'data: 'file;
+    type SegmentIterator<'file>
+        = WasmSegmentIterator<'data, 'file, R>
+    where
+        Self: 'file,
+        'data: 'file;
+    type Section<'file>
+        = WasmSection<'data, 'file, R>
+    where
+        Self: 'file,
+        'data: 'file;
+    type SectionIterator<'file>
+        = WasmSectionIterator<'data, 'file, R>
+    where
+        Self: 'file,
+        'data: 'file;
+    type Comdat<'file>
+        = WasmComdat<'data, 'file, R>
+    where
+        Self: 'file,
+        'data: 'file;
+    type ComdatIterator<'file>
+        = WasmComdatIterator<'data, 'file, R>
+    where
+        Self: 'file,
+        'data: 'file;
+    type Symbol<'file>
+        = WasmSymbol<'data, 'file>
+    where
+        Self: 'file,
+        'data: 'file;
+    type SymbolIterator<'file>
+        = WasmSymbolIterator<'data, 'file>
+    where
+        Self: 'file,
+        'data: 'file;
+    type SymbolTable<'file>
+        = WasmSymbolTable<'data, 'file>
+    where
+        Self: 'file,
+        'data: 'file;
+    type DynamicRelocationIterator<'file>
+        = NoDynamicRelocationIterator
+    where
+        Self: 'file,
+        'data: 'file;
 
     #[inline]
     fn architecture(&self) -> Architecture {

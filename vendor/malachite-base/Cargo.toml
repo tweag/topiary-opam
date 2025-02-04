@@ -11,11 +11,17 @@
 
 [package]
 edition = "2021"
-rust-version = "1.61.0"
+rust-version = "1.74.0"
 name = "malachite-base"
-version = "0.4.14"
+version = "0.4.18"
 authors = ["Mikhail Hogrefe <mikhailhogrefe@gmail.com>"]
-description = "A collection of utilities, including new arithmetic traits and iterators that generate all values of a type"
+build = false
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "A collection of utilities, including new arithmetic traits and iterators that generate all values of a type."
 homepage = "https://malachite.rs/"
 readme = "README.md"
 keywords = [
@@ -45,6 +51,10 @@ path = "src/lib.rs"
 name = "malachite_base_main"
 path = "src/bin.rs"
 test = false
+
+[[test]]
+name = "lib"
+path = "tests/lib.rs"
 
 [dependencies.clap]
 version = "2.33.1"
@@ -103,10 +113,6 @@ optional = true
 [dependencies.walkdir]
 version = "2.3.3"
 optional = true
-
-[dev-dependencies.malachite-base]
-version = "0.4.13"
-features = ["test_build"]
 
 [dev-dependencies.maplit]
 version = "1.0.2"

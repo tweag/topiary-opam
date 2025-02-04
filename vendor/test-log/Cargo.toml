@@ -13,14 +13,20 @@
 edition = "2021"
 rust-version = "1.71"
 name = "test-log"
-version = "0.2.16"
+version = "0.2.17"
 authors = ["Daniel Mueller <deso@posteo.net>"]
+build = false
 include = [
     "src/lib.rs",
     "LICENSE-*",
     "README.md",
     "CHANGELOG.md",
 ]
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
 description = """
 A replacement of the #[test] attribute that initializes logging and/or
 tracing infrastructure before running tests.
@@ -43,13 +49,9 @@ categories = [
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/d-e-s-o/test-log.git"
 
-[[test]]
-name = "default_log_filter"
-path = "tests/default_log_filter.rs"
-required-features = [
-    "log",
-    "unstable",
-]
+[lib]
+name = "test_log"
+path = "src/lib.rs"
 
 [dependencies.env_logger]
 version = "0.11"

@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -16,6 +16,10 @@ use malachite_float::ComparableFloat;
 use malachite_float::Float;
 
 pub(crate) fn register(runner: &mut Runner) {
+    register_demo!(runner, demo_float_min_positive_value_prec);
+    register_demo!(runner, demo_float_min_positive_value_prec_debug);
+    register_demo!(runner, demo_float_max_finite_value_with_prec);
+    register_demo!(runner, demo_float_max_finite_value_with_prec_debug);
     register_demo!(runner, demo_float_one_prec);
     register_demo!(runner, demo_float_one_prec_debug);
     register_demo!(runner, demo_float_two_prec);
@@ -25,10 +29,58 @@ pub(crate) fn register(runner: &mut Runner) {
     register_demo!(runner, demo_float_one_half_prec);
     register_demo!(runner, demo_float_one_half_prec_debug);
 
+    register_bench!(
+        runner,
+        benchmark_float_min_positive_value_prec_library_comparison
+    );
+    register_bench!(
+        runner,
+        benchmark_float_max_finite_value_with_prec_library_comparison
+    );
     register_bench!(runner, benchmark_float_one_prec_library_comparison);
     register_bench!(runner, benchmark_float_two_prec_library_comparison);
     register_bench!(runner, benchmark_float_negative_one_prec_library_comparison);
     register_bench!(runner, benchmark_float_one_half_prec_library_comparison);
+}
+
+fn demo_float_min_positive_value_prec(gm: GenMode, config: &GenConfig, limit: usize) {
+    for p in unsigned_gen_var_11().get(gm, config).take(limit) {
+        println!(
+            "min_positive_value_prec({}) = {}",
+            p,
+            Float::min_positive_value_prec(p)
+        );
+    }
+}
+
+fn demo_float_min_positive_value_prec_debug(gm: GenMode, config: &GenConfig, limit: usize) {
+    for p in unsigned_gen_var_11().get(gm, config).take(limit) {
+        println!(
+            "min_positive_value_prec({}) = {:#x}",
+            p,
+            ComparableFloat(Float::min_positive_value_prec(p))
+        );
+    }
+}
+
+fn demo_float_max_finite_value_with_prec(gm: GenMode, config: &GenConfig, limit: usize) {
+    for p in unsigned_gen_var_11().get(gm, config).take(limit) {
+        println!(
+            "max_finite_value_with_prec({}) = {}",
+            p,
+            Float::max_finite_value_with_prec(p)
+        );
+    }
+}
+
+fn demo_float_max_finite_value_with_prec_debug(gm: GenMode, config: &GenConfig, limit: usize) {
+    for p in unsigned_gen_var_11().get(gm, config).take(limit) {
+        println!(
+            "max_finite_value_with_prec({}) = {:#x}",
+            p,
+            ComparableFloat(Float::max_finite_value_with_prec(p))
+        );
+    }
 }
 
 fn demo_float_one_prec(gm: GenMode, config: &GenConfig, limit: usize) {
@@ -95,6 +147,46 @@ fn demo_float_one_half_prec_debug(gm: GenMode, config: &GenConfig, limit: usize)
     }
 }
 
+fn benchmark_float_min_positive_value_prec_library_comparison(
+    gm: GenMode,
+    config: &GenConfig,
+    limit: usize,
+    file_name: &str,
+) {
+    run_benchmark(
+        "Float.min_positive_value_prec(u64)",
+        BenchmarkType::Single,
+        unsigned_gen_var_11().get(gm, config),
+        gm.name(),
+        limit,
+        file_name,
+        &unsigned_direct_bucketer(),
+        &mut [("Malachite", &mut |p| {
+            no_out!(Float::min_positive_value_prec(p))
+        })],
+    );
+}
+
+fn benchmark_float_max_finite_value_with_prec_library_comparison(
+    gm: GenMode,
+    config: &GenConfig,
+    limit: usize,
+    file_name: &str,
+) {
+    run_benchmark(
+        "Float.max_finite_value_with_prec(u64)",
+        BenchmarkType::Single,
+        unsigned_gen_var_11().get(gm, config),
+        gm.name(),
+        limit,
+        file_name,
+        &unsigned_direct_bucketer(),
+        &mut [("Malachite", &mut |p| {
+            no_out!(Float::max_finite_value_with_prec(p))
+        })],
+    );
+}
+
 fn benchmark_float_one_prec_library_comparison(
     gm: GenMode,
     config: &GenConfig,
@@ -102,7 +194,7 @@ fn benchmark_float_one_prec_library_comparison(
     file_name: &str,
 ) {
     run_benchmark(
-        "Float.one_prec()",
+        "Float.one_prec(u64)",
         BenchmarkType::LibraryComparison,
         unsigned_gen_var_11().get(gm, config),
         gm.name(),
@@ -125,7 +217,7 @@ fn benchmark_float_two_prec_library_comparison(
     file_name: &str,
 ) {
     run_benchmark(
-        "Float.two_prec()",
+        "Float.two_prec(u64)",
         BenchmarkType::LibraryComparison,
         unsigned_gen_var_11().get(gm, config),
         gm.name(),
@@ -148,7 +240,7 @@ fn benchmark_float_negative_one_prec_library_comparison(
     file_name: &str,
 ) {
     run_benchmark(
-        "Float.negative_one_prec()",
+        "Float.negative_one_prec(u64)",
         BenchmarkType::LibraryComparison,
         unsigned_gen_var_11().get(gm, config),
         gm.name(),
@@ -171,7 +263,7 @@ fn benchmark_float_one_half_prec_library_comparison(
     file_name: &str,
 ) {
     run_benchmark(
-        "Float.one_half_prec()",
+        "Float.one_half_prec(u64)",
         BenchmarkType::LibraryComparison,
         unsigned_gen_var_11().get(gm, config),
         gm.name(),
