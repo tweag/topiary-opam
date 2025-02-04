@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -47,7 +47,7 @@ impl FloorSqrt for Integer {
     }
 }
 
-impl<'a> FloorSqrt for &'a Integer {
+impl FloorSqrt for &Integer {
     type Output = Integer;
 
     /// Returns the floor of the square root of an [`Integer`], taking it by reference.
@@ -170,7 +170,7 @@ impl CeilingSqrt for Integer {
     }
 }
 
-impl<'a> CeilingSqrt for &'a Integer {
+impl CeilingSqrt for &Integer {
     type Output = Integer;
 
     /// Returns the ceiling of the square root of an [`Integer`], taking it by reference.
@@ -266,7 +266,7 @@ impl CheckedSqrt for Integer {
     ///
     /// $$
     /// f(x) = \\begin{cases}
-    ///     \operatorname{Some}(sqrt{x}) & \text{if} \\quad \sqrt{x} \in \Z, \\\\
+    ///     \operatorname{Some}(\sqrt{x}) & \text{if} \\quad \sqrt{x} \in \Z, \\\\
     ///     \operatorname{None} & \textrm{otherwise}.
     /// \\end{cases}
     /// $$
@@ -319,7 +319,7 @@ impl CheckedSqrt for Integer {
     }
 }
 
-impl<'a> CheckedSqrt for &'a Integer {
+impl CheckedSqrt for &Integer {
     type Output = Integer;
 
     /// Returns the the square root of an [`Integer`], or `None` if it is not a perfect square. The
@@ -327,7 +327,7 @@ impl<'a> CheckedSqrt for &'a Integer {
     ///
     /// $$
     /// f(x) = \\begin{cases}
-    ///     \operatorname{Some}(sqrt{x}) & \text{if} \\quad \sqrt{x} \in \Z, \\\\
+    ///     \operatorname{Some}(\sqrt{x}) & \text{if} \\quad \sqrt{x} \in \Z, \\\\
     ///     \operatorname{None} & \textrm{otherwise}.
     /// \\end{cases}
     /// $$

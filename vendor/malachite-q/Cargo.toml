@@ -11,11 +11,17 @@
 
 [package]
 edition = "2021"
-rust-version = "1.61.0"
+rust-version = "1.74.0"
 name = "malachite-q"
-version = "0.4.14"
+version = "0.4.18"
 authors = ["Mikhail Hogrefe <mikhailhogrefe@gmail.com>"]
-description = "The arbitrary-precision type Rational, with efficient algorithms partially derived from GMP and FLINT"
+build = false
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "The arbitrary-precision type Rational, with efficient algorithms partially derived from GMP and FLINT."
 homepage = "https://malachite.rs/"
 readme = "README.md"
 keywords = [
@@ -43,17 +49,21 @@ path = "src/lib.rs"
 name = "malachite_q_main"
 path = "src/bin.rs"
 
+[[test]]
+name = "lib"
+path = "tests/lib.rs"
+
 [dependencies.itertools]
 version = "0.11.0"
 features = ["use_alloc"]
 default-features = false
 
 [dependencies.malachite-base]
-version = "0.4.14"
+version = "0.4.18"
 default-features = false
 
 [dependencies.malachite-nz]
-version = "0.4.14"
+version = "0.4.18"
 default-features = false
 
 [dependencies.num]

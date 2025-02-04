@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -68,6 +68,26 @@ impl IsPowerOf2 for Float {
             }
             _ => false,
         }
+    }
+}
+
+pub(crate) fn abs_is_power_of_2(x: &Float) -> bool {
+    match x {
+        Float(Finite { significand, .. }) => {
+            let mut first = true;
+            for x in significand.limbs().rev() {
+                if first {
+                    if x != HIGH_BIT {
+                        return false;
+                    }
+                    first = false;
+                } else if x != 0 {
+                    return false;
+                }
+            }
+            true
+        }
+        _ => false,
     }
 }
 

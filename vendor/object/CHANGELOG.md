@@ -2,6 +2,138 @@
 
 --------------------------------------------------------------------------------
 
+## 0.36.7
+
+Released 2024/12/21.
+
+### Changed
+
+* Included `build.rs` in package.
+
+--------------------------------------------------------------------------------
+
+## 0.36.6
+
+Released 2024/12/21.
+
+### Added
+
+* Added `Architecuture::M68k`.
+  [#742](https://github.com/gimli-rs/object/pull/742)
+  [#749](https://github.com/gimli-rs/object/pull/749)
+
+* Added `Architecuture::Mips64_N32`.
+  [#743](https://github.com/gimli-rs/object/pull/743)
+
+* Added `elf::SHT_RELR`, `read::elf::SectionHeader::relr`, and
+  `write::elf::Writer::write_relative_relocation_section_header`.
+  [#746](https://github.com/gimli-rs/object/pull/746)
+
+* Added `core::error::Error` implementation for Rust 1.81 onwards.
+  [#747](https://github.com/gimli-rs/object/pull/747)
+
+### Changed
+
+* Changed `build::elf::Builder` to support `.annobin.notes`,
+  `SHT_LLVM_DEPENDENT_LIBRARIES`, and `SHT_RELR` sections.
+  [#735](https://github.com/gimli-rs/object/pull/735)
+  [#737](https://github.com/gimli-rs/object/pull/737)
+  [#746](https://github.com/gimli-rs/object/pull/746)
+
+* Changed `write::Object::add_subsection` to omit the subsection name suffix
+  if the subsection name is empty.
+  [#748](https://github.com/gimli-rs/object/pull/748)
+
+--------------------------------------------------------------------------------
+
+## 0.36.5
+
+Released 2024/10/04.
+
+### Added
+
+* Added `Architecture::E2K32` and `Architecture::E2K64`.
+  [#727](https://github.com/gimli-rs/object/pull/727)
+
+* Added read and write support for `pe::IMAGE_REL_ARM64_BRANCH26`.
+  [#731](https://github.com/gimli-rs/object/pull/731)
+
+### Changed
+
+* Fixed decompression of multi-frame Zstandard data in `read::CompressedData::decompress`.
+  [#730](https://github.com/gimli-rs/object/pull/730)
+
+--------------------------------------------------------------------------------
+
+## 0.36.4
+
+Released 2024/08/30.
+
+### Added
+
+* Added `pe::IMAGE_FILE_MACHINE_ARM64X` and `pe::IMAGE_FILE_MACHINE_CHPE_X86`.
+  [#717](https://github.com/gimli-rs/object/pull/717)
+
+* Added `elf::SHF_GNU_RETAIN` and `elf::SHF_GNU_MBIND`.
+  [#720](https://github.com/gimli-rs/object/pull/720)
+
+### Changed
+
+* Fixed the checksum for COFF BSS section symbols in `write::Object`.
+  [#718](https://github.com/gimli-rs/object/pull/718)
+
+* Changed `read::CompressedData::decompress` to validate the decompressed size.
+  [#723](https://github.com/gimli-rs/object/pull/723)
+
+* Updated `wasmparser` dependency.
+
+--------------------------------------------------------------------------------
+
+## 0.36.3
+
+Released 2024/08/07.
+
+### Added
+
+* Added `Iterator` implementations for various types in the low level read API.
+  [#713](https://github.com/gimli-rs/object/pull/713)
+  [#714](https://github.com/gimli-rs/object/pull/714)
+
+### Changed
+
+* Changed `from_bytes` constructors for integer endian types to `const`.
+  [#712](https://github.com/gimli-rs/object/pull/712)
+
+* Changed `next` methods in the low level read API to fuse after returning an
+  error.
+  [#714](https://github.com/gimli-rs/object/pull/714)
+
+* Updated `wasmparser` dependency.
+  [#715](https://github.com/gimli-rs/object/pull/715)
+
+--------------------------------------------------------------------------------
+
+## 0.36.2
+
+Released 2024/07/24.
+
+### Changed
+
+* Improved writing of GNU symbol versioning in `build::elf::Builder`.
+  [#705](https://github.com/gimli-rs/object/pull/705)
+
+* Fixed alignment of `SHT_HASH`/`SHT_GNU_verdef`/`SHT_GNU_verneed` sections in
+  `write::elf::Writer`.
+  [#706](https://github.com/gimli-rs/object/pull/706)
+
+* Fixed writing of GNU hash for absolute symbols in `build::elf::Builder`.
+  [#707](https://github.com/gimli-rs/object/pull/707)
+
+* Fixed writing of empty ELF string table in `write::Object`.
+  [#710](https://github.com/gimli-rs/object/pull/710)
+
+--------------------------------------------------------------------------------
+
 ## 0.36.1
 
 Released 2024/06/29.

@@ -60,6 +60,8 @@ impl fmt::Display for Error {
 
 #[cfg(feature = "std")]
 impl error::Error for Error {}
+#[cfg(all(not(feature = "std"), core_error))]
+impl core::error::Error for Error {}
 
 /// The result type used within the write module.
 pub type Result<T> = result::Result<T, Error>;
@@ -489,7 +491,7 @@ impl<'a> Object<'a> {
         &mut self,
         symbol_id: SymbolId,
         section: SectionId,
-        mut data: &[u8],
+        #[cfg_attr(not(feature = "macho"), allow(unused_mut))] mut data: &[u8],
         align: u64,
     ) -> u64 {
         #[cfg(feature = "macho")]
@@ -517,7 +519,7 @@ impl<'a> Object<'a> {
         &mut self,
         symbol_id: SymbolId,
         section: SectionId,
-        mut size: u64,
+        #[cfg_attr(not(feature = "macho"), allow(unused_mut))] mut size: u64,
         align: u64,
     ) -> u64 {
         #[cfg(feature = "macho")]

@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -56,7 +56,7 @@ macro_rules! impl_abs_primitive_float {
         impl Abs for $f {
             type Output = $f;
 
-            /// This is a wrapper over the `abs` functions from [`libm`].
+            /// This is a wrapper over the `fabs` functions from [`libm`].
             #[inline]
             fn abs(self) -> $f {
                 libm::Libm::<$f>::fabs(self)

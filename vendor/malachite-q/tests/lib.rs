@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -66,6 +66,7 @@ extern crate rug;
 
 pub mod arithmetic {
     pub mod abs;
+    pub mod abs_diff;
     pub mod add;
     pub mod approximate;
     pub mod ceiling;
@@ -104,6 +105,11 @@ pub mod comparison {
     pub mod cmp;
     pub mod cmp_abs;
     pub mod eq;
+    pub mod eq_abs;
+    pub mod eq_abs_integer;
+    pub mod eq_abs_natural;
+    pub mod eq_abs_primitive_float;
+    pub mod eq_abs_primitive_int;
     pub mod hash;
     pub mod partial_cmp_abs_integer;
     pub mod partial_cmp_abs_natural;
@@ -190,5 +196,7 @@ pub mod random {
     pub mod striped_random_non_negative_rationals;
     pub mod striped_random_nonzero_rationals;
     pub mod striped_random_positive_rationals;
+    pub mod striped_random_rational_range_to_infinity;
+    pub mod striped_random_rational_range_to_negative_infinity;
     pub mod striped_random_rationals;
 }

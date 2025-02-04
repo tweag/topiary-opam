@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 #![cfg_attr(doc_cfg, feature(doc_cfg))]
 /*!
 
@@ -362,7 +363,7 @@ The feature `evcxr` should be enabled when including Plotters to Jupyter Noteboo
 The following code shows a minimal example of this.
 
 ```text
-:dep plotters = { version = "^0.3.6", default_features = false, features = ["evcxr", "all_series", "all_elements"] }
+:dep plotters = { version = "^0.3.6", default-features = false, features = ["evcxr", "all_series", "all_elements"] }
 extern crate plotters;
 use plotters::prelude::*;
 
@@ -420,19 +421,19 @@ Also, there's a static HTML version of this notebook available at [this location
 Rust is a perfect language for data visualization. Although there are many mature visualization libraries in many different languages, Rust is one of the best languages that fits the need.
 
 * **Easy to use** Rust has a very good iterator system built into the standard library. With the help of iterators,
-plotting in Rust can be as easy as most of the high-level programming languages. The Rust based plotting library
-can be very easy to use.
+  plotting in Rust can be as easy as most of the high-level programming languages. The Rust based plotting library
+  can be very easy to use.
 
 * **Fast** If you need to render a figure with trillions of data points,
-Rust is a good choice. Rust's performance allows you to combine the data processing step
-and rendering step into a single application. When plotting in high-level programming languages,
-e.g. Javascript or Python, data points must be down-sampled before feeding into the plotting
-program because of the performance considerations. Rust is fast enough to do the data processing and visualization
-within a single program. You can also integrate the
-figure rendering code into your application to handle a huge amount of data and visualize it in real-time.
+  Rust is a good choice. Rust's performance allows you to combine the data processing step
+  and rendering step into a single application. When plotting in high-level programming languages,
+  e.g. Javascript or Python, data points must be down-sampled before feeding into the plotting
+  program because of the performance considerations. Rust is fast enough to do the data processing and visualization
+  within a single program. You can also integrate the
+  figure rendering code into your application to handle a huge amount of data and visualize it in real-time.
 
 * **WebAssembly Support** Rust is one of the languages with the best WASM support. Plotting in Rust could be
-very useful for visualization on a web page and would have a huge performance improvement comparing to Javascript.
+  very useful for visualization on a web page and would have a huge performance improvement comparing to Javascript.
 
 ## Plotting on HTML5 canvas with WASM Backend
 
@@ -640,7 +641,7 @@ plotters = { git = "https://github.com/plotters-rs/plotters.git" }
 
 ### Reducing Depending Libraries && Turning Off Backends
 Plotters now supports use features to control the backend dependencies. By default, `BitMapBackend` and `SVGBackend` are supported,
-use `default_features = false` in the dependency description in `Cargo.toml` and you can cherry-pick the backend implementations.
+use `default-features = false` in the dependency description in `Cargo.toml` and you can cherry-pick the backend implementations.
 
 - `svg` Enable the `SVGBackend`
 - `bitmap` Enable the `BitMapBackend`
@@ -649,16 +650,16 @@ For example, the following dependency description would avoid compiling with bit
 
 ```toml
 [dependencies]
-plotters = { git = "https://github.com/plotters-rs/plotters.git", default_features = false, features = ["svg"] }
+plotters = { git = "https://github.com/plotters-rs/plotters.git", default-features = false, features = ["svg"] }
 ```
 
 The library also allows consumers to make use of the [`Palette`](https://crates.io/crates/palette/) crate's color types by default.
-This behavior can also be turned off by setting `default_features = false`.
+This behavior can also be turned off by setting `default-features = false`.
 
 ### List of Features
 
 This is the full list of features that is defined by `Plotters` crate.
-Use `default_features = false` to disable those default enabled features,
+Use `default-features = false` to disable those default enabled features,
 and then you should be able to cherry-pick what features you want to include into `Plotters` crate.
 By doing so, you can minimize the number of dependencies down to only `itertools` and compile time is less than 6s.
 
@@ -802,10 +803,6 @@ pub mod evcxr;
 
 #[cfg(test)]
 pub use crate::drawing::{check_color, create_mocked_drawing_area};
-
-#[cfg(feature = "palette_ext")]
-#[cfg_attr(doc_cfg, doc(cfg(feature = "palette_ext")))]
-pub use palette;
 
 /// The module imports the most commonly used types and modules in Plotters
 pub mod prelude {

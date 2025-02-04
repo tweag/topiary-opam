@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // Some optimizations contributed by florian1345.
 //
@@ -581,7 +581,7 @@ impl<'a> Mul<&'a Natural> for Natural {
     }
 }
 
-impl<'a> Mul<Natural> for &'a Natural {
+impl Mul<Natural> for &Natural {
     type Output = Natural;
 
     /// Multiplies two [`Natural`]s, taking the first by reference and the second by value.
@@ -621,7 +621,7 @@ impl<'a> Mul<Natural> for &'a Natural {
     }
 }
 
-impl<'a, 'b> Mul<&'a Natural> for &'b Natural {
+impl Mul<&Natural> for &Natural {
     type Output = Natural;
 
     /// Multiplies two [`Natural`]s, taking both by reference.
@@ -654,7 +654,7 @@ impl<'a, 'b> Mul<&'a Natural> for &'b Natural {
     ///     "121932631112635269000000"
     /// );
     /// ```
-    fn mul(self, other: &'a Natural) -> Natural {
+    fn mul(self, other: &Natural) -> Natural {
         match (self, other) {
             (Natural(Small(x)), y) => y.mul_limb_ref(*x),
             (x, Natural(Small(y))) => x.mul_limb_ref(*y),

@@ -1,7 +1,9 @@
-// Copyright (C) 2019-2023 Daniel Mueller <deso@posteo.net>
+// Copyright (C) 2019-2025 Daniel Mueller <deso@posteo.net>
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
 extern crate proc_macro;
+
+use std::borrow::Cow;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as Tokens;
@@ -93,7 +95,7 @@ fn try_test(attr: TokenStream, input: ItemFn) -> syn::Result<Tokens> {
 
 #[derive(Debug, Default)]
 struct AttributeArgs {
-  default_log_filter: Option<String>,
+  default_log_filter: Option<Cow<'static, str>>,
 }
 
 impl AttributeArgs {
@@ -132,7 +134,7 @@ impl AttributeArgs {
 
     if let Expr::Lit(lit) = &name_value.value {
       if let Lit::Str(lit_str) = &lit.lit {
-        *arg_ref = Some(lit_str.value());
+        *arg_ref = Some(Cow::from(lit_str.value()));
       }
     }
 
@@ -153,21 +155,20 @@ impl AttributeArgs {
 /// Expand the initialization code for the `log` crate.
 #[cfg(all(feature = "log", not(feature = "trace")))]
 fn expand_logging_init(attribute_args: &AttributeArgs) -> Tokens {
-  let add_default_log_filter = if let Some(default_log_filter) = &attribute_args.default_log_filter
-  {
-    quote! {
-      let env_logger_builder = env_logger_builder
-        .parse_env(::test_log::env_logger::Env::default().default_filter_or(#default_log_filter));
-    }
-  } else {
-    quote! {}
-  };
+  let default_filter = attribute_args
+    .default_log_filter
+    .as_ref()
+    .unwrap_or(&::std::borrow::Cow::Borrowed("info"));
 
   quote! {
     {
-      let mut env_logger_builder = ::test_log::env_logger::builder();
-      #add_default_log_filter
-      let _ = env_logger_builder.is_test(true).try_init();
+      let _result = ::test_log::env_logger::builder()
+        .parse_env(
+          ::test_log::env_logger::Env::default()
+            .default_filter_or(#default_filter)
+        )
+        .is_test(true)
+        .try_init();
     }
   }
 }
@@ -191,7 +192,13 @@ fn expand_tracing_init(attribute_args: &AttributeArgs) -> Tokens {
         .from_env_lossy()
     }
   } else {
-    quote! { ::test_log::tracing_subscriber::EnvFilter::from_default_env() }
+    quote! {
+      ::test_log::tracing_subscriber::EnvFilter::builder()
+        .with_default_directive(
+          ::test_log::tracing_subscriber::filter::LevelFilter::INFO.into()
+        )
+        .from_env_lossy()
+    }
   };
 
   quote! {

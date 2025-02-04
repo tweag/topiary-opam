@@ -1,4 +1,5 @@
 use super::*;
+use crate::error::IResult;
 use crate::error::InputError;
 use crate::Partial;
 
@@ -59,7 +60,7 @@ fn test_incomplete_bits() {
 
     assert!(result.is_err());
     let error = result.err().unwrap();
-    assert_eq!("Parsing requires 2 bytes/chars", error.to_string());
+    assert_eq!("Parsing requires 2 more data", error.to_string());
 }
 
 #[test]

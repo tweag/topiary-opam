@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // Uses code adopted from the GNU MP Library.
 //
@@ -89,7 +89,7 @@ impl Add<Rational> for Rational {
     }
 }
 
-impl<'a> Add<&'a Rational> for Rational {
+impl Add<&Rational> for Rational {
     type Output = Rational;
 
     /// Adds two [`Rational`]s, taking both by the first by value and the second by reference.
@@ -118,12 +118,12 @@ impl<'a> Add<&'a Rational> for Rational {
     /// );
     /// ```
     #[inline]
-    fn add(self, other: &'a Rational) -> Rational {
+    fn add(self, other: &Rational) -> Rational {
         other + self
     }
 }
 
-impl<'a> Add<Rational> for &'a Rational {
+impl Add<Rational> for &Rational {
     type Output = Rational;
 
     /// Adds two [`Rational`]s, taking the first by reference and the second by value
@@ -192,7 +192,7 @@ impl<'a> Add<Rational> for &'a Rational {
     }
 }
 
-impl<'a, 'b> Add<&'a Rational> for &'b Rational {
+impl Add<&Rational> for &Rational {
     type Output = Rational;
 
     /// Adds two [`Rational`]s, taking both by reference.
@@ -220,7 +220,7 @@ impl<'a, 'b> Add<&'a Rational> for &'b Rational {
     ///     "2893/700"
     /// );
     /// ```
-    fn add(self, other: &'a Rational) -> Rational {
+    fn add(self, other: &Rational) -> Rational {
         if *self == 0u32 {
             return other.clone();
         } else if *other == 0u32 {
@@ -323,7 +323,7 @@ impl AddAssign<Rational> for Rational {
     }
 }
 
-impl<'a> AddAssign<&'a Rational> for Rational {
+impl AddAssign<&Rational> for Rational {
     /// Adds a [`Rational`] to a [`Rational`] in place, taking the [`Rational`] on the right-hand
     /// side by reference.
     ///
@@ -352,7 +352,7 @@ impl<'a> AddAssign<&'a Rational> for Rational {
     /// x += &Rational::from_signeds(99, 100);
     /// assert_eq!(x.to_string(), "2893/700");
     /// ```
-    fn add_assign(&mut self, other: &'a Rational) {
+    fn add_assign(&mut self, other: &Rational) {
         if *self == 0u32 {
             self.clone_from(other);
             return;
@@ -408,11 +408,12 @@ impl Sum for Rational {
     ///
     /// assert_eq!(
     ///     Rational::sum(
-    ///         vec_from_str::<Rational>("[2, -3, 5, 7]")
+    ///         vec_from_str::<Rational>("[0, 1, 2/3, 3/4, 4/5, 5/6, 6/7, 7/8, 8/9, 9/10]")
     ///             .unwrap()
     ///             .into_iter()
-    ///     ),
-    ///     11
+    ///     )
+    ///     .to_string(),
+    ///     "19079/2520"
     /// );
     /// ```
     fn sum<I>(xs: I) -> Rational
@@ -420,15 +421,15 @@ impl Sum for Rational {
         I: Iterator<Item = Rational>,
     {
         let mut stack = Vec::new();
-        for (i, x) in xs.enumerate().map(|(i, x)| (i + 1, x)) {
+        for (i, x) in xs.enumerate() {
             let mut s = x;
-            for _ in 0..i.trailing_zeros() {
+            for _ in 0..(i + 1).trailing_zeros() {
                 s += stack.pop().unwrap();
             }
             stack.push(s);
         }
         let mut s = Rational::ZERO;
-        for x in stack {
+        for x in stack.into_iter().rev() {
             s += x;
         }
         s
@@ -471,15 +472,15 @@ impl<'a> Sum<&'a Rational> for Rational {
         I: Iterator<Item = &'a Rational>,
     {
         let mut stack = Vec::new();
-        for (i, x) in xs.enumerate().map(|(i, x)| (i + 1, x)) {
+        for (i, x) in xs.enumerate() {
             let mut s = x.clone();
-            for _ in 0..i.trailing_zeros() {
+            for _ in 0..(i + 1).trailing_zeros() {
                 s += stack.pop().unwrap();
             }
             stack.push(s);
         }
         let mut s = Rational::ZERO;
-        for x in stack {
+        for x in stack.into_iter().rev() {
             s += x;
         }
         s

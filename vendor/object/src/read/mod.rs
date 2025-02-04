@@ -124,6 +124,8 @@ impl fmt::Display for Error {
 
 #[cfg(feature = "std")]
 impl std::error::Error for Error {}
+#[cfg(all(not(feature = "std"), core_error))]
+impl core::error::Error for Error {}
 
 /// The result type used within the read module.
 pub type Result<T> = result::Result<T, Error>;
@@ -597,6 +599,7 @@ pub struct ObjectMapFile<'data> {
 }
 
 impl<'data> ObjectMapFile<'data> {
+    #[cfg(feature = "macho")]
     fn new(path: &'data [u8], member: Option<&'data [u8]>) -> Self {
         ObjectMapFile { path, member }
     }
@@ -966,31 +969,7 @@ impl<'data> CompressedData<'data> {
         match self.format {
             CompressionFormat::None => Ok(Cow::Borrowed(self.data)),
             #[cfg(feature = "compression")]
-            CompressionFormat::Zlib => {
-                use core::convert::TryInto;
-                let size = self
-                    .uncompressed_size
-                    .try_into()
-                    .ok()
-                    .read_error("Uncompressed data size is too large.")?;
-                let mut decompressed = Vec::new();
-                decompressed
-                    .try_reserve_exact(size)
-                    .ok()
-                    .read_error("Uncompressed data allocation failed")?;
-                let mut decompress = flate2::Decompress::new(true);
-                decompress
-                    .decompress_vec(
-                        self.data,
-                        &mut decompressed,
-                        flate2::FlushDecompress::Finish,
-                    )
-                    .ok()
-                    .read_error("Invalid zlib compressed data")?;
-                Ok(Cow::Owned(decompressed))
-            }
-            #[cfg(feature = "compression")]
-            CompressionFormat::Zstandard => {
+            CompressionFormat::Zlib | CompressionFormat::Zstandard => {
                 use core::convert::TryInto;
                 use std::io::Read;
                 let size = self
@@ -1003,13 +982,53 @@ impl<'data> CompressedData<'data> {
                     .try_reserve_exact(size)
                     .ok()
                     .read_error("Uncompressed data allocation failed")?;
-                let mut decoder = ruzstd::StreamingDecoder::new(self.data)
-                    .ok()
-                    .read_error("Invalid zstd compressed data")?;
-                decoder
-                    .read_to_end(&mut decompressed)
-                    .ok()
-                    .read_error("Invalid zstd compressed data")?;
+
+                match self.format {
+                    CompressionFormat::Zlib => {
+                        let mut decompress = flate2::Decompress::new(true);
+                        decompress
+                            .decompress_vec(
+                                self.data,
+                                &mut decompressed,
+                                flate2::FlushDecompress::Finish,
+                            )
+                            .ok()
+                            .read_error("Invalid zlib compressed data")?;
+                    }
+                    CompressionFormat::Zstandard => {
+                        let mut input = self.data;
+                        while !input.is_empty() {
+                            let mut decoder = match ruzstd::StreamingDecoder::new(&mut input) {
+                                Ok(decoder) => decoder,
+                                Err(
+                                    ruzstd::frame_decoder::FrameDecoderError::ReadFrameHeaderError(
+                                        ruzstd::frame::ReadFrameHeaderError::SkipFrame {
+                                            length,
+                                            ..
+                                        },
+                                    ),
+                                ) => {
+                                    input = input
+                                        .get(length as usize..)
+                                        .read_error("Invalid zstd compressed data")?;
+                                    continue;
+                                }
+                                x => x.ok().read_error("Invalid zstd compressed data")?,
+                            };
+                            decoder
+                                .read_to_end(&mut decompressed)
+                                .ok()
+                                .read_error("Invalid zstd compressed data")?;
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+                if size != decompressed.len() {
+                    return Err(Error(
+                        "Uncompressed data size does not match compression header",
+                    ));
+                }
+
                 Ok(Cow::Owned(decompressed))
             }
             _ => Err(Error("Unsupported compressed data.")),

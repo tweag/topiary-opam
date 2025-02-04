@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // Implementations of traits for NonZero* types by b4D8.
 //
@@ -62,6 +62,17 @@ pub trait NegativeInfinity {
 #[allow(clippy::declare_interior_mutable_const)]
 pub trait NaN {
     const NAN: Self;
+}
+
+/// Provides the Thue-Morse constant, whose bits are the Thue-Morse sequence.
+pub trait ThueMorseConstant {
+    const THUE_MORSE_CONSTANT: Self;
+}
+
+/// Provides the prime constant, whose $n$th bit (starting from $n=1$) is true if and only if $n$ is
+/// prime.
+pub trait PrimeConstant {
+    const PRIME_CONSTANT: Self;
 }
 
 // Implementation for `NonZero*` types:

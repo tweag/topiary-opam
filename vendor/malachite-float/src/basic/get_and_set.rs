@@ -1,4 +1,4 @@
-// Copyright © 2024 Mikhail Hogrefe
+// Copyright © 2025 Mikhail Hogrefe
 //
 // This file is part of Malachite.
 //
@@ -10,12 +10,17 @@ use crate::InnerFloat::Finite;
 use crate::{significand_bits, Float};
 use core::cmp::Ordering::{self, *};
 use malachite_base::num::arithmetic::traits::{
-    RoundToMultipleOfPowerOf2, RoundToMultipleOfPowerOf2Assign,
+    NegAssign, RoundToMultipleOfPowerOf2, RoundToMultipleOfPowerOf2Assign,
 };
 use malachite_base::num::basic::integers::PrimitiveInt;
+use malachite_base::num::basic::traits::{Infinity, NegativeInfinity};
+use malachite_base::num::conversion::traits::ExactFrom;
+use malachite_base::num::logic::traits::SignificantBits;
 use malachite_base::rounding_modes::RoundingMode::{self, *};
 use malachite_nz::natural::Natural;
 use malachite_nz::platform::Limb;
+
+const PREC_ROUND_THRESHOLD: u64 = 1500;
 
 impl Float {
     /// Gets the significand of a [`Float`], taking the [`Float`] by value.
@@ -159,6 +164,8 @@ impl Float {
     /// f(x) = \operatorname{Some}(\lfloor \log_2 x \rfloor + 1).
     /// $$
     ///
+    /// The output is in the range $[-(2^{30}-1), 2^{30}-1]$.
+    ///
     /// # Worst-case complexity
     /// Constant time and additional memory.
     ///
@@ -205,7 +212,7 @@ impl Float {
     ///
     /// assert_eq!(Float::ONE.get_prec(), Some(1));
     /// assert_eq!(Float::one_prec(100).get_prec(), Some(100));
-    /// assert_eq!(Float::from(std::f64::consts::PI).get_prec(), Some(53));
+    /// assert_eq!(Float::from(std::f64::consts::PI).get_prec(), Some(50));
     /// ```
     #[inline]
     pub const fn get_prec(&self) -> Option<u64> {
@@ -255,6 +262,12 @@ impl Float {
     ///
     /// Returns an [`Ordering`], indicating whether the final value is less than, greater than, or
     /// equal to the original value.
+    ///
+    /// If the [`Float`] originally had the maximum exponent, it is possible for this function to
+    /// overflow. This is even possible if `rm` is `Nearest`, even though infinity is never nearer
+    /// to the exact result than any finite [`Float`] is. This is to match the behavior of MPFR.
+    ///
+    /// This function never underflows.
     ///
     /// # Worst-case complexity
     /// $T(n) = O(n)$
@@ -315,8 +328,17 @@ impl Float {
                     o = significand
                         .round_to_multiple_of_power_of_2_assign(significant_bits - prec, abs_rm);
                     if significand.limb_count() > limb_count {
+                        if *exponent == Float::MAX_EXPONENT {
+                            return if *sign {
+                                *self = Float::INFINITY;
+                                Greater
+                            } else {
+                                *self = Float::NEGATIVE_INFINITY;
+                                Less
+                            };
+                        }
                         *significand >>= 1;
-                        *exponent = exponent.checked_add(1).unwrap();
+                        *exponent += 1;
                     }
                     *significand >>= significant_bits - target_bits;
                 }
@@ -336,6 +358,12 @@ impl Float {
     ///
     /// Returns an [`Ordering`], indicating whether the final value is less than, greater than, or
     /// equal to the original value.
+    ///
+    /// If the [`Float`] originally had the maximum exponent, it is possible for this function to
+    /// overflow, even though infinity is never nearer to the exact result than any finite [`Float`]
+    /// is. This is to match the behavior of MPFR.
+    ///
+    /// This function never underflows.
     ///
     /// To use a different rounding mode, try [`Float::set_prec_round`].
     ///
@@ -368,5 +396,239 @@ impl Float {
     #[inline]
     pub fn set_prec(&mut self, p: u64) -> Ordering {
         self.set_prec_round(p, Nearest)
+    }
+
+    /// Creates a [`Float`] from another [`Float`], possibly with a different precision. If the
+    /// precision decreases, rounding may be necessary, and will use the provided [`RoundingMode`].
+    /// The input [`Float`] is taken by value.
+    ///
+    /// Returns an [`Ordering`], indicating whether the final value is less than, greater than, or
+    /// equal to the original value.
+    ///
+    /// If the input [`Float`] has the maximum exponent, it is possible for this function to
+    /// overflow. This is even possible if `rm` is `Nearest`, even though infinity is never nearer
+    /// to the exact result than any finite [`Float`] is. This is to match the behavior of MPFR.
+    ///
+    /// This function never underflows.
+    ///
+    /// # Worst-case complexity
+    /// $T(n) = O(n)$
+    ///
+    /// $M(n) = O(n)$
+    ///
+    /// where $T$ is time, $M$ is additional memory, and $n$ is `prec`.
+    ///
+    /// # Panics
+    /// Panics if `prec` is zero or if `rm` is [`Exact`] but setting the desired precision requires
+    /// rounding.
+    ///
+    /// # Examples
+    /// ```
+    /// use malachite_base::rounding_modes::RoundingMode::*;
+    /// use malachite_float::Float;
+    /// use std::cmp::Ordering::*;
+    ///
+    /// let original_x = Float::from(1.0f64 / 3.0);
+    /// assert_eq!(original_x.to_string(), "0.33333333333333331");
+    /// assert_eq!(original_x.get_prec(), Some(53));
+    ///
+    /// let (x, o) = Float::from_float_prec_round(original_x.clone(), 100, Exact);
+    /// assert_eq!(x.to_string(), "0.3333333333333333148296162562474");
+    /// assert_eq!(x.get_prec(), Some(100));
+    /// assert_eq!(o, Equal);
+    ///
+    /// let (x, o) = Float::from_float_prec_round(original_x.clone(), 10, Floor);
+    /// assert_eq!(x.to_string(), "0.333");
+    /// assert_eq!(x.get_prec(), Some(10));
+    /// assert_eq!(o, Less);
+    ///
+    /// let (x, o) = Float::from_float_prec_round(original_x.clone(), 10, Ceiling);
+    /// assert_eq!(x.to_string(), "0.3335");
+    /// assert_eq!(x.get_prec(), Some(10));
+    /// assert_eq!(o, Greater);
+    /// ```
+    #[inline]
+    pub fn from_float_prec_round(mut x: Float, prec: u64, rm: RoundingMode) -> (Float, Ordering) {
+        let o = x.set_prec_round(prec, rm);
+        (x, o)
+    }
+
+    /// Creates a [`Float`] from another [`Float`], possibly with a different precision. If the
+    /// precision decreases, rounding may be necessary, and will use the provided [`RoundingMode`].
+    /// The input [`Float`] is taken by reference.
+    ///
+    /// Returns an [`Ordering`], indicating whether the final value is less than, greater than, or
+    /// equal to the original value.
+    ///
+    /// If the input [`Float`] has the maximum exponent, it is possible for this function to
+    /// overflow. This is even possible if `rm` is `Nearest`, even though infinity is never nearer
+    /// to the exact result than any finite [`Float`] is. This is to match the behavior of MPFR.
+    ///
+    /// This function never underflows.
+    ///
+    /// # Worst-case complexity
+    /// $T(n) = O(n)$
+    ///
+    /// $M(n) = O(n)$
+    ///
+    /// where $T$ is time, $M$ is additional memory, and $n$ is `prec`.
+    ///
+    /// # Panics
+    /// Panics if `prec` is zero or if `rm` is [`Exact`] but setting the desired precision requires
+    /// rounding.
+    ///
+    /// # Examples
+    /// ```
+    /// use malachite_base::rounding_modes::RoundingMode::*;
+    /// use malachite_float::Float;
+    /// use std::cmp::Ordering::*;
+    ///
+    /// let original_x = Float::from(1.0f64 / 3.0);
+    /// assert_eq!(original_x.to_string(), "0.33333333333333331");
+    /// assert_eq!(original_x.get_prec(), Some(53));
+    ///
+    /// let (x, o) = Float::from_float_prec_round_ref(&original_x, 100, Exact);
+    /// assert_eq!(x.to_string(), "0.3333333333333333148296162562474");
+    /// assert_eq!(x.get_prec(), Some(100));
+    /// assert_eq!(o, Equal);
+    ///
+    /// let (x, o) = Float::from_float_prec_round_ref(&original_x, 10, Floor);
+    /// assert_eq!(x.to_string(), "0.333");
+    /// assert_eq!(x.get_prec(), Some(10));
+    /// assert_eq!(o, Less);
+    ///
+    /// let (x, o) = Float::from_float_prec_round_ref(&original_x, 10, Ceiling);
+    /// assert_eq!(x.to_string(), "0.3335");
+    /// assert_eq!(x.get_prec(), Some(10));
+    /// assert_eq!(o, Greater);
+    /// ```
+    pub fn from_float_prec_round_ref(x: &Float, prec: u64, rm: RoundingMode) -> (Float, Ordering) {
+        if x.significant_bits() < PREC_ROUND_THRESHOLD {
+            let mut x = x.clone();
+            let o = x.set_prec_round(prec, rm);
+            return (x, o);
+        }
+        match x {
+            Float(Finite {
+                sign,
+                exponent,
+                significand,
+                ..
+            }) => {
+                let (mut y, mut o) = Float::from_natural_prec_round_ref(
+                    significand,
+                    prec,
+                    if *sign { rm } else { -rm },
+                );
+                if !sign {
+                    y.neg_assign();
+                    o = o.reverse();
+                }
+                (
+                    y >> (i32::exact_from(significand_bits(significand)) - exponent),
+                    o,
+                )
+            }
+            _ => (x.clone(), Equal),
+        }
+    }
+
+    /// Creates a [`Float`] from another [`Float`], possibly with a different precision. If the
+    /// precision decreases, rounding may be necessary, and will use [`Nearest`]. The input
+    /// [`Float`] is taken by value.
+    ///
+    /// Returns an [`Ordering`], indicating whether the final value is less than, greater than, or
+    /// equal to the original value.
+    ///
+    /// If the [`Float`] originally had the maximum exponent, it is possible for this function to
+    /// overflow, even though infinity is never nearer to the exact result than any finite [`Float`]
+    /// is. This is to match the behavior of MPFR.
+    ///
+    /// This function never underflows.
+    ///
+    /// To use a different rounding mode, try [`Float::from_float_prec_round`].
+    ///
+    /// # Worst-case complexity
+    /// $T(n) = O(n)$
+    ///
+    /// $M(n) = O(n)$
+    ///
+    /// where $T$ is time, $M$ is additional memory, and $n$ is `prec`.
+    ///
+    /// # Panics
+    /// Panics if `prec` is zero.
+    ///
+    /// # Examples
+    /// ```
+    /// use malachite_float::Float;
+    /// use std::cmp::Ordering::*;
+    ///
+    /// let original_x = Float::from(1.0f64 / 3.0);
+    /// assert_eq!(original_x.to_string(), "0.33333333333333331");
+    /// assert_eq!(original_x.get_prec(), Some(53));
+    ///
+    /// let (x, o) = Float::from_float_prec(original_x.clone(), 100);
+    /// assert_eq!(x.to_string(), "0.3333333333333333148296162562474");
+    /// assert_eq!(x.get_prec(), Some(100));
+    /// assert_eq!(o, Equal);
+    ///
+    /// let (x, o) = Float::from_float_prec(original_x.clone(), 10);
+    /// assert_eq!(x.to_string(), "0.3335");
+    /// assert_eq!(x.get_prec(), Some(10));
+    /// assert_eq!(o, Greater);
+    /// ```
+    #[inline]
+    pub fn from_float_prec(mut x: Float, prec: u64) -> (Float, Ordering) {
+        let o = x.set_prec(prec);
+        (x, o)
+    }
+
+    /// Creates a [`Float`] from another [`Float`], possibly with a different precision. If the
+    /// precision decreases, rounding may be necessary, and will use [`Nearest`]. The input
+    /// [`Float`] is taken by reference.
+    ///
+    /// Returns an [`Ordering`], indicating whether the final value is less than, greater than, or
+    /// equal to the original value.
+    ///
+    /// If the [`Float`] originally had the maximum exponent, it is possible for this function to
+    /// overflow, even though infinity is never nearer to the exact result than any finite [`Float`]
+    /// is. This is to match the behavior of MPFR.
+    ///
+    /// This function never underflows.
+    ///
+    /// To use a different rounding mode, try [`Float::from_float_prec_round_ref`].
+    ///
+    /// # Worst-case complexity
+    /// $T(n) = O(n)$
+    ///
+    /// $M(n) = O(n)$
+    ///
+    /// where $T$ is time, $M$ is additional memory, and $n$ is `prec`.
+    ///
+    /// # Panics
+    /// Panics if `prec` is zero.
+    ///
+    /// # Examples
+    /// ```
+    /// use malachite_float::Float;
+    /// use std::cmp::Ordering::*;
+    ///
+    /// let original_x = Float::from(1.0f64 / 3.0);
+    /// assert_eq!(original_x.to_string(), "0.33333333333333331");
+    /// assert_eq!(original_x.get_prec(), Some(53));
+    ///
+    /// let (x, o) = Float::from_float_prec_ref(&original_x, 100);
+    /// assert_eq!(x.to_string(), "0.3333333333333333148296162562474");
+    /// assert_eq!(x.get_prec(), Some(100));
+    /// assert_eq!(o, Equal);
+    ///
+    /// let (x, o) = Float::from_float_prec_ref(&original_x, 10);
+    /// assert_eq!(x.to_string(), "0.3335");
+    /// assert_eq!(x.get_prec(), Some(10));
+    /// assert_eq!(o, Greater);
+    /// ```
+    #[inline]
+    pub fn from_float_prec_ref(x: &Float, prec: u64) -> (Float, Ordering) {
+        Float::from_float_prec_round_ref(x, prec, Nearest)
     }
 }

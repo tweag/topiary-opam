@@ -11,11 +11,17 @@
 
 [package]
 edition = "2021"
-rust-version = "1.61.0"
+rust-version = "1.74.0"
 name = "malachite-nz"
-version = "0.4.14"
+version = "0.4.18"
 authors = ["Mikhail Hogrefe <mikhailhogrefe@gmail.com>"]
-description = "The bignum types Natural and Integer, with efficient algorithms partially derived from GMP and FLINT"
+build = "build.rs"
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "The bignum types Natural and Integer, with efficient algorithms partially derived from GMP and FLINT."
 homepage = "https://malachite.rs/"
 readme = "README.md"
 keywords = [
@@ -46,6 +52,10 @@ path = "src/lib.rs"
 name = "malachite_nz_main"
 path = "src/bin.rs"
 
+[[test]]
+name = "lib"
+path = "tests/lib.rs"
+
 [dependencies.embed-doc-image]
 version = "0.1.4"
 optional = true
@@ -64,7 +74,7 @@ version = "0.2.8"
 default-features = false
 
 [dependencies.malachite-base]
-version = "0.4.14"
+version = "0.4.18"
 default-features = false
 
 [dependencies.num]
