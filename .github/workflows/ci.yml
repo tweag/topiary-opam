@@ -122,11 +122,11 @@ jobs:
           - {tag: debian-testing}
           - {tag: debian-unstable}
           - {tag: fedora}
-          - {tag: oraclelinux}
+          - {tag: oraclelinux,     ef: expected-failure}  # Rust 1.79 < 1.83 as of 5 Feb 2025
           - {tag: opensuse}
           - {tag: opensuse-tumbleweed}
-          - {tag: ubuntu}
-          - {tag: ubuntu-lts}
+          - {tag: ubuntu,          ef: expected-failure}  # Rust 1.80 < 1.83 as of 5 Feb 2025
+          - {tag: ubuntu-lts,      ef: expected-failure}  # Rust 1.80 < 1.83 as of 5 Feb 2025
 
     runs-on: ubuntu-latest
 
