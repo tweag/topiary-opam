@@ -115,7 +115,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {tag: alpine}
+          - {tag: alpine,          ef: expected-failure}  # https://github.com/tree-sitter/tree-sitter/issues/4184
           - {tag: archlinux}
           - {tag: centos,          ef: expected-failure}
           - {tag: debian,          ef: expected-failure}
